@@ -1,4 +1,8 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getSettings } from '@/lib/firestore';
 
 const links = [
   { href: '/', label: 'Home' },
@@ -13,7 +17,32 @@ const links = [
   { href: '/associe-se', label: 'Associe-se' },
 ];
 
+const DEFAULT_ADDRESS = 'R. Monsenhor Magalhães, 214 - Centro\nPaulo Afonso - BA, 48602-000';
+const DEFAULT_EMAIL = 'cdlpauloafonso@hotmail.com';
+const DEFAULT_PHONE = '(75) 3281-4942';
+const DEFAULT_PHONE2 = '(75) 3281-6997';
+
+function formatTelHref(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55')) return `tel:+${digits}`;
+  if (digits.length >= 10) return `tel:+55${digits}`;
+  return `tel:${phone}`;
+}
+
 export function Footer() {
+  const [settings, setSettings] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    getSettings()
+      .then(setSettings)
+      .catch(() => setSettings({}));
+  }, []);
+
+  const address = settings?.address?.trim() || DEFAULT_ADDRESS;
+  const email = settings?.email?.trim() || DEFAULT_EMAIL;
+  const phone = settings?.phone?.trim() || DEFAULT_PHONE;
+  const phone2 = settings?.phone2?.trim() || DEFAULT_PHONE2;
+
   return (
     <footer className="bg-cdl-blue-dark text-white mt-auto">
       <div className="container-cdl py-12">
@@ -39,25 +68,30 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-200/90">Contato</h3>
             <div className="mt-3 space-y-2">
-              <p className="text-sm text-white/90">
-                R. Monsenhor Magalhães, 214 - Centro<br />
-                Paulo Afonso - BA, 48602-000
-              </p>
-              <p className="text-sm text-white/90">
-                <a href="mailto:cdlpauloafonso@hotmail.com" className="hover:text-white transition-colors">
-                  cdlpauloafonso@hotmail.com
-                </a>
-              </p>
-              <p className="text-sm text-white/90">
-                <a href="tel:+557532814942" className="hover:text-white transition-colors">
-                  (75) 3281-4942
-                </a>
-              </p>
-              <p className="text-sm text-white/90">
-                <a href="tel:+557532816997" className="hover:text-white transition-colors">
-                  (75) 3281-6997
-                </a>
-              </p>
+              {address && (
+                <p className="text-sm text-white/90 whitespace-pre-line">{address}</p>
+              )}
+              {email && (
+                <p className="text-sm text-white/90">
+                  <a href={`mailto:${email}`} className="hover:text-white transition-colors">
+                    {email}
+                  </a>
+                </p>
+              )}
+              {phone && (
+                <p className="text-sm text-white/90">
+                  <a href={formatTelHref(phone)} className="hover:text-white transition-colors">
+                    {phone}
+                  </a>
+                </p>
+              )}
+              {phone2 && (
+                <p className="text-sm text-white/90">
+                  <a href={formatTelHref(phone2)} className="hover:text-white transition-colors">
+                    {phone2}
+                  </a>
+                </p>
+              )}
               <div className="flex items-center gap-4 pt-2">
                 <a
                   href="https://www.instagram.com/cdlpauloafonso"

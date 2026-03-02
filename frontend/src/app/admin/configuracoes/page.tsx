@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { getSettings, setSettings as saveSettings } from '@/lib/firestore';
+import { initFirebase } from '@/lib/firebase';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 const WHATSAPP_STORAGE_KEY = 'cdl_whatsapp_number';
 
 type SiteSettings = Record<string, string>;
 
 const SETTING_KEYS = [
-  { key: 'hero_title', label: 'Título do hero (Home)', placeholder: 'A CDL que faz sua empresa...' },
-  { key: 'hero_subtitle', label: 'Subtítulo do hero', placeholder: 'Comunidade empresarial...' },
-  { key: 'phone', label: 'Telefone', placeholder: '' },
-  { key: 'email', label: 'Email', placeholder: '' },
-  { key: 'address', label: 'Endereço', placeholder: '' },
-  { key: 'whatsapp_number', label: 'WhatsApp (número com DDD, ex: 75999999999)', placeholder: '75999999999' },
+  { key: 'phone', label: 'Telefone principal', placeholder: '(75) 3281-4942' },
+  { key: 'phone2', label: 'Telefone secundário (opcional)', placeholder: '(75) 3281-6997' },
+  { key: 'email', label: 'E-mail', placeholder: 'cdlpauloafonso@hotmail.com' },
+  { key: 'address', label: 'Endereço', placeholder: 'R. Monsenhor Magalhães, 214 - Centro, Paulo Afonso - BA' },
+  { key: 'whatsapp_number', label: 'WhatsApp (botão flutuante) — número com DDD, ex: 75999999999', placeholder: '75999999999' },
 ];
 
 export default function AdminConfiguracoesPage() {
@@ -48,9 +50,27 @@ export default function AdminConfiguracoesPage() {
       localStorage.removeItem(WHATSAPP_STORAGE_KEY);
     }
     try {
+      initFirebase();
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Você precisa estar logado como administrador');
+        return;
+      }
+      const idTokenResult = await user.getIdTokenResult();
+      const isClaimAdmin = !!(idTokenResult.claims && idTokenResult.claims.admin);
+      if (!isClaimAdmin) {
+        const db = getFirestore();
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        if (!adminDoc.exists()) {
+          alert('Acesso não autorizado');
+          return;
+        }
+      }
       await saveSettings(settings);
-    } catch {
-      setSettings((s) => ({ ...s, whatsapp_number: whatsapp || '' }));
+      alert('Salvo com sucesso!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -61,7 +81,9 @@ export default function AdminConfiguracoesPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">Configurações do site</h1>
-      <p className="mt-1 text-cdl-gray-text">Textos e dados exibidos no site</p>
+      <p className="mt-1 text-cdl-gray-text">
+        Telefone, e-mail e endereço aparecem no rodapé. WhatsApp define o número do botão flutuante.
+      </p>
       <form onSubmit={handleSubmit} className="mt-8 max-w-xl space-y-4">
         {SETTING_KEYS.map(({ key, label, placeholder }) => (
           <div key={key}>
