@@ -53,7 +53,7 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
         {slides.map((slide, index) => (
           <div
             key={index}
-            className={`transition-opacity duration-700 ease-in-out absolute inset-0 flex items-start overflow-hidden ${
+            className={`transition-opacity duration-700 ease-in-out absolute inset-0 flex flex-col justify-center overflow-hidden h-full ${
               index === currentIndex ? 'opacity-100 relative z-10' : 'opacity-0 pointer-events-none'
             }`}
             aria-hidden={index !== currentIndex}
@@ -78,7 +78,7 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
             </div>
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.08)_0%,_transparent_50%)]" aria-hidden="true" />
 
-            <div className="container-cdl relative w-full py-16 sm:py-24 lg:py-32">
+            <div className="container-cdl relative w-full flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
               <div className="max-w-3xl">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
                   {slide.title}
