@@ -78,7 +78,7 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
             </div>
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.08)_0%,_transparent_50%)]" aria-hidden="true" />
 
-            <div className="container-cdl relative w-full py-16 sm:py-24 lg:py-32">
+            <div className="container-cdl relative w-full h-full flex items-center">
               <div className="max-w-3xl">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
                   {slide.title}
