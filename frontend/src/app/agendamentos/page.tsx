@@ -5,12 +5,6 @@ import { useRouter } from 'next/navigation';
 import { listAgendamentos, createAgendamento, updateAgendamento, deleteAgendamento, type Agendamento, getCorPorStatus } from '@/lib/firestore';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { CalendarAgendamentos } from '@/components/admin/CalendarAgendamentos';
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Auditório CDL | Agendamentos',
-  description: 'Sistema de agendamentos do auditório da CDL Paulo Afonso',
-};
 
 export default function AgendamentosPage() {
   const router = useRouter();
