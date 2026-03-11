@@ -125,6 +125,7 @@ export default function AgendamentosPage() {
         await createAgendamento(agendamentoData);
       }
 
+      // Atualiza o calendário em tempo real
       await loadAgendamentos();
       setShowModal(false);
       setShowSuccessModal(true);
