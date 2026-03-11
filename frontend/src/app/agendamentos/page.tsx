@@ -77,6 +77,20 @@ export default function AgendamentosPage() {
     setShowModal(true);
   };
 
+  const formatPhone = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{2})(\d{5})(\d{4})$/);
+    if (match) {
+      return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return value;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setFormData({ ...formData, telefone: formatted });
+  };
+
   const handleEdit = (agendamento: Agendamento) => {
     setSelectedAgendamento(agendamento);
     setFormData({
@@ -367,11 +381,11 @@ export default function AgendamentosPage() {
                     Telefone
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     value={formData.telefone}
-                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                    onChange={handlePhoneChange}
+                    placeholder="(00) 00000-0000"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                    required
                   />
                 </div>
               </div>
