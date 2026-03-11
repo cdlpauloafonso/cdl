@@ -62,32 +62,27 @@ export function LatestNews() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {news.map((item) => (
             <article key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              {item.photo && (
+              {item.image && (
                 <div className="relative h-48">
                   <Image
-                    src={item.photo}
+                    src={item.image}
                     alt={item.title}
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    unoptimized={item.photo.startsWith('http')}
+                    unoptimized={item.image.startsWith('http')}
                   />
                 </div>
               )}
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <time className="text-sm text-gray-500">
-                    {new Date(item.date).toLocaleDateString('pt-BR', {
+                    {new Date(item.publishedAt).toLocaleDateString('pt-BR', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
                     })}
                   </time>
-                  {item.category && (
-                    <span className="text-xs bg-cdl-blue/10 text-cdl-blue px-2 py-1 rounded-full">
-                      {item.category}
-                    </span>
-                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                   <Link href={`/noticias/${item.slug}`} className="hover:text-cdl-blue transition-colors">
@@ -95,7 +90,7 @@ export function LatestNews() {
                   </Link>
                 </h3>
                 <p className="text-gray-600 text-sm line-clamp-3 mb-4">
-                  {item.summary}
+                  {item.excerpt}
                 </p>
                 <Link
                   href={`/noticias/${item.slug}`}
