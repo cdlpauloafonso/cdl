@@ -362,7 +362,6 @@ export default function AgendamentosPage() {
                     value={formData.end}
                     onChange={(e) => setFormData({ ...formData, end: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                    required
                   />
                 </div>
               </div>
