@@ -10,13 +10,19 @@ import { initFirebase } from '@/lib/firebase';
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin') ?? false;
+  const isAgendamentosPage = pathname === '/agendamentos';
 
   useEffect(() => {
-    // Initialize Firebase/Analytics only on public pages (not in admin)
-    if (!isAdmin) {
+    // Initialize Firebase/Analytics only on public pages (not in admin and not agendamentos)
+    if (!isAdmin && !isAgendamentosPage) {
       initFirebase();
     }
-  }, [isAdmin]);
+  }, [isAdmin, isAgendamentosPage]);
+
+  // Página de agendamentos - layout limpo sem header, footer ou WhatsApp
+  if (isAgendamentosPage) {
+    return <>{children}</>;
+  }
 
   if (isAdmin) {
     return (
