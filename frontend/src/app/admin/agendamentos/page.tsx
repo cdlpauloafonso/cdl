@@ -121,10 +121,8 @@ export default function AgendamentosPage() {
 
       if (selectedAgendamento) {
         await updateAgendamento(selectedAgendamento.id!, agendamentoData);
-        alert('Agendamento atualizado com sucesso!');
       } else {
         await createAgendamento(agendamentoData);
-        alert('Agendamento criado com sucesso!');
       }
 
       await loadAgendamentos();
