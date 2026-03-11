@@ -63,6 +63,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Agendamentos: public read; admin write
+    match /agendamentos/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // Deny anything else by default
     match /{document=**} {
       allow read, write: if false;

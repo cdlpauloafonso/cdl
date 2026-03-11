@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { listAgendamentos, createAgendamento, updateAgendamento, deleteAgendamento, type Agendamento, getCorPorStatus } from '@/lib/firestore';
-import Link from 'next/link';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { CalendarAgendamentos } from '@/components/admin/CalendarAgendamentos';
 
 export default function AgendamentosPage() {
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Agendamentos state
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedAgendamento, setSelectedAgendamento] = useState<Agendamento | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -27,8 +32,24 @@ export default function AgendamentosPage() {
   });
 
   useEffect(() => {
-    loadAgendamentos();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      checkAuth();
+    }
+  }, [mounted]);
+
+  const checkAuth = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cdl_admin_token') : null;
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+    setIsAuthenticated(true);
+    loadAgendamentos();
+  };
 
   const loadAgendamentos = async () => {
     try {
@@ -137,9 +158,26 @@ export default function AgendamentosPage() {
     });
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('cdl_admin_token');
+    router.push('/admin/login');
+  };
+
+  if (!mounted) return null;
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cdl-blue mx-auto"></div>
+          <p className="mt-2 text-gray-600">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cdl-blue"></div>
         <p className="mt-2 text-gray-600">Carregando agendamentos...</p>
       </div>
@@ -147,96 +185,104 @@ export default function AgendamentosPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agendamentos do Auditório</h1>
-          <p className="text-gray-600 mt-1">Gerencie os agendamentos do auditório</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleCreate}
-            className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
-          >
-            + Novo Agendamento
-          </button>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            ← Voltar
-          </Link>
-        </div>
-      </div>
-
-      {/* Calendário Visual */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Calendário de Agendamentos</h2>
-        <CalendarAgendamentos
-          onEventClick={handleEdit}
-          onDateClick={(date) => {
-            // Pré-preencher data ao clicar no calendário
-            const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-            const dateString = localDate.toISOString().slice(0, 16);
-            handleCreate();
-            setFormData(prev => ({ ...prev, start: dateString, end: dateString }));
-          }}
-        />
-      </div>
-
-      {/* Lista de Agendamentos */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Agendamentos</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {agendamentos.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              Nenhum agendamento encontrado. Crie seu primeiro agendamento.
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Agendamentos do Auditório</h1>
+              <p className="text-gray-600 mt-1">Gerencie os agendamentos do auditório</p>
             </div>
-          ) : (
-            agendamentos.map((agendamento) => (
-              <div key={agendamento.id} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-medium text-gray-900">{agendamento.title}</h3>
-                      <span
-                        className="px-2 py-1 text-xs font-medium rounded-full text-white"
-                        style={{ backgroundColor: agendamento.backgroundColor }}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+              >
+                + Novo Agendamento
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Calendário Visual */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Calendário de Agendamentos</h2>
+          <CalendarAgendamentos
+            onEventClick={handleEdit}
+            onDateClick={(date) => {
+              // Pré-preencher data ao clicar no calendário
+              const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+              const dateString = localDate.toISOString().slice(0, 16);
+              handleCreate();
+              setFormData(prev => ({ ...prev, start: dateString, end: dateString }));
+            }}
+          />
+        </div>
+
+        {/* Lista de Agendamentos */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Agendamentos</h2>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {agendamentos.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                Nenhum agendamento encontrado. Crie seu primeiro agendamento.
+              </div>
+            ) : (
+              agendamentos.map((agendamento) => (
+                <div key={agendamento.id} className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-medium text-gray-900">{agendamento.title}</h3>
+                        <span
+                          className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                          style={{ backgroundColor: agendamento.backgroundColor }}
+                        >
+                          {getStatusLabel(agendamento.extendedProps.status)}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-600">
+                        <p><strong>Solicitante:</strong> {agendamento.extendedProps.solicitante}</p>
+                        <p><strong>Contato:</strong> {agendamento.extendedProps.contato}</p>
+                        <p><strong>Email:</strong> {agendamento.extendedProps.email}</p>
+                        <p><strong>Início:</strong> {formatDate(agendamento.start)}</p>
+                        <p><strong>Término:</strong> {formatDate(agendamento.end)}</p>
+                        {agendamento.extendedProps.observacoes && (
+                          <p><strong>Observações:</strong> {agendamento.extendedProps.observacoes}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleEdit(agendamento)}
+                        className="px-3 py-1 text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors"
                       >
-                        {getStatusLabel(agendamento.extendedProps.status)}
-                      </span>
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(agendamento.id!)}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        Excluir
+                      </button>
                     </div>
-                    <div className="space-y-1 text-sm text-gray-600">
-                      <p><strong>Solicitante:</strong> {agendamento.extendedProps.solicitante}</p>
-                      <p><strong>Contato:</strong> {agendamento.extendedProps.contato}</p>
-                      <p><strong>Email:</strong> {agendamento.extendedProps.email}</p>
-                      <p><strong>Início:</strong> {formatDate(agendamento.start)}</p>
-                      <p><strong>Término:</strong> {formatDate(agendamento.end)}</p>
-                      {agendamento.extendedProps.observacoes && (
-                        <p><strong>Observações:</strong> {agendamento.extendedProps.observacoes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleEdit(agendamento)}
-                      className="px-3 py-1 text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(agendamento.id!)}
-                      className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      Excluir
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 
