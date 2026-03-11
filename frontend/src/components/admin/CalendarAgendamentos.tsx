@@ -6,40 +6,29 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import { useEffect, useState } from 'react';
-import { type Agendamento, listAgendamentos } from '@/lib/firestore';
+import { type Agendamento } from '@/lib/firestore';
 
 interface CalendarAgendamentosProps {
+  agendamentos: Agendamento[];
   onEventClick?: (agendamento: Agendamento) => void;
   onDateClick?: (date: Date) => void;
 }
 
-export function CalendarAgendamentos({ onEventClick, onDateClick }: CalendarAgendamentosProps) {
+export function CalendarAgendamentos({ agendamentos, onEventClick, onDateClick }: CalendarAgendamentosProps) {
   const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadEvents();
-  }, []);
-
-  const loadEvents = async () => {
-    try {
-      const agendamentos = await listAgendamentos();
-      const calendarEvents = agendamentos.map(agendamento => ({
-        id: agendamento.id,
-        title: agendamento.title,
-        start: agendamento.start,
-        end: agendamento.end,
-        backgroundColor: agendamento.backgroundColor,
-        borderColor: agendamento.backgroundColor,
-        extendedProps: agendamento.extendedProps
-      }));
-      setEvents(calendarEvents);
-    } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const calendarEvents = agendamentos.map(agendamento => ({
+      id: agendamento.id,
+      title: agendamento.title,
+      start: agendamento.start,
+      end: agendamento.end,
+      backgroundColor: agendamento.backgroundColor,
+      borderColor: agendamento.backgroundColor,
+      extendedProps: agendamento.extendedProps
+    }));
+    setEvents(calendarEvents);
+  }, [agendamentos]);
 
   const handleEventClick = (clickInfo: any) => {
     if (onEventClick) {
@@ -60,15 +49,6 @@ export function CalendarAgendamentos({ onEventClick, onDateClick }: CalendarAgen
       onDateClick(clickInfo.date);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cdl-blue"></div>
-        <p className="ml-2 text-gray-600">Carregando calendário...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

@@ -191,6 +191,7 @@ export default function AgendamentosPage() {
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Calendário de Agendamentos</h2>
         <CalendarAgendamentos
+          agendamentos={agendamentos}
           onEventClick={handleEdit}
           onDateClick={(date) => {
             // Pré-preencher data ao clicar no calendário
