@@ -5,10 +5,10 @@ import { useEffect } from 'react';
 interface SuccessModalProps {
   isOpen: boolean;
   onClose: () => void;
-  message: string = 'Salvo com sucesso!';
+  message: string;
 }
 
-export function SuccessModal({ isOpen, onClose, message }: SuccessModalProps) {
+export function SuccessModal({ isOpen, onClose, message = 'Salvo com sucesso!' }: SuccessModalProps) {
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
