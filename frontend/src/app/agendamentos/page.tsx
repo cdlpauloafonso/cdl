@@ -44,7 +44,7 @@ export default function AgendamentosPage() {
   const checkAuth = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cdl_admin_token') : null;
     if (!token) {
-      router.push('/admin/login');
+      router.push('/admin/login?redirect=/agendamentos');
       return;
     }
     setIsAuthenticated(true);

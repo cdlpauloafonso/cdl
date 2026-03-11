@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -9,6 +9,7 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +29,14 @@ export default function AdminLoginPage() {
       if (isClaimAdmin) {
         const idToken = await cred.user.getIdToken();
         localStorage.setItem('cdl_admin_token', idToken);
-        router.push('/admin');
+        
+        // Verifica se veio da página /agendamentos
+        const redirectTo = searchParams.get('redirect');
+        if (redirectTo === '/agendamentos') {
+          router.push('/agendamentos');
+        } else {
+          router.push('/admin');
+        }
         return;
       }
 
@@ -38,7 +46,14 @@ export default function AdminLoginPage() {
       if (adminDoc.exists()) {
         const idToken = await cred.user.getIdToken();
         localStorage.setItem('cdl_admin_token', idToken);
-        router.push('/admin');
+        
+        // Verifica se veio da página /agendamentos
+        const redirectTo = searchParams.get('redirect');
+        if (redirectTo === '/agendamentos') {
+          router.push('/agendamentos');
+        } else {
+          router.push('/admin');
+        }
         return;
       }
 
