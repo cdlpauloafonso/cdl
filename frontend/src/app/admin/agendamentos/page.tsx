@@ -72,10 +72,19 @@ export default function AgendamentosPage() {
 
   const handleEdit = (agendamento: Agendamento) => {
     setSelectedAgendamento(agendamento);
+    
+    // Formata datas para o input datetime-local
+    const formatDateForInput = (dateString: string) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return localDate.toISOString().slice(0, 16);
+    };
+    
     setFormData({
       title: agendamento.title,
-      start: agendamento.start,
-      end: agendamento.end,
+      start: formatDateForInput(agendamento.start),
+      end: formatDateForInput(agendamento.end),
       solicitante: agendamento.extendedProps.solicitante,
       telefone: agendamento.extendedProps.contato,
       email: agendamento.extendedProps.email,
