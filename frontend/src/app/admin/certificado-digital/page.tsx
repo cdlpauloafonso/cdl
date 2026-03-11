@@ -8,6 +8,7 @@ import {
 } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -34,7 +35,8 @@ export default function AdminCertificadoDigitalPage() {
   const [saving, setSaving] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     getCertificadoDigital()
@@ -128,7 +130,7 @@ export default function AdminCertificadoDigitalPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setError(null);
     setSaving(true);
     try {
       initFirebase();
@@ -150,7 +152,7 @@ export default function AdminCertificadoDigitalPage() {
       }
 
       await setCertificadoDigital(data);
-      alert('Salvo com sucesso!');
+      setShowSuccessModal(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
@@ -260,6 +262,12 @@ export default function AdminCertificadoDigitalPage() {
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
       </form>
+      
+      <SuccessModal 
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message="Salvo com sucesso!"
+      />
     </div>
   );
 }

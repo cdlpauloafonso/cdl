@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { listCarouselSlides, createCarouselSlide, updateCarouselSlide, deleteCarouselSlide, type CarouselSlide } from '@/lib/firestore';
 import Link from 'next/link';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 export default function CarouselPage() {
   const [slides, setSlides] = useState<CarouselSlide[]>([]);
@@ -16,6 +17,7 @@ export default function CarouselPage() {
     order: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     loadSlides();
@@ -84,6 +86,7 @@ export default function CarouselPage() {
 
       await loadSlides();
       handleCancel();
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Erro ao salvar slide:', error);
     } finally {
@@ -108,6 +111,7 @@ export default function CarouselPage() {
     try {
       await deleteCarouselSlide(id);
       await loadSlides();
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Erro ao excluir slide:', error);
     }
@@ -359,6 +363,12 @@ export default function CarouselPage() {
           )}
         </div>
       </div>
-    </div>
+      
+      <SuccessModal 
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message="Salvo com sucesso!"
+      />
+    </>
   );
 }
