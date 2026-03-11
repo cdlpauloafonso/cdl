@@ -117,9 +117,16 @@ export default function CarouselPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Verifica se a chave da API está configurada
+    const apiKey = process.env.NEXT_PUBLIC_IMGBB_KEY;
+    if (!apiKey || apiKey.includes('NEXT_PUBLIC_IMGBB_KEY')) {
+      alert('Erro: Chave da API ImgBB não está configurada. Por favor, configure a variável de ambiente NEXT_PUBLIC_IMGBB_KEY.');
+      return;
+    }
+
     const uploadFormData = new FormData();
     uploadFormData.append('image', file);
-    uploadFormData.append('key', process.env.NEXT_PUBLIC_IMGBB_KEY || '');
+    uploadFormData.append('key', apiKey);
 
     try {
       const response = await fetch('https://api.imgbb.com/1/upload', {
@@ -130,9 +137,13 @@ export default function CarouselPage() {
       const data = await response.json();
       if (data.success) {
         setFormData({ ...formData, photo: data.data.url });
+      } else {
+        console.error('Erro na resposta da API ImgBB:', data);
+        alert(`Erro ao fazer upload: ${data.error?.message || 'Resposta inválida da API'}`);
       }
     } catch (error) {
       console.error('Erro ao fazer upload da imagem:', error);
+      alert('Erro ao fazer upload da imagem. Verifique sua conexão e tente novamente.');
     }
   };
 
