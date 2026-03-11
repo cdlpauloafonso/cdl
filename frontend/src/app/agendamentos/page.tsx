@@ -14,6 +14,8 @@ export default function AgendamentosPage() {
 
   // Agendamentos state
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [filteredAgendamentos, setFilteredAgendamentos] = useState<Agendamento[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedAgendamento, setSelectedAgendamento] = useState<Agendamento | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -106,6 +108,17 @@ export default function AgendamentosPage() {
       setLoading(false);
     }
   };
+
+  // Filtra agendamentos por status
+  useEffect(() => {
+    if (statusFilter === 'todos') {
+      setFilteredAgendamentos(agendamentos);
+    } else {
+      setFilteredAgendamentos(agendamentos.filter(agendamento => 
+        agendamento.extendedProps.status === statusFilter
+      ));
+    }
+  }, [agendamentos, statusFilter]);
 
   const handleCreate = () => {
     setSelectedAgendamento(null);
@@ -289,6 +302,57 @@ export default function AgendamentosPage() {
         </div>
       </div>
 
+      {/* Filtro de Status */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-700">Filtrar por status:</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStatusFilter('todos')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === 'todos' 
+                    ? 'bg-cdl-blue text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setStatusFilter('pendente')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === 'pendente' 
+                    ? 'bg-yellow-500 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Pendente
+              </button>
+              <button
+                onClick={() => setStatusFilter('confirmado')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === 'confirmado' 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Confirmado
+              </button>
+              <button
+                onClick={() => setStatusFilter('cancelado')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === 'cancelado' 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Cancelado
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Calendário Visual */}
@@ -313,12 +377,15 @@ export default function AgendamentosPage() {
             <h2 className="text-lg font-semibold text-gray-900">Agendamentos</h2>
           </div>
           <div className="divide-y divide-gray-200">
-            {agendamentos.length === 0 ? (
+            {filteredAgendamentos.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
-                Nenhum agendamento encontrado. Crie seu primeiro agendamento.
+                {statusFilter === 'todos' 
+                  ? 'Nenhum agendamento encontrado. Crie seu primeiro agendamento.'
+                  : `Nenhum agendamento com status "${statusFilter}" encontrado.`
+                }
               </div>
             ) : (
-              agendamentos.map((agendamento) => (
+              filteredAgendamentos.map((agendamento) => (
                 <div key={agendamento.id} className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
