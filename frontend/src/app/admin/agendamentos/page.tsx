@@ -440,11 +440,6 @@ ${contratoProcessado}
 
       // Adicionar cabeçalho
       addText(selectedContrato.nome || 'CONTRATO DE USO DO AUDITÓRIO', 16, 'bold');
-      yPosition += 5;
-      
-      addText(`Evento: ${selectedAgendamento.title}`, 12, 'bold');
-      addText(`Data: ${formatDate(selectedAgendamento.start)}`, 12, 'bold');
-      addText(`Solicitante: ${selectedAgendamento.extendedProps.solicitante}`, 12, 'bold');
       yPosition += 10;
 
       // Adicionar conteúdo do contrato
@@ -587,19 +582,19 @@ ${contratoProcessado}
                   <div className="flex gap-2 ml-4">
                     <button
                       onClick={() => handleEdit(agendamento)}
-                      className="px-3 py-1 text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors"
+                      className="px-3 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors text-sm"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => handleContrato(agendamento)}
-                      className="px-3 py-1 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      className="px-3 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors text-sm"
                     >
                       Contrato
                     </button>
                     <button
                       onClick={() => handleDelete(agendamento.id!)}
-                      className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="px-3 py-2 bg-gray-100 text-red-600 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                     >
                       Excluir
                     </button>
@@ -756,12 +751,6 @@ ${contratoProcessado}
               <div className="flex gap-2">
                 {viewMode === 'view' && (
                   <>
-                    <button
-                      onClick={handleCompartilhar}
-                      className="px-3 py-1 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors text-sm"
-                    >
-                      Compartilhar
-                    </button>
                     <button
                       onClick={handleExportarPDF}
                       className="px-3 py-1 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors text-sm"

@@ -11,6 +11,7 @@ const adminNav = [
   { href: '/admin/agendamentos', label: 'Agenda' },
   { href: '/admin/contratos', label: 'Contrato' },
   { href: '/admin/associados', label: 'Associados' },
+  { href: '/admin/aniversarios', label: 'Aniversários' },
   { href: '/admin/paginas', label: 'Páginas' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
