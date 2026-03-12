@@ -499,6 +499,7 @@ export type Agendamento = {
     email: string;
     status: 'pendente' | 'confirmado' | 'cancelado';
     observacoes?: string;
+    camposContrato?: Record<string, string>; // Campos personalizados do contrato
   };
   backgroundColor: string;
 };

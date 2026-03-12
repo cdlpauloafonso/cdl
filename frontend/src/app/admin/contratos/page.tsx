@@ -239,118 +239,20 @@ export default function ContratosPage() {
       {/* Modal de Formulário */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedContrato ? 'Editar Modelo' : 'Novo Modelo'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome do Modelo
-                </label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Conteúdo do Contrato
-                </label>
-                <div className="border border-gray-300 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-300">
-                    <div className="flex gap-2">
-                      <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
-                        Negrito
-                      </button>
-                      <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
-                        Itálico
-                      </button>
-                      <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
-                        Título
-                      </button>
-                    </div>
-                  </div>
-                  <textarea
-                    value={formData.conteudo}
-                    onChange={(e) => setFormData({ ...formData, conteudo: e.target.value })}
-                    rows={10}
-                    className="w-full px-3 py-2 border-0 focus:ring-0"
-                    placeholder="Digite o conteúdo do contrato aqui. Use {nome_cliente}, {data_evento} como campos dinâmicos..."
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Campos Dinâmicos
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddCampo}
-                    className="px-3 py-1 text-sm bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark"
-                  >
-                    + Adicionar Campo
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formData.campos.map((campo) => (
-                    <div key={campo} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
-                      <span className="text-sm">{'{'}{campo}{'}'}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCampo(campo)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Imagens
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddImagem}
-                    className="px-3 py-1 text-sm bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark"
-                  >
-                    + Adicionar Imagem
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formData.imagens.map((url, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
-                      <span className="text-sm truncate">{url}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImagem(url)}
-                        className="text-red-600 hover:text-red-800 text-sm ml-2"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+          <div className="bg-white rounded-lg shadow-lg w-full mx-4 max-h-[90vh] overflow-hidden">
+            {/* Header com botões sempre visíveis */}
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {selectedContrato ? 'Editar Modelo' : 'Novo Modelo'}
+              </h2>
               <div className="flex gap-2">
                 <button
                   type="submit"
+                  form="contrato-form"
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors disabled:opacity-50"
                 >
-                  Salvar
+                  {isSubmitting ? 'Salvando...' : 'Salvar'}
                 </button>
                 <button
                   type="button"
@@ -360,7 +262,130 @@ export default function ContratosPage() {
                   Cancelar
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* Conteúdo em duas colunas */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Coluna Esquerda - Campos Dinâmicos e Imagens */}
+              <div className="w-1/3 border-r border-gray-200 p-6 overflow-y-auto">
+                {/* Campos Dinâmicos */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Campos Dinâmicos
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddCampo}
+                      className="px-3 py-1 text-sm bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {formData.campos.map((campo) => (
+                      <div key={campo} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <span className="text-sm font-mono">{'{'}{campo}{'}'}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCampo(campo)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                    {formData.campos.length === 0 && (
+                      <div className="text-center text-gray-500 text-sm py-4">
+                        Nenhum campo dinâmico adicionado
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Imagens */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Imagens
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddImagem}
+                      className="px-3 py-1 text-sm bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {formData.imagens.map((url, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <span className="text-sm truncate">{url}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImagem(url)}
+                          className="text-red-600 hover:text-red-800 text-sm ml-2"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                    {formData.imagens.length === 0 && (
+                      <div className="text-center text-gray-500 text-sm py-4">
+                        Nenhuma imagem adicionada
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Coluna Direita - Nome e Conteúdo */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                <form id="contrato-form" onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome do Contrato
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nome}
+                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Conteúdo do Contrato
+                    </label>
+                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-3 py-2 border-b border-gray-300">
+                        <div className="flex gap-2">
+                          <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
+                            Negrito
+                          </button>
+                          <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
+                            Itálico
+                          </button>
+                          <button type="button" className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">
+                            Título
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        value={formData.conteudo}
+                        onChange={(e) => setFormData({ ...formData, conteudo: e.target.value })}
+                        rows={15}
+                        className="w-full px-3 py-2 border-0 focus:ring-0 resize-none"
+                        placeholder="Digite o conteúdo do contrato aqui. Use {nome_cliente}, {data_evento} como campos dinâmicos..."
+                        required
+                      />
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       )}
