@@ -408,119 +408,84 @@ ${contratoProcessado}
         selectedAgendamento?.extendedProps.camposContrato
       );
 
-      // Criar HTML para PDF com biblioteca jsPDF
-      const htmlPDF = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${selectedContrato.nome || 'Contrato'} - ${selectedAgendamento.title}</title>
-  <style>
-    body { 
-      font-family: 'Times New Roman', serif; 
-      margin: 20px; 
-      line-height: 1.8; 
-      font-size: 12pt;
-      color: #000;
-    }
-    .header { 
-      text-align: center; 
-      margin-bottom: 40px; 
-      border-bottom: 2px solid #000;
-      padding-bottom: 20px;
-    }
-    .title { 
-      font-size: 16pt; 
-      font-weight: bold; 
-      margin-bottom: 15px; 
-      text-transform: uppercase;
-    }
-    .subtitle { 
-      font-size: 12pt; 
-      margin-bottom: 5px; 
-      font-weight: bold;
-    }
-    .content { 
-      white-space: pre-wrap; 
-      text-align: justify; 
-      margin-bottom: 30px;
-      orphans: 3;
-      widows: 3;
-    }
-    .footer { 
-      margin-top: 50px; 
-      text-align: center; 
-      font-size: 10pt; 
-      color: #666; 
-      border-top: 1px solid #ccc;
-      padding-top: 20px;
-    }
-    .signature-area {
-      margin-top: 60px;
-      display: flex;
-      justify-content: space-between;
-    }
-    .signature-block {
-      width: 45%;
-      text-align: center;
-    }
-    .signature-line {
-      border-bottom: 1px solid #000;
-      margin-bottom: 5px;
-      height: 50px;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="title">${selectedContrato.nome || 'CONTRATO DE USO DO AUDITÓRIO'}</div>
-    <div class="subtitle">Evento: ${selectedAgendamento.title}</div>
-    <div class="subtitle">Data: ${formatDate(selectedAgendamento.start)}</div>
-    <div class="subtitle">Solicitante: ${selectedAgendamento.extendedProps.solicitante}</div>
-  </div>
-  <div class="content">
-${contratoProcessado}
-  </div>
-  <div class="signature-area">
-    <div class="signature-block">
-      <div class="signature-line"></div>
-      <p>Assinatura do Solicitante</p>
-    </div>
-    <div class="signature-block">
-      <div class="signature-line"></div>
-      <p>Assinatura do Responsável</p>
-    </div>
-  </div>
-  <div class="footer">
-    <p>Documento gerado em: ${new Date().toLocaleString('pt-BR')}</p>
-    <p>Sistema CDL Paulo Afonso - (73) 3231-4144</p>
-  </div>
-</body>
-</html>
-      `;
+      // Carregar jsPDF dinamicamente
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
 
-      // Usar Print para PDF (mais compatível que bibliotecas externas)
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (printWindow) {
-        printWindow.document.write(htmlPDF);
-        printWindow.document.close();
-        printWindow.focus();
+      // Configurar fontes e margens
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const lineHeight = 7;
+      let yPosition = margin;
+
+      // Função para adicionar texto com quebra automática
+      const addText = (text: string, fontSize: number = 12, fontStyle: string = 'normal') => {
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', fontStyle);
         
-        setTimeout(() => {
-          printWindow.print();
-          // Aguardar um pouco antes de fechar
-          setTimeout(() => {
-            printWindow.close();
-          }, 1000);
-        }, 500);
+        const lines = doc.splitTextToSize(text, pageWidth - 2 * margin);
+        
+        lines.forEach((line: string) => {
+          if (yPosition > pageHeight - margin) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          doc.text(line, margin, yPosition);
+          yPosition += lineHeight;
+        });
+        
+        return yPosition;
+      };
+
+      // Adicionar cabeçalho
+      addText(selectedContrato.nome || 'CONTRATO DE USO DO AUDITÓRIO', 16, 'bold');
+      yPosition += 5;
+      
+      addText(`Evento: ${selectedAgendamento.title}`, 12, 'bold');
+      addText(`Data: ${formatDate(selectedAgendamento.start)}`, 12, 'bold');
+      addText(`Solicitante: ${selectedAgendamento.extendedProps.solicitante}`, 12, 'bold');
+      yPosition += 10;
+
+      // Adicionar conteúdo do contrato
+      addText(contratoProcessado, 12, 'normal');
+      yPosition += 20;
+
+      // Adicionar espaço para assinaturas
+      if (yPosition > pageHeight - 60) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      addText('_________________________', 12, 'normal');
+      addText('Assinatura do Solicitante', 10, 'normal');
+      yPosition += 20;
+
+      addText('_________________________', 12, 'normal');
+      addText('Assinatura do Responsável', 10, 'normal');
+      yPosition += 20;
+
+      // Adicionar rodapé
+      if (yPosition > pageHeight - 30) {
+        doc.addPage();
+        yPosition = margin;
       }
       
-      // Mostrar feedback
-      alert('Contrato preparado para PDF! Use a opção "Salvar como PDF" na janela de impressão.');
+      addText(`Documento gerado em: ${new Date().toLocaleString('pt-BR')}`, 10, 'italic');
+      addText('Sistema CDL Paulo Afonso - (73) 3231-4144', 10, 'italic');
+
+      // Gerar nome do arquivo
+      const fileName = `Contrato_${selectedAgendamento.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      // Salvar o PDF diretamente
+      doc.save(fileName);
+      
+      // Mostrar feedback de sucesso
+      alert('PDF salvo com sucesso!');
       
     } catch (error) {
-      console.error('Erro ao exportar contrato:', error);
-      alert('Erro ao exportar contrato. Tente novamente.');
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar PDF. Tente novamente.');
     }
   };
 
@@ -561,18 +526,6 @@ ${contratoProcessado}
           >
             + Novo Agendamento
           </button>
-          <Link
-            href="/admin/contratos"
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            📄 Modelo de Contrato
-          </Link>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            ← Voltar
-          </Link>
         </div>
       </div>
 
