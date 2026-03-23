@@ -1,21 +1,21 @@
 import { NoticiaDetailClient } from './NoticiaDetailClient';
 
-// Em desenvolvimento, não precisa de generateStaticParams
 export async function generateStaticParams() {
-  // Apenas para produção com output: export
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      const { listNewsSlugsAtBuild } = await import('@/lib/firestore-build');
-      const slugs = await listNewsSlugsAtBuild();
-      if (slugs.length === 0) return [{ slug: '__fallback__' }];
-      return slugs.map((slug) => ({ slug }));
-    } catch {
-      return [{ slug: '__fallback__' }];
+  try {
+    const { listNewsSlugsAtBuild } = await import('@/lib/firestore-build');
+    const slugs = await listNewsSlugsAtBuild();
+    
+    // Se não houver slugs, retorna um fallback
+    if (slugs.length === 0) {
+      return [{ slug: 'not-found' }];
     }
+    
+    return slugs.map((slug) => ({ slug }));
+  } catch (error) {
+    console.error('Error generating static params for news:', error);
+    // Retorna fallback em caso de erro
+    return [{ slug: 'not-found' }];
   }
-  
-  // Em desenvolvimento, retorna array vazio para permitir rotas dinâmicas
-  return [];
 }
 
 export default async function NewsPage({ params }: { params: Promise<{ slug: string }> }) {

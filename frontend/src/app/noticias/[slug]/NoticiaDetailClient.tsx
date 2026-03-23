@@ -11,7 +11,7 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
 
   useEffect(() => {
     // Se for fallback, não tenta buscar no Firestore
-    if (slug === '__fallback__') {
+    if (slug === 'not-found') {
       setNews(null);
       return;
     }
@@ -31,7 +31,7 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
 
   if (news === null) {
     // Se for fallback, mostra mensagem amigável em vez de 404
-    if (slug === '__fallback__') {
+    if (slug === 'not-found') {
       return (
         <div className="py-12 text-center">
           <div className="max-w-2xl mx-auto">
