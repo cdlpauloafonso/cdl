@@ -10,6 +10,12 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
   const [news, setNews] = useState<NewsItemFirestore | null | undefined>(undefined);
 
   useEffect(() => {
+    // Se for fallback, não tenta buscar no Firestore
+    if (slug === '__fallback__') {
+      setNews(null);
+      return;
+    }
+    
     getNewsBySlug(slug)
       .then((n) => setNews(n ?? null))
       .catch(() => setNews(null));
@@ -24,6 +30,31 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
   }
 
   if (news === null) {
+    // Se for fallback, mostra mensagem amigável em vez de 404
+    if (slug === '__fallback__') {
+      return (
+        <div className="py-12 text-center">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Notícia não encontrada
+            </h1>
+            <p className="text-lg text-cdl-gray-text mb-8">
+              Esta notícia não está disponível no momento. Verifique a lista de notícias para encontrar outras publicações.
+            </p>
+            <Link
+              href="/noticias"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Ver todas as notícias
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    
     notFound();
   }
 

@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Remover output: export em desenvolvimento para evitar problemas com generateStaticParams
+  ...(process.env.NODE_ENV !== 'production' && { output: undefined }),
+  
   images: {
     unoptimized: true,
     remotePatterns: [
