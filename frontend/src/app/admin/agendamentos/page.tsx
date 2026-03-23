@@ -5,6 +5,7 @@ import { listAgendamentos, createAgendamento, updateAgendamento, deleteAgendamen
 import Link from 'next/link';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { CalendarAgendamentos } from '@/components/admin/CalendarAgendamentos';
+import { getAuth } from 'firebase/auth';
 
 export default function AgendamentosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -108,14 +109,25 @@ export default function AgendamentosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
+    if (!confirm('Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.')) return;
+
+    // Verificar se usuário está autenticado
+    const auth = getAuth();
+    if (!auth.currentUser) {
+      alert('Você não está autenticado. Por favor, faça login novamente.');
+      return;
+    }
 
     try {
+      console.log('Tentando excluir agendamento:', id);
+      console.log('Usuário autenticado:', auth.currentUser.uid);
       await deleteAgendamento(id);
+      console.log('Agendamento excluído com sucesso');
       await loadAgendamentos();
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Erro ao excluir agendamento:', error);
+      alert('Erro ao excluir agendamento. Verifique se você está logado como administrador e tente novamente.');
     }
   };
 

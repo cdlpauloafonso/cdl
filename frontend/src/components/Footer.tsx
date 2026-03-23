@@ -17,7 +17,7 @@ const links = [
   { href: '/associe-se', label: 'Associe-se' },
 ];
 
-const DEFAULT_ADDRESS = 'R. Monsenhor Magalhães, 214 - Centro\nPaulo Afonso - BA, 48602-000';
+const DEFAULT_ADDRESS = 'R. Monsenhor Magalhães, 214 - Centro\nPaulo Afonso - BA, 48602-015';
 const DEFAULT_EMAIL = 'cdlpauloafonso@hotmail.com';
 const DEFAULT_PHONE = '(75) 3281-4942';
 const DEFAULT_PHONE2 = '(75) 3281-6997';
