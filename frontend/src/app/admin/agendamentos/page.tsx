@@ -155,8 +155,9 @@ export default function AgendamentosPage() {
 
       if (selectedAgendamento) {
         await updateAgendamento(selectedAgendamento.id!, agendamentoData);
-        // Ao editar, fecha modal e mostra sucesso global
+        // Ao editar, fecha modal, recarrega lista e mostra sucesso global
         setShowModal(false);
+        await loadAgendamentos(); // Recarregar lista após edição
         setShowSuccessModal(true);
       } else {
         // Criar novo agendamento
