@@ -1,6 +1,11 @@
 import { NoticiaDetailClient } from './NoticiaDetailClient';
 
 export async function generateStaticParams() {
+  // Em desenvolvimento, não gera params estáticos para permitir rotas dinâmicas
+  if (process.env.NODE_ENV === 'development') {
+    return [];
+  }
+  
   try {
     const { listNewsSlugsAtBuild } = await import('@/lib/firestore-build');
     const slugs = await listNewsSlugsAtBuild();
