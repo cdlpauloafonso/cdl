@@ -95,8 +95,8 @@ export default function AdminNoticiaEditPage() {
       }
 
       if (isNew) {
-        await createNews(payload);
-        router.push('/admin/noticias');
+        const newId = await createNews(payload);
+        router.push(`/admin/noticias/${newId}`);
       } else {
         await updateNews(id, payload);
         router.push('/admin/noticias');
