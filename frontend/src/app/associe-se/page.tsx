@@ -42,8 +42,8 @@ export default function AssocieSePage() {
             <Link href="/atendimento" className="btn-primary">
               Fale com especialista
             </Link>
-            <a href="mailto:contato@cdlpauloafonso.com.br" className="btn-secondary">
-              contato@cdlpauloafonso.com.br
+            <a href="mailto:cdlpauloafonso@hotmail.com" className="btn-secondary">
+              cdlpauloafonso@hotmail.com
             </a>
           </div>
         </div>
