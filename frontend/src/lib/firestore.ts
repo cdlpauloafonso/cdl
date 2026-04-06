@@ -463,6 +463,11 @@ export async function setAbout(data: AboutItem): Promise<void> {
 }
 
 // ---- Associados (Firestore: collection) ----
+export type Aniversariante = {
+  nome: string;
+  data: string;
+};
+
 export type Associado = {
   id: string;
   nome: string;
@@ -476,7 +481,7 @@ export type Associado = {
   estado: string;
   plano: string;
   codigo_spc: string;
-  data_aniversario: string;
+  aniversariantes: Aniversariante[];
   observacoes: string;
   created_at: any;
   updated_at: any;
