@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { createAssociado, type Associado } from '@/lib/firestore';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     nome: '',
     empresa: '',
@@ -28,38 +30,32 @@ export default function AdicionarAssociadoPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
 
     try {
-      // Simulação de salvamento - substituir com API real
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await createAssociado(formData);
       
-      // Mostrar sucesso e limpar formulário
+      // Mostrar sucesso e redirecionar
       setShowSuccessModal(true);
-      setTimeout(() => setShowSuccessModal(false), 3000);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        router.push('/admin/associados');
+      }, 2000);
       
-      // Limpar formulário
-      setFormData({
-        nome: '',
-        empresa: '',
-        cnpj: '',
-        telefone: '',
-        email: '',
-        cep: '',
-        endereco: '',
-        cidade: '',
-        estado: '',
-        plano: '',
-        codigo_spc: '',
-        data_aniversario: '',
-        observacoes: ''
-      });
-      
-    } catch (error) {
-      console.error('Erro ao salvar associado:', error);
-      alert('Erro ao salvar associado. Tente novamente.');
+    } catch (err) {
+      console.error('Erro ao criar associado:', err);
+      setError('Erro ao criar associado. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -385,6 +381,41 @@ export default function AdicionarAssociadoPage() {
             </Link>
           </div>
         </form>
+        
+        {/* Modal de Sucesso */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl p-8 max-w-md mx-4">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Associado Adicionado!</h3>
+                <p className="text-gray-600 mb-6">O associado foi adicionado com sucesso ao sistema.</p>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mensagem de Erro */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M12 21l-1-1m0 0l-1 1m6-6V6a2 2 0 00-2-2H8a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2z" />
+              </svg>
+              <p className="text-red-800 font-medium">{error}</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

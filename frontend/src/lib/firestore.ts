@@ -462,6 +462,74 @@ export async function setAbout(data: AboutItem): Promise<void> {
   });
 }
 
+// ---- Associados (Firestore: collection) ----
+export type Associado = {
+  id: string;
+  nome: string;
+  empresa: string;
+  cnpj: string;
+  telefone: string;
+  email: string;
+  cep: string;
+  endereco: string;
+  cidade: string;
+  estado: string;
+  plano: string;
+  codigo_spc: string;
+  data_aniversario: string;
+  observacoes: string;
+  created_at: any;
+  updated_at: any;
+};
+
+export async function getAssociados(): Promise<Associado[]> {
+  const db = getDb();
+  const col = collection(db, 'associados');
+  const q = query(col, orderBy('created_at', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as Associado));
+}
+
+export async function createAssociado(data: Omit<Associado, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'associados');
+  const docRef = await addDoc(col, {
+    ...data,
+    created_at: new Date(),
+    updated_at: new Date()
+  });
+  return docRef.id;
+}
+
+export async function updateAssociado(id: string, data: Partial<Omit<Associado, 'id' | 'created_at'>>): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'associados', id);
+  await updateDoc(docRef, {
+    ...data,
+    updated_at: new Date()
+  });
+}
+
+export async function deleteAssociado(id: string): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'associados', id);
+  await deleteDoc(docRef);
+}
+
+export async function getAssociadoById(id: string): Promise<Associado | null> {
+  const db = getDb();
+  const docRef = doc(db, 'associados', id);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return null;
+  return {
+    id: snap.id,
+    ...snap.data()
+  } as Associado;
+}
+
 // ---- Settings (Firestore: single doc settings/site) ----
 const SETTINGS_DOC_ID = 'site';
 
