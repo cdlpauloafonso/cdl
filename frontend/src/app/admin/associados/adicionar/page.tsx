@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { createAssociado, type Associado } from '@/lib/firestore';
+import { createAssociado } from '@/lib/firestore';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
@@ -125,6 +124,7 @@ export default function AdicionarAssociadoPage() {
       {/* Formulário */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* ...existing code... */}
           {/* Mensagem de Sucesso */}
           {showSuccessModal && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -199,17 +199,6 @@ export default function AdicionarAssociadoPage() {
                   <option value="associado_vitalicio">Associado Vitalício</option>
                   <option value="honorario">Honorário</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data de Aniversário do Responsável
-                </label>
-                <input
-                  type="date"
-                  value={formData.data_aniversario}
-                  onChange={(e) => setFormData({ ...formData, data_aniversario: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

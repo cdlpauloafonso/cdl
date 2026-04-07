@@ -27,7 +27,7 @@ export default function AdminAssociadosPage() {
 
   const handleDelete = async (id: string, nome: string) => {
     if (!confirm(`Tem certeza que deseja excluir o associado "${nome}"?`)) return;
-    
+
     setDeletingId(id);
     try {
       await deleteAssociado(id);
@@ -61,7 +61,6 @@ export default function AdminAssociadosPage() {
   return (
     <div>
       <div className="flex gap-8">
-        {/* Menu Lateral */}
         <div className="w-64 flex-shrink-0">
           <nav className="bg-white rounded-lg shadow-md p-4">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Menu</h3>
@@ -92,7 +91,6 @@ export default function AdminAssociadosPage() {
           </nav>
         </div>
 
-        {/* Conteúdo Principal */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -104,7 +102,6 @@ export default function AdminAssociadosPage() {
             </Link>
           </div>
 
-          {/* Busca */}
           <div className="mb-6">
             <div className="relative">
               <input
@@ -122,7 +119,6 @@ export default function AdminAssociadosPage() {
             </div>
           </div>
 
-          {/* Tabela de Associados */}
           <div className="bg-white shadow-lg rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -204,10 +200,9 @@ export default function AdminAssociadosPage() {
                 {searchTerm ? 'Nenhum associado encontrado' : 'Nenhum associado cadastrado'}
               </h3>
               <p className="text-cdl-gray-text mb-6">
-                {searchTerm 
-                  ? 'Tente buscar com outros termos.' 
-                  : 'Comece adicionando seu primeiro associado.'
-                }
+                {searchTerm
+                  ? 'Tente buscar com outros termos.'
+                  : 'Comece adicionando seu primeiro associado.'}
               </p>
               <Link href="/admin/associados/adicionar" className="btn-primary">
                 Adicionar Primeiro Associado
