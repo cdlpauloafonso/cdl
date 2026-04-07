@@ -1,4 +1,4 @@
-[redirects]
+[[redirects]]
   from = "https://cdlpauloafonso.com/*"
   to = "https://www.cdlpauloafonso.com/:splat"
   status = 301

@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getAssociadoById, updateAssociado, type Associado } from '@/lib/firestore';
 
-export default function EditarAssociadoPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditarAssociadoPage() {
   const router = useRouter();
-  const { id } = await params;
+  const params = useParams();
+  const rawId = params.id;
+  const id = Array.isArray(rawId) ? (rawId[0] ?? '') : (rawId ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [error, setError] = useState('');

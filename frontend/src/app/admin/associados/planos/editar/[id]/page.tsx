@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getPlanoById, updatePlano, type Plano } from '@/lib/firestore-planos';
 
-export default function EditarPlanoPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditarPlanoPage() {
   const router = useRouter();
-  const { id } = await params;
+  const params = useParams();
+  const rawId = params.id;
+  const id = Array.isArray(rawId) ? (rawId[0] ?? '') : (rawId ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [error, setError] = useState('');
