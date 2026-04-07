@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAssociado } from '@/lib/firestore';
+import { createAssociado, type Aniversariante } from '@/lib/firestore';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function AdicionarAssociadoPage() {
     estado: '',
     plano: '',
     codigo_spc: '',
-    aniversariantes: [],
+    aniversariantes: [] as Aniversariante[],
     observacoes: ''
   });
 
