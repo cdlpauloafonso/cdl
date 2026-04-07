@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { initFirebase } from '@/lib/firebase';
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard' },
@@ -45,11 +47,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [firebaseSessionReady, setFirebaseSessionReady] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Firestore usa request.auth; precisamos da sessão Firebase restaurada antes das queries (ex.: associados).
+  useEffect(() => {
+    if (!mounted) return;
+    if (pathname === '/admin/login') return;
+    if (!pathname.startsWith('/admin')) return;
+    const token = localStorage.getItem('cdl_admin_token');
+    if (!token) return;
+
+    initFirebase();
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setFirebaseSessionReady(true);
+      if (!user) {
+        localStorage.removeItem('cdl_admin_token');
+        if (pathname !== '/admin/login') router.replace('/admin/login');
+        return;
+      }
+      try {
+        await user.getIdToken(true);
+      } catch {
+        /* token refresh opcional */
+      }
+    });
+    return () => unsub();
+  }, [mounted, pathname, router]);
 
   useEffect(() => {
     if (typeof document !== 'undefined' && pathname.startsWith('/admin')) {
@@ -96,6 +125,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen flex items-center justify-center bg-cdl-gray">
         <p className="text-cdl-gray-text">Redirecionando...</p>
+      </div>
+    );
+  }
+
+  if (token && pathname.startsWith('/admin') && !firebaseSessionReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cdl-gray">
+        <p className="text-cdl-gray-text">Carregando sessão...</p>
       </div>
     );
   }
@@ -169,8 +206,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               localStorage.removeItem('cdl_admin_token');
+              try {
+                initFirebase();
+                await signOut(getAuth());
+              } catch {
+                /* noop */
+              }
               router.push('/admin/login');
             }}
             className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"

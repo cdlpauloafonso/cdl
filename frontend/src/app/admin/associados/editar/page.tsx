@@ -1,40 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getAssociadoById, updateAssociado, type Associado } from '@/lib/firestore';
 
-export default function EditarAssociadoPage() {
+function EditarAssociadoContent() {
   const router = useRouter();
-  const params = useParams();
-  const rawId = params.id;
-  const id = Array.isArray(rawId) ? (rawId[0] ?? '') : (rawId ?? '');
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id')?.trim() ?? '';
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(searchParams.get('id')?.trim()));
   const [associado, setAssociado] = useState<Associado | null>(null);
 
   useEffect(() => {
-    loadAssociado();
-  }, [id]);
-
-  const loadAssociado = async () => {
-    try {
-      const data = await getAssociadoById(id);
-      if (data) {
-        setAssociado(data);
-      } else {
-        setError('Associado não encontrado.');
-      }
-    } catch (err) {
-      console.error('Erro ao carregar associado:', err);
-      setError('Erro ao carregar associado.');
-    } finally {
+    if (!id) {
+      setAssociado(null);
+      setError('');
       setLoading(false);
+      return;
     }
-  };
+
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    setAssociado(null);
+
+    (async () => {
+      try {
+        const data = await getAssociadoById(id);
+        if (cancelled) return;
+        if (data) {
+          setAssociado(data);
+        } else {
+          setError('Associado não encontrado.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Erro ao carregar associado:', err);
+          setError('Erro ao carregar associado.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +141,22 @@ export default function EditarAssociadoPage() {
     }) : null);
   };
 
+  if (!id) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center max-w-md px-4">
+          <h2 className="text-xl font-semibold text-gray-900">Associado não especificado</h2>
+          <p className="mt-2 text-sm text-cdl-gray-text">
+            Abra a edição a partir da lista de associados para informar qual registro deseja alterar.
+          </p>
+          <Link href="/admin/associados" className="mt-6 inline-block btn-primary">
+            Voltar para a lista
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -192,6 +224,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="nome"
               value={associado.nome}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -206,6 +239,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="empresa"
               value={associado.empresa}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -250,6 +284,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="email"
+              name="email"
               value={associado.email}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -280,6 +315,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="endereco"
               value={associado.endereco}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -293,6 +329,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="cidade"
               value={associado.cidade}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -305,6 +342,7 @@ export default function EditarAssociadoPage() {
               Estado
             </label>
             <select
+              name="estado"
               value={associado.estado}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -349,6 +387,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="plano"
               value={associado.plano}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -362,6 +401,7 @@ export default function EditarAssociadoPage() {
             </label>
             <input
               type="text"
+              name="codigo_spc"
               value={associado.codigo_spc}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
@@ -376,13 +416,13 @@ export default function EditarAssociadoPage() {
               Aniversariantes
             </label>
             <div className="space-y-2 mb-4">
-              {associado.aniversariantes.map((aniversariante, index) => (
+              {(associado.aniversariantes ?? []).map((aniversariante, index) => (
                 <div key={index} className="flex gap-2 items-center">
                   <input
                     type="text"
                     value={aniversariante.nome}
                     onChange={(e) => {
-                      const novosAniversariantes = [...associado.aniversariantes];
+                      const novosAniversariantes = [...(associado.aniversariantes ?? [])];
                       novosAniversariantes[index] = { ...aniversariante, nome: e.target.value };
                       setAssociado(prev => prev ? ({
                         ...prev,
@@ -396,7 +436,7 @@ export default function EditarAssociadoPage() {
                     type="date"
                     value={aniversariante.data}
                     onChange={(e) => {
-                      const novosAniversariantes = [...associado.aniversariantes];
+                      const novosAniversariantes = [...(associado.aniversariantes ?? [])];
                       novosAniversariantes[index] = { ...aniversariante, data: e.target.value };
                       setAssociado(prev => prev ? ({
                         ...prev,
@@ -408,7 +448,7 @@ export default function EditarAssociadoPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const novosAniversariantes = associado.aniversariantes.filter((_, i) => i !== index);
+                      const novosAniversariantes = (associado.aniversariantes ?? []).filter((_, i) => i !== index);
                       setAssociado(prev => prev ? ({
                         ...prev,
                         aniversariantes: novosAniversariantes
@@ -425,7 +465,7 @@ export default function EditarAssociadoPage() {
                 onClick={() => {
                   setAssociado(prev => prev ? ({
                     ...prev,
-                    aniversariantes: [...prev.aniversariantes, { nome: '', data: '' }]
+                    aniversariantes: [...(prev.aniversariantes ?? []), { nome: '', data: '' }]
                   }) : null);
                 }}
                 className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
@@ -441,6 +481,7 @@ export default function EditarAssociadoPage() {
               Observações
             </label>
             <textarea
+              name="observacoes"
               value={associado.observacoes}
               onChange={handleInputChange}
               rows={4}
@@ -491,5 +532,22 @@ export default function EditarAssociadoPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function EditarAssociadoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-cdl-blue" />
+            <p className="mt-4 text-cdl-gray-text">Carregando...</p>
+          </div>
+        </div>
+      }
+    >
+      <EditarAssociadoContent />
+    </Suspense>
   );
 }

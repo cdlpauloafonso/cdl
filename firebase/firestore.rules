@@ -2,94 +2,88 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Public collection of campaigns (readable by anyone)
-    match /campaigns/{campaignId} {
-      // Public: anyone can read campaigns
-      allow get, list: if true;
+    // Helper: admin via custom claim `admin` ou documento em /admins/{uid}
+    function isAdmin() {
+      return request.auth != null &&
+        (request.auth.token.admin == true ||
+         request.auth.token.admin == 'true' ||
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
 
-      // Writes only allowed for admins
+    // Admins: o próprio usuário pode ler apenas o seu documento (checagem no login)
+    match /admins/{adminId} {
+      allow get: if request.auth != null && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    // Campanhas: leitura pública; escrita só admin
+    match /campaigns/{campaignId} {
+      allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Optional admin marker collection. Documents here should be created
-    // only by trusted server-side code or manually via Firebase Console.
-    // The doc id SHOULD be the auth uid of the admin user.
-    match /admins/{adminId} {
-      // Client can only get their own doc (to check "am I admin?"). No list.
-      allow get: if request.auth != null && request.auth.uid == adminId;
-      allow list, write: if false;
-    }
-
-    // News: public read published only; admin read/write all
+    // Notícias: leitura só publicadas (ou admin vê tudo)
     match /news/{newsId} {
       allow get, list: if resource.data.published == true || isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
-    // Carousel / Hero slides: public read; admin write
+    // Carrossel / hero: leitura pública; escrita admin
     match /carousel/{slideId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Certificado Digital: public read; admin write
     match /certificadoDigital/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Auditório: public read; admin write
     match /auditorium/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // CDL Paulo Afonso (about page): public read; admin write
     match /about/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Site settings: public read; admin write
     match /settings/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Benefícios Associados: public read; admin write
     match /beneficiosAssociados/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Agendamentos: public read; admin write
     match /agendamentos/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Deny anything else by default
+    // Contratos: leitura pública; escrita admin
+    match /contratos/{documentId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Associados (dados sensíveis): apenas admin
+    match /associados/{associadoId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    // Planos de associados (gestão interna): apenas admin
+    match /planos/{planoId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    // Negar o restante
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // Regras para a coleção contratos
-    match /contratos/{documentId} {
-      allow read: if true; // Leitura pública
-      allow write: if isAdmin(); // Apenas admins podem escrever
-    }
-
-    // Helper function: user is admin if:
-    // - authenticated AND has custom claim `admin == true`, OR
-    // - authenticated AND a document exists at /admins/{uid}
-    function isAdmin() {
-      return request.auth != null &&
-        (request.auth.token.admin == true ||
-         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
-    }
   }
 }
-
-
-
