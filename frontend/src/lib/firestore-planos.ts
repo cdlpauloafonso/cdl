@@ -1,3 +1,16 @@
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+import { getDb } from './firestore';
+
 // ---- Planos (Firestore: collection) ----
 export type Plano = {
   id: string;

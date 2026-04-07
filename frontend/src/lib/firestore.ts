@@ -16,7 +16,7 @@ import {
   limit,
 } from 'firebase/firestore';
 
-function getDb() {
+export function getDb() {
   if (typeof window === 'undefined') throw new Error('Firestore is client-side only');
   initFirebase();
   return getFirestore();
