@@ -115,15 +115,13 @@ export default function AdminAssociadosPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Telefone</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Plano</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Aniversariantes</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Data de Cadastro</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredAssociados.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-cdl-gray-text">
+                      <td colSpan={7} className="px-4 py-8 text-center text-cdl-gray-text">
                         {searchTerm ? 'Nenhum associado encontrado para esta busca.' : 'Nenhum associado cadastrado.'}
                       </td>
                     </tr>
@@ -136,23 +134,6 @@ export default function AdminAssociadosPage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{associado.telefone}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{associado.email}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{associado.plano}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {associado.aniversariantes && associado.aniversariantes.length > 0 ? (
-                            <div className="space-y-1">
-                              {associado.aniversariantes.map((aniversariante, index) => (
-                                <div key={index} className="text-xs">
-                                  <strong>{aniversariante.nome}</strong>
-                                  {aniversariante.data && ` - ${new Date(aniversariante.data).toLocaleDateString('pt-BR')}`}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {associado.created_at ? new Date(associado.created_at.seconds * 1000).toLocaleDateString('pt-BR') : '—'}
-                        </td>
                         <td className="px-4 py-3 text-sm text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Link
