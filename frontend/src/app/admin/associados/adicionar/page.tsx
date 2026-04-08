@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAssociado, type Aniversariante } from '@/lib/firestore';
+import { getPlanos, type Plano } from '@/lib/firestore-planos';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
@@ -25,6 +26,13 @@ export default function AdicionarAssociadoPage() {
     aniversariantes: [] as Aniversariante[],
     observacoes: ''
   });
+  const [planos, setPlanos] = useState<Plano[]>([]);
+
+  useEffect(() => {
+    getPlanos()
+      .then((list) => setPlanos(list.filter((p) => p.ativo)))
+      .catch(() => setPlanos([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,11 +202,17 @@ export default function AdicionarAssociadoPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
                 >
                   <option value="">Selecione...</option>
-                  <option value="associado">Associado</option>
-                  <option value="associado_premium">Associado Premium</option>
-                  <option value="associado_vitalicio">Associado Vitalício</option>
-                  <option value="honorario">Honorário</option>
+                  {planos.map((p) => (
+                    <option key={p.id} value={p.nome}>
+                      {p.nome}
+                    </option>
+                  ))}
                 </select>
+                {planos.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Nenhum plano ativo. Cadastre em Associados → Planos.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

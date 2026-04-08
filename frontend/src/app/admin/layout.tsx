@@ -15,6 +15,7 @@ const adminNav = [
     children: [
       { href: '/admin/associados', label: 'Lista de Associados' },
       { href: '/admin/associados/adicionar', label: 'Adicionar Associado' },
+      { href: '/admin/associados/planos', label: 'Planos' },
     ],
   },
   { href: '/admin/aniversarios', label: 'Aniversários' },
@@ -42,6 +43,13 @@ const adminNav = [
   { href: '/admin/contato', label: 'Mensagens' },
   { href: '/admin/configuracoes', label: 'Configurações' },
 ];
+
+/** Lista de associados (/admin/associados) não deve ficar ativa em /admin/associados/... */
+function isNavChildActive(pathname: string, childHref: string) {
+  if (pathname === childHref) return true;
+  if (childHref === '/admin/associados') return false;
+  return pathname.startsWith(`${childHref}/`);
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -103,7 +111,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const activeMenus = new Set<string>();
     adminNav.forEach(item => {
       if ('children' in item) {
-        const hasActiveChild = item.children?.some(child => pathname === child.href);
+        const hasActiveChild = item.children?.some(child => isNavChildActive(pathname, child.href));
         if (hasActiveChild) {
           activeMenus.add(item.label);
         }
@@ -176,7 +184,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         key={child.href}
                         href={child.href}
                         className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ml-4 ${
-                          pathname === child.href
+                          isNavChildActive(pathname, child.href)
                             ? 'bg-cdl-blue text-white'
                             : 'text-gray-600 hover:bg-cdl-gray'
                         }`}

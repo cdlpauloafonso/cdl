@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getAssociadoById, updateAssociado, type Associado } from '@/lib/firestore';
+import { getPlanos, type Plano } from '@/lib/firestore-planos';
 
 function EditarAssociadoContent() {
   const router = useRouter();
@@ -14,6 +15,15 @@ function EditarAssociadoContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(() => Boolean(searchParams.get('id')?.trim()));
   const [associado, setAssociado] = useState<Associado | null>(null);
+  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [planosLoaded, setPlanosLoaded] = useState(false);
+
+  useEffect(() => {
+    getPlanos()
+      .then(setPlanos)
+      .catch(() => setPlanos([]))
+      .finally(() => setPlanosLoaded(true));
+  }, []);
 
   useEffect(() => {
     if (!id) {
@@ -182,6 +192,15 @@ function EditarAssociadoContent() {
       </div>
     );
   }
+
+  const planoOptions = planos.filter((p) => p.ativo || p.nome === associado.plano);
+  const planoNames = new Set(planoOptions.map((p) => p.nome));
+  const legacyPlano =
+    planosLoaded &&
+    Boolean(associado.plano) &&
+    !planoNames.has(associado.plano)
+      ? associado.plano
+      : null;
 
   return (
     <div>
@@ -385,13 +404,25 @@ function EditarAssociadoContent() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Plano
             </label>
-            <input
-              type="text"
+            <select
               name="plano"
-              value={associado.plano}
+              value={associado.plano ?? ''}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
+            >
+              <option value="">Selecione...</option>
+              {legacyPlano !== null && (
+                <option value={legacyPlano}>
+                  {legacyPlano} (valor atual — não está nos planos cadastrados)
+                </option>
+              )}
+              {planoOptions.map((p) => (
+                <option key={p.id} value={p.nome}>
+                  {p.nome}
+                  {!p.ativo ? ' (inativo)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Código SPC */}
