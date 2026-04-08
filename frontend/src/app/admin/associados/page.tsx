@@ -60,6 +60,7 @@ export default function AdminAssociadosPage() {
   const filteredAssociados = associados.filter(associado =>
     associado.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     associado.empresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (associado.razao_social || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     associado.cnpj.includes(searchTerm) ||
     associado.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -91,7 +92,7 @@ export default function AdminAssociadosPage() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Buscar por nome, empresa, CNPJ ou email..."
+                placeholder="Buscar por nome, empresa, razão social, CNPJ ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"

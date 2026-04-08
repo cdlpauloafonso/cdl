@@ -472,6 +472,8 @@ export type Associado = {
   id: string;
   nome: string;
   empresa: string;
+  /** Razão social (cadastro Receita); opcional em documentos antigos. */
+  razao_social?: string;
   cnpj: string;
   telefone: string;
   email: string;
