@@ -13,12 +13,18 @@ import settings from './routes/settings.js';
 import upload from './routes/upload.js';
 import about from './routes/about.js';
 
+
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 
 app.use(cors({ origin: process.env.FRONTEND_URL ?? true, credentials: true }));
 app.use(express.json());
+// Rota raiz para status
+app.get('/', (_req, res) => {
+  res.send('API CDL Paulo Afonso está rodando!');
+});
+
 app.use('/uploads', express.static(path.resolve(UPLOAD_DIR)));
 
 app.use('/api/auth', auth);
