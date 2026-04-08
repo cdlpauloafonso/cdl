@@ -1,10 +1,21 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getAssociadoById, updateAssociado, type Associado } from '@/lib/firestore';
 import { getPlanos, type Plano } from '@/lib/firestore-planos';
+import {
+  buildEnderecoLinha,
+  buildObservacoesFromCnpjApi,
+  fetchCnpjBrasilApi,
+  formatCepFromApi,
+  formatTelefoneBrasil,
+  nomeFantasiaFromCnpjResponse,
+  onlyDigitsCnpj,
+  pickNomeResponsavel,
+  tituloMunicipio,
+} from '@/lib/brasil-api-cnpj';
 
 function EditarAssociadoContent() {
   const router = useRouter();
@@ -17,6 +28,9 @@ function EditarAssociadoContent() {
   const [associado, setAssociado] = useState<Associado | null>(null);
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [planosLoaded, setPlanosLoaded] = useState(false);
+  const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
+  const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const cnpjLookupReq = useRef(0);
 
   useEffect(() => {
     getPlanos()
@@ -99,41 +113,90 @@ function EditarAssociadoContent() {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 11) {
-      if (value.length <= 2) {
-        value = `(${value}`;
-      } else if (value.length <= 7) {
-        value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
-      } else {
-        value = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
-      }
-    }
-    setAssociado(prev => prev ? ({
-      ...prev,
-      telefone: value
-    }) : null);
+    const d = e.target.value.replace(/\D/g, '').slice(0, 11);
+    let value = '';
+    if (d.length === 0) value = '';
+    else if (d.length <= 2) value = `(${d}`;
+    else if (d.length <= 6) value = `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    else if (d.length <= 10) value = `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    else value = `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    setAssociado((prev) => (prev ? { ...prev, telefone: value } : null));
   };
 
   const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 14) {
-      if (value.length <= 2) {
-        value = value;
-      } else if (value.length <= 5) {
-        value = `${value.slice(0, 2)}.${value.slice(2)}`;
-      } else if (value.length <= 8) {
-        value = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5)}`;
-      } else if (value.length <= 12) {
-        value = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5, 8)}/${value.slice(8)}`;
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
+    let value = digits;
+    if (digits.length <= 14) {
+      if (digits.length <= 2) {
+        value = digits;
+      } else if (digits.length <= 5) {
+        value = `${digits.slice(0, 2)}.${digits.slice(2)}`;
+      } else if (digits.length <= 8) {
+        value = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+      } else if (digits.length <= 12) {
+        value = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
       } else {
-        value = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5, 8)}/${value.slice(8, 12)}-${value.slice(12)}`;
+        value = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
       }
     }
-    setAssociado(prev => prev ? ({
-      ...prev,
-      cnpj: value
-    }) : null);
+    setAssociado((prev) => (prev ? { ...prev, cnpj: value } : null));
+    setCnpjLookupHint(null);
+  };
+
+  const handleCnpjBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const digits = onlyDigitsCnpj(e.target.value);
+    if (digits.length !== 14) return;
+
+    const req = ++cnpjLookupReq.current;
+    setCnpjLookupLoading(true);
+    setCnpjLookupHint(null);
+
+    try {
+      const data = await fetchCnpjBrasilApi(digits);
+      if (req !== cnpjLookupReq.current) return;
+
+      const razao = (data.razao_social || '').trim();
+      const fantasia = nomeFantasiaFromCnpjResponse(data);
+      const nomeResp = pickNomeResponsavel(data);
+      const obsApi = buildObservacoesFromCnpjApi(data);
+      const emailApi = (data.email || '').trim();
+      const fone =
+        formatTelefoneBrasil(data.ddd_telefone_1) ||
+        formatTelefoneBrasil(data.ddd_telefone_2);
+      const cepFmt = formatCepFromApi(data.cep);
+      const endereco = buildEnderecoLinha(data);
+      const cidade = tituloMunicipio(data.municipio || '');
+      const uf = (data.uf || '').toUpperCase().slice(0, 2);
+
+      setAssociado((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          nome: nomeResp || prev.nome,
+          razao_social: razao || prev.razao_social,
+          empresa: fantasia || razao || prev.empresa,
+          email: emailApi || prev.email,
+          telefone: fone || prev.telefone,
+          cep: cepFmt || prev.cep,
+          endereco: endereco || prev.endereco,
+          cidade: cidade || prev.cidade,
+          estado: uf || prev.estado,
+          observacoes: obsApi || prev.observacoes || '',
+        };
+      });
+      setCnpjLookupHint({
+        type: 'ok',
+        text: 'Dados preenchidos via Brasil API (CNPJ / Minha Receita). Revise antes de salvar.',
+      });
+    } catch (err) {
+      if (req !== cnpjLookupReq.current) return;
+      const text = err instanceof Error ? err.message : 'Não foi possível consultar o CNPJ.';
+      setCnpjLookupHint({ type: 'err', text });
+    } finally {
+      if (req === cnpjLookupReq.current) {
+        setCnpjLookupLoading(false);
+      }
+    }
   };
 
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,16 +302,33 @@ function EditarAssociadoContent() {
           {/* CNPJ */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              CNPJ *
+              CNPJ *{' '}
+              <span className="font-normal text-cdl-gray-text">
+                (ao completar, saia do campo para buscar na Receita)
+              </span>
             </label>
             <input
               type="text"
               value={associado.cnpj}
               onChange={handleCnpjChange}
+              onBlur={handleCnpjBlur}
               placeholder="00.000.000/0000-00"
+              autoComplete="off"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
               required
             />
+            {cnpjLookupLoading && (
+              <p className="mt-1 text-xs text-cdl-gray-text">Consultando Brasil API…</p>
+            )}
+            {cnpjLookupHint && !cnpjLookupLoading && (
+              <p
+                className={`mt-1 text-xs ${
+                  cnpjLookupHint.type === 'ok' ? 'text-green-800' : 'text-red-700'
+                }`}
+              >
+                {cnpjLookupHint.text}
+              </p>
+            )}
           </div>
 
           {/* Razão social */}
