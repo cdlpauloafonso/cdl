@@ -77,63 +77,17 @@ export default function AdminAssociadosPage() {
 
   return (
     <div>
-      <div className="flex gap-8">
-        {/* Menu Lateral */}
-        <div className="w-64 flex-shrink-0">
-          <nav className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Menu</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  href="/admin/associados"
-                  className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-cdl-blue text-white"
-                >
-                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  Lista de Associados
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/associados/adicionar"
-                  className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Adicionar Associado
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/associados/planos"
-                  className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Planos
-                </Link>
-              </li>
-            </ul>
-          </nav>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Lista de Associados</h1>
+          <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
         </div>
+        <Link href="/admin/associados/adicionar" className="btn-primary">
+          Adicionar Associado
+        </Link>
+      </div>
 
-        {/* Conteúdo Principal */}
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Lista de Associados</h1>
-              <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
-            </div>
-            <Link href="/admin/associados/adicionar" className="btn-primary">
-              Adicionar Associado
-            </Link>
-          </div>
-
-          {/* Busca */}
-          <div className="mb-6">
+      <div className="mb-6">
             <div className="relative">
               <input
                 type="text"
@@ -150,8 +104,7 @@ export default function AdminAssociadosPage() {
             </div>
           </div>
 
-          {/* Tabela de Associados */}
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-cdl-gray">
@@ -203,7 +156,7 @@ export default function AdminAssociadosPage() {
                         <td className="px-4 py-3 text-sm text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Link
-                              href={`/admin/associados/editar/${associado.id}`}
+                              href={`/admin/associados/editar?id=${encodeURIComponent(associado.id)}`}
                               className="text-cdl-blue hover:underline"
                             >
                               Editar
@@ -225,25 +178,22 @@ export default function AdminAssociadosPage() {
             </div>
           </div>
 
-          {filteredAssociados.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <div className="text-6xl text-gray-300 mb-4">📋</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {searchTerm ? 'Nenhum associado encontrado' : 'Nenhum associado cadastrado'}
-              </h3>
-              <p className="text-cdl-gray-text mb-6">
-                {searchTerm 
-                  ? 'Tente buscar com outros termos.' 
-                  : 'Comece adicionando seu primeiro associado.'
-                }
-              </p>
-              <Link href="/admin/associados/adicionar" className="btn-primary">
-                Adicionar Primeiro Associado
-              </Link>
-            </div>
-          )}
+      {filteredAssociados.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <div className="text-6xl text-gray-300 mb-4">📋</div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            {searchTerm ? 'Nenhum associado encontrado' : 'Nenhum associado cadastrado'}
+          </h3>
+          <p className="text-cdl-gray-text mb-6">
+            {searchTerm
+              ? 'Tente buscar com outros termos.'
+              : 'Comece adicionando seu primeiro associado.'}
+          </p>
+          <Link href="/admin/associados/adicionar" className="btn-primary">
+            Adicionar Primeiro Associado
+          </Link>
         </div>
-      </div>
+      )}
 
       {/* Modal de Confirmação de Exclusão */}
       {showDeleteModal && excluirPendente && (
