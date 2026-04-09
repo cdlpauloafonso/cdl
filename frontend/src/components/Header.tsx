@@ -20,7 +20,6 @@ const menuItems = [
       { href: '/servicos', label: 'Todos os serviços' },
       { href: '/servicos/auditorio', label: 'Auditório' },
       { href: '/servicos/certificado-digital', label: 'Certificado Digital' },
-      { href: '/admin/associados/planos', label: 'Planos' },
       { href: '/servicos/beneficios-associados', label: 'Benefícios para associados' },
     ],
   },
