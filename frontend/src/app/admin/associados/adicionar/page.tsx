@@ -5,17 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAssociado, type Aniversariante } from '@/lib/firestore';
 import { getPlanos, type Plano } from '@/lib/firestore-planos';
+import { associadoFormPatchFromBrasilApi, fetchCnpjBrasilApi, onlyDigitsCnpj } from '@/lib/brasil-api-cnpj';
 import {
-  buildEnderecoLinha,
-  buildObservacoesFromCnpjApi,
-  fetchCnpjBrasilApi,
-  formatCepFromApi,
-  formatTelefoneBrasil,
-  nomeFantasiaFromCnpjResponse,
-  onlyDigitsCnpj,
-  pickNomeResponsavel,
-  tituloMunicipio,
-} from '@/lib/brasil-api-cnpj';
+  IMPORT_API_DELAY_MS,
+  mergeAssociadoRowWithCnpjApi,
+  parseAssociadosCsv,
+  validateAssociadoFormForSave,
+  CSV_TEMPLATE_HEADER,
+  associadoFormCsvTemplateExampleRow,
+} from '@/lib/associados-csv-import';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
@@ -42,6 +40,15 @@ export default function AdicionarAssociadoPage() {
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const cnpjLookupReq = useRef(0);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[] | null>(null);
+  const [csvError, setCsvError] = useState('');
+  const [csvApplyLoading, setCsvApplyLoading] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkImportResult, setBulkImportResult] = useState<{
+    ok: number;
+    errors: { line: number; msg: string }[];
+  } | null>(null);
 
   useEffect(() => {
     getPlanos()
@@ -123,31 +130,21 @@ export default function AdicionarAssociadoPage() {
       const data = await fetchCnpjBrasilApi(digits);
       if (req !== cnpjLookupReq.current) return;
 
-      const razao = (data.razao_social || '').trim();
-      const fantasia = nomeFantasiaFromCnpjResponse(data);
-      const nomeResp = pickNomeResponsavel(data);
-      const obsApi = buildObservacoesFromCnpjApi(data);
-      const emailApi = (data.email || '').trim();
-      const fone =
-        formatTelefoneBrasil(data.ddd_telefone_1) ||
-        formatTelefoneBrasil(data.ddd_telefone_2);
-      const cepFmt = formatCepFromApi(data.cep);
-      const endereco = buildEnderecoLinha(data);
-      const cidade = tituloMunicipio(data.municipio || '');
-      const uf = (data.uf || '').toUpperCase().slice(0, 2);
+      const patch = associadoFormPatchFromBrasilApi(data);
 
       setFormData((prev) => ({
         ...prev,
-        nome: nomeResp || prev.nome,
-        razao_social: razao || prev.razao_social,
-        empresa: fantasia || razao || prev.empresa,
-        email: emailApi || prev.email,
-        telefone: fone || prev.telefone,
-        cep: cepFmt || prev.cep,
-        endereco: endereco || prev.endereco,
-        cidade: cidade || prev.cidade,
-        estado: uf || prev.estado,
-        observacoes: obsApi || prev.observacoes,
+        nome: patch.nome || prev.nome,
+        razao_social: patch.razao_social || prev.razao_social,
+        empresa: patch.empresa || prev.empresa,
+        email: patch.email || prev.email,
+        telefone: patch.telefone || prev.telefone,
+        cep: patch.cep || prev.cep,
+        endereco: patch.endereco || prev.endereco,
+        cidade: patch.cidade || prev.cidade,
+        estado: patch.estado || prev.estado,
+        observacoes: patch.observacoes || prev.observacoes,
+        cnpj: patch.cnpj || prev.cnpj,
       }));
       setCnpjLookupHint({
         type: 'ok',
@@ -176,6 +173,98 @@ export default function AdicionarAssociadoPage() {
     setFormData((prev) => ({ ...prev, cep: value }));
   };
 
+  const downloadCsvTemplate = () => {
+    const body = `${CSV_TEMPLATE_HEADER}\n${associadoFormCsvTemplateExampleRow()}`;
+    const blob = new Blob([body], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'associados-modelo.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setCsvError('');
+    setBulkImportResult(null);
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseAssociadosCsv(text);
+      if (parsed.rows.length === 0) {
+        setCsvRows(null);
+        setCsvError('Nenhuma linha de dados encontrada no CSV (verifique cabeçalhos e separador ; ou ,).');
+        return;
+      }
+      setCsvRows(parsed.rows);
+    } catch {
+      setCsvRows(null);
+      setCsvError('Não foi possível ler o arquivo. Use UTF-8 e separador ; ou ,.');
+    }
+    e.target.value = '';
+  };
+
+  const aplicarPrimeiraLinhaCsv = async () => {
+    if (!csvRows?.length) return;
+    setCsvApplyLoading(true);
+    setCsvError('');
+    setBulkImportResult(null);
+    try {
+      const merged = await mergeAssociadoRowWithCnpjApi(csvRows[0]);
+      setFormData((prev) => ({
+        ...merged,
+        aniversariantes: merged.aniversariantes?.length ? merged.aniversariantes : prev.aniversariantes,
+      }));
+      setCnpjLookupHint({
+        type: 'ok',
+        text: 'Linha 1 do CSV aplicada: dados da Receita (CNPJ) quando possível; o restante veio do arquivo. Revise antes de salvar.',
+      });
+    } catch (err) {
+      const text = err instanceof Error ? err.message : 'Falha ao processar a linha do CSV.';
+      setCsvError(text);
+    } finally {
+      setCsvApplyLoading(false);
+    }
+  };
+
+  const importarTodasLinhasCsv = async () => {
+    if (!csvRows?.length) return;
+    const ok = window.confirm(
+      `Importar ${csvRows.length} linha(s) para o cadastro? Cada CNPJ válido será consultado na Brasil API; isso pode levar alguns minutos.`
+    );
+    if (!ok) return;
+
+    setBulkImporting(true);
+    setBulkImportResult(null);
+    setCsvError('');
+    const errors: { line: number; msg: string }[] = [];
+    let success = 0;
+
+    for (let i = 0; i < csvRows.length; i++) {
+      const lineNo = i + 2;
+      try {
+        const merged = await mergeAssociadoRowWithCnpjApi(csvRows[i]);
+        const validation = validateAssociadoFormForSave(merged);
+        if (validation) {
+          errors.push({ line: lineNo, msg: validation });
+          continue;
+        }
+        await createAssociado(merged);
+        success++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro ao salvar.';
+        errors.push({ line: lineNo, msg });
+      }
+      if (i < csvRows.length - 1) {
+        await new Promise((r) => setTimeout(r, IMPORT_API_DELAY_MS));
+      }
+    }
+
+    setBulkImportResult({ ok: success, errors });
+    setBulkImporting(false);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -196,10 +285,83 @@ export default function AdicionarAssociadoPage() {
         </div>
       </div>
 
+      {/* Importação CSV */}
+      <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Importar CSV</h2>
+        <p className="text-sm text-cdl-gray-text mb-4">
+          Com CNPJ de 14 dígitos, os dados são buscados na Brasil API (Receita). Campos que a API não
+          preencher são completados com as colunas do arquivo. Plano e código SPC usam o CSV quando
+          informados.
+        </p>
+        <div className="flex flex-wrap gap-2 items-center mb-4">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleCsvFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => csvInputRef.current?.click()}
+            className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm font-medium"
+          >
+            Escolher arquivo CSV
+          </button>
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+          >
+            Baixar modelo
+          </button>
+          <button
+            type="button"
+            disabled={!csvRows?.length || csvApplyLoading || bulkImporting}
+            onClick={() => void aplicarPrimeiraLinhaCsv()}
+            className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark text-sm disabled:opacity-50"
+          >
+            {csvApplyLoading ? 'Aplicando…' : 'Preencher formulário com a linha 1'}
+          </button>
+          <button
+            type="button"
+            disabled={!csvRows?.length || bulkImporting || csvApplyLoading}
+            onClick={() => void importarTodasLinhasCsv()}
+            className="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-sm disabled:opacity-50"
+          >
+            {bulkImporting ? 'Importando…' : 'Importar todas as linhas'}
+          </button>
+        </div>
+        {csvError && (
+          <p className="text-sm text-red-700 mb-2">{csvError}</p>
+        )}
+        {csvRows && csvRows.length > 0 && (
+          <p className="text-sm text-gray-700 mb-2">
+            <strong>{csvRows.length}</strong> linha(s) carregada(s). A primeira linha de dados corresponde
+            ao arquivo (após o cabeçalho).
+          </p>
+        )}
+        {bulkImportResult && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+            <p className="font-medium text-gray-900">
+              Importação em lote: <span className="text-green-800">{bulkImportResult.ok}</span> salvo(s).
+            </p>
+            {bulkImportResult.errors.length > 0 && (
+              <ul className="mt-2 list-disc list-inside text-red-800 space-y-1">
+                {bulkImportResult.errors.map((e, idx) => (
+                  <li key={idx}>
+                    Linha {e.line}: {e.msg}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Formulário */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* ...existing code... */}
           {/* Mensagem de Sucesso */}
           {showSuccessModal && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">

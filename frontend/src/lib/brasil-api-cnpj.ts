@@ -181,3 +181,60 @@ export function buildObservacoesFromCnpjApi(data: BrasilApiCnpjResponse): string
 
   return lines.join('\n').trim();
 }
+
+/** Máscara 00.000.000/0000-00 a partir de até 14 dígitos. */
+export function formatCnpjDisplay(raw: string): string {
+  const digits = onlyDigitsCnpj(raw);
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length <= 12) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  }
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+}
+
+/** Campos do formulário de associado preenchíveis pela Brasil API (CNPJ). */
+export type AssociadoFormPatchFromApi = {
+  nome: string;
+  empresa: string;
+  razao_social: string;
+  email: string;
+  telefone: string;
+  cep: string;
+  endereco: string;
+  cidade: string;
+  estado: string;
+  observacoes: string;
+  cnpj: string;
+};
+
+export function associadoFormPatchFromBrasilApi(data: BrasilApiCnpjResponse): AssociadoFormPatchFromApi {
+  const razao = (data.razao_social || '').trim();
+  const fantasia = nomeFantasiaFromCnpjResponse(data);
+  const nomeResp = pickNomeResponsavel(data);
+  const obsApi = buildObservacoesFromCnpjApi(data);
+  const emailApi = (data.email || '').trim();
+  const fone =
+    formatTelefoneBrasil(data.ddd_telefone_1) ||
+    formatTelefoneBrasil(data.ddd_telefone_2);
+  const cepFmt = formatCepFromApi(data.cep);
+  const endereco = buildEnderecoLinha(data);
+  const cidade = tituloMunicipio(data.municipio || '');
+  const uf = (data.uf || '').toUpperCase().slice(0, 2);
+
+  return {
+    nome: nomeResp,
+    razao_social: razao,
+    empresa: fantasia || razao,
+    email: emailApi,
+    telefone: fone,
+    cep: cepFmt,
+    endereco,
+    cidade,
+    estado: uf,
+    observacoes: obsApi,
+    cnpj: formatCnpjDisplay(data.cnpj || ''),
+  };
+}
