@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiGet } from '@/lib/api';
-import { listNews, listCarouselSlides, listAgendamentos, type Agendamento } from '@/lib/firestore';
+import { listNews, listCarouselSlides, listAgendamentos, getAssociados, type Agendamento } from '@/lib/firestore';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number } | null>(null);
@@ -37,6 +37,11 @@ export default function AdminDashboardPage() {
       })
       .catch(() => []);
 
+    // Total real de associados no Firestore
+    const associadosPromise = getAssociados()
+      .then((associados) => associados.length)
+      .catch(() => 0);
+
     // API para diretoria, serviços, mensagens
     const apiPromise = Promise.all([
       apiGet<unknown[]>('/directors', token).catch(() => []),
@@ -48,13 +53,13 @@ export default function AdminDashboardPage() {
       messages: (messages as unknown[]).length,
     }));
 
-    Promise.all([apiPromise, pagesPromise, newsPromise, agendamentosPromise])
-      .then(([apiStats, pagesCount, newsCount, agendamentos]) => {
+    Promise.all([apiPromise, pagesPromise, newsPromise, agendamentosPromise, associadosPromise])
+      .then(([apiStats, pagesCount, newsCount, agendamentos, associadosCount]) => {
         setStats({
           ...apiStats,
           pages: pagesCount,
           news: newsCount,
-          associates: 200, // Valor estático baseado na estatística da homepage
+          associates: associadosCount,
         });
         setProximosAgendamentos(agendamentos);
       })

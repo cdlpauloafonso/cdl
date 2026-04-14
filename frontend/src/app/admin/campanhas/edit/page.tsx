@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getCampaign, updateCampaign, Campaign } from '@/lib/firestore';
+import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
+import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
+import { getEffectiveRegistration } from '@/lib/event-registration-fields';
 
 // imgbb upload key
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -18,6 +21,15 @@ export default function AdminCampanhaEditByQueryPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState('');
   const [error, setError] = useState('');
+  const [wantsRegistrationLink, setWantsRegistrationLink] = useState(false);
+  const [registrationMode, setRegistrationMode] = useState<RegistrationLinkMode>('form');
+  const [registrationExternalUrl, setRegistrationExternalUrl] = useState('');
+  const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
+  const [registrationObservationText, setRegistrationObservationText] = useState('');
+  const [wantsPixPayment, setWantsPixPayment] = useState(false);
+  const [pixImageUrl, setPixImageUrl] = useState('');
+  const [pixCopyPaste, setPixCopyPaste] = useState('');
+  const [pixObservationText, setPixObservationText] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -39,6 +51,40 @@ export default function AdminCampanhaEditByQueryPage() {
       mounted = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!campanha?.id) return;
+    const eff = getEffectiveRegistration(campanha);
+    if (eff.kind === 'none') {
+      setWantsRegistrationLink(false);
+      setRegistrationMode('form');
+      setRegistrationExternalUrl('');
+      setRegistrationFieldKeys([]);
+      setRegistrationObservationText('');
+    } else if (eff.kind === 'external') {
+      setWantsRegistrationLink(true);
+      setRegistrationMode('external');
+      setRegistrationExternalUrl(eff.url);
+      setRegistrationFieldKeys([]);
+      setRegistrationObservationText('');
+    } else {
+      setWantsRegistrationLink(true);
+      setRegistrationMode('form');
+      setRegistrationExternalUrl('');
+      setRegistrationFieldKeys(eff.keys);
+      setRegistrationObservationText(eff.observationText ?? '');
+    }
+  }, [campanha?.id]);
+
+  useEffect(() => {
+    if (!campanha?.id) return;
+    const p = campanha.paymentConfig;
+    const has = Boolean(p?.pixImageUrl?.trim() || p?.pixCopyPaste?.trim());
+    setWantsPixPayment(has);
+    setPixImageUrl(p?.pixImageUrl ?? '');
+    setPixCopyPaste(p?.pixCopyPaste ?? '');
+    setPixObservationText(p?.pixObservationText ?? '');
+  }, [campanha?.id]);
 
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
   if (!id) {
@@ -64,10 +110,63 @@ export default function AdminCampanhaEditByQueryPage() {
 
   async function handleSave() {
     if (!campanha) return;
+    if (wantsRegistrationLink) {
+      if (registrationMode === 'external' && !registrationExternalUrl.trim()) {
+        setError('Configure a inscrição ou desative a opção.');
+        return;
+      }
+      if (registrationMode === 'form' && registrationFieldKeys.length === 0) {
+        setError('Configure a inscrição ou desative a opção.');
+        return;
+      }
+    }
+    if (wantsPixPayment) {
+      const hasImg = Boolean(pixImageUrl.trim());
+      const hasCode = Boolean(pixCopyPaste.trim());
+      if (!hasImg && !hasCode) {
+        setError('Pagamentos PIX: envie a foto do QR ou o código copia e cola, ou desmarque a opção.');
+        return;
+      }
+    }
     setSaving(true);
     setError('');
     try {
-      await updateCampaign(id, campanha);
+      const {
+        id: _removedId,
+        registrationConfig: _rc,
+        registrationUrl: _ru,
+        paymentConfig: _pay,
+        ...rest
+      } = campanha;
+      await updateCampaign(id, {
+        ...rest,
+        ...(wantsRegistrationLink
+          ? registrationMode === 'external'
+            ? {
+                registrationConfig: { type: 'external' as const, url: registrationExternalUrl.trim() },
+                registrationUrl: null,
+              }
+            : {
+                registrationConfig: {
+                  type: 'form' as const,
+                  fieldKeys: registrationFieldKeys,
+                  ...(registrationObservationText.trim()
+                    ? { observationText: registrationObservationText.trim() }
+                    : {}),
+                },
+                registrationUrl: null,
+              }
+          : { registrationConfig: null, registrationUrl: null }),
+        ...(wantsPixPayment && (pixImageUrl.trim() || pixCopyPaste.trim())
+          ? {
+              paymentConfig: {
+                ...(pixImageUrl.trim() ? { pixImageUrl: pixImageUrl.trim() } : {}),
+                ...(pixCopyPaste.trim() ? { pixCopyPaste: pixCopyPaste.trim() } : {}),
+                ...(pixObservationText.trim() ? { pixObservationText: pixObservationText.trim() } : {}),
+              },
+            }
+          : { paymentConfig: null }),
+      });
       router.push('/admin/campanhas');
     } catch {
       setError('Erro ao salvar campanha');
@@ -197,6 +296,36 @@ export default function AdminCampanhaEditByQueryPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data/Período</label>
                 <input value={campanha.date} onChange={(e) => setCampanha({ ...campanha, date: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
               </div>
+              <RegistrationLinkSection
+                wantsLink={wantsRegistrationLink}
+                onWantsLinkChange={(v) => {
+                  setWantsRegistrationLink(v);
+                  if (!v) {
+                    setRegistrationMode('form');
+                    setRegistrationExternalUrl('');
+                    setRegistrationFieldKeys([]);
+                    setRegistrationObservationText('');
+                  }
+                }}
+                mode={registrationMode}
+                onModeChange={setRegistrationMode}
+                externalUrl={registrationExternalUrl}
+                onExternalUrlChange={setRegistrationExternalUrl}
+                fieldKeys={registrationFieldKeys}
+                onFieldKeysChange={setRegistrationFieldKeys}
+                observationText={registrationObservationText}
+                onObservationTextChange={setRegistrationObservationText}
+              />
+              <EventPaymentSection
+                enabled={wantsPixPayment}
+                onEnabledChange={setWantsPixPayment}
+                pixImageUrl={pixImageUrl}
+                onPixImageUrlChange={setPixImageUrl}
+                pixCopyPaste={pixCopyPaste}
+                onPixCopyPasteChange={setPixCopyPaste}
+                pixObservationText={pixObservationText}
+                onPixObservationTextChange={setPixObservationText}
+              />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                 <textarea value={campanha.description} onChange={(e) => setCampanha({ ...campanha, description: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />

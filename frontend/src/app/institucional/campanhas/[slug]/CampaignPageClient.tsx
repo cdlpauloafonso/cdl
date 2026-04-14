@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getCampaign, Campaign } from '@/lib/firestore';
+import { getEffectiveRegistration, hrefForExternalRegistration } from '@/lib/event-registration-fields';
 
 export function CampaignPageClient({ slug }: { slug: string }) {
   const [campanha, setCampanha] = useState<Campaign | null>(null);
@@ -29,6 +30,8 @@ export function CampaignPageClient({ slug }: { slug: string }) {
 
   if (loading) return <p className="p-8 text-cdl-gray-text">Carregando...</p>;
   if (!campanha) notFound();
+
+  const registration = getEffectiveRegistration(campanha);
 
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
@@ -75,6 +78,34 @@ export function CampaignPageClient({ slug }: { slug: string }) {
             <p className="text-lg text-cdl-gray-text leading-relaxed">{campanha.fullDescription}</p>
           </div>
         </section>
+
+        {registration.kind !== 'none' && (
+          <section className="mb-10">
+            {registration.kind === 'external' ? (
+              <a
+                href={hrefForExternalRegistration(registration.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Fazer inscrição
+              </a>
+            ) : (
+              <Link
+                href={`/institucional/campanhas/inscricao/${slug}`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                Fazer inscrição
+              </Link>
+            )}
+          </section>
+        )}
 
         {campanha.highlights && campanha.highlights.length > 0 && (
           <section className="mb-10">

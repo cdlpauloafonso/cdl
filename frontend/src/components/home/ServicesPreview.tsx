@@ -15,6 +15,9 @@ async function getServices(): Promise<{ id: string; title: string; slug: string;
 
 export async function ServicesPreview() {
   const services = await getServices();
+  const serviceListWithoutVagas = services.filter(
+    (s) => s.slug !== 'vagas-emprego' && !s.title.toLowerCase().includes('vaga')
+  );
 
   return (
     <section className="py-16 sm:py-20">
@@ -29,14 +32,15 @@ export async function ServicesPreview() {
         </div>
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.length > 0 ? (
-            services.map((s) => (
+            <>
               <Link
-                key={s.id}
-                href={`/servicos/${s.slug}`}
+                href="/servicos/vagas-emprego"
                 className="group block p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
               >
-                <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">{s.title}</h3>
-                <p className="mt-2 text-sm text-cdl-gray-text line-clamp-2">{s.description}</p>
+                <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">Vagas de Emprego</h3>
+                <p className="mt-2 text-sm text-cdl-gray-text line-clamp-2">
+                  Consulte vagas, publique oportunidades e cadastre currículo.
+                </p>
                 <span className="mt-3 inline-flex items-center text-sm font-medium text-cdl-blue group-hover:underline">
                   Saiba mais
                   <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,10 +48,26 @@ export async function ServicesPreview() {
                   </svg>
                 </span>
               </Link>
-            ))
+              {serviceListWithoutVagas.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/servicos/${s.slug}`}
+                  className="group block p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
+                >
+                  <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">{s.title}</h3>
+                  <p className="mt-2 text-sm text-cdl-gray-text line-clamp-2">{s.description}</p>
+                  <span className="mt-3 inline-flex items-center text-sm font-medium text-cdl-blue group-hover:underline">
+                    Saiba mais
+                    <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </Link>
+              ))}
+            </>
           ) : (
             <>
-              {['SPC e Serasa', 'Certificado Digital', 'Saúde empresarial', 'Coworking', 'Defesa do comércio', 'Networking'].map((title, i) => {
+              {['SPC e Serasa', 'Certificado Digital', 'Vagas de Emprego', 'Saúde empresarial', 'Defesa do comércio', 'Networking'].map((title, i) => {
                 if (title === 'Certificado Digital') {
                   return (
                     <Link
@@ -58,6 +78,26 @@ export async function ServicesPreview() {
                       <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">{title}</h3>
                       <p className="mt-2 text-sm text-cdl-gray-text">
                         Serviços empresariais para associados CDL.
+                      </p>
+                      <span className="mt-3 inline-flex items-center text-sm font-medium text-cdl-blue group-hover:underline">
+                        Saiba mais
+                        <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </Link>
+                  );
+                }
+                if (title === 'Vagas de Emprego') {
+                  return (
+                    <Link
+                      key={i}
+                      href="/servicos/vagas-emprego"
+                      className="group block p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
+                    >
+                      <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">{title}</h3>
+                      <p className="mt-2 text-sm text-cdl-gray-text">
+                        Consulte vagas, publique oportunidades e cadastre currículo.
                       </p>
                       <span className="mt-3 inline-flex items-center text-sm font-medium text-cdl-blue group-hover:underline">
                         Saiba mais

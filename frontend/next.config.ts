@@ -1,7 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Com `output: 'export'`, o dev server só renderiza URLs já previstas em generateStaticParams;
+  // rotas dinâmicas como `/institucional/campanhas/inscricao/[slug]` falhariam para slugs novos.
+  // Em desenvolvimento não usamos export; o build de produção (`next build`) mantém o export estático.
+  ...(process.env.NODE_ENV === 'production' ? { output: 'export' as const } : {}),
   images: {
     unoptimized: true,
     remotePatterns: [

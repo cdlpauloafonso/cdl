@@ -3,14 +3,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAssociado, type Aniversariante } from '@/lib/firestore';
+import {
+  createAssociado,
+  createAssociadoFromImport,
+  getAssociados,
+  updateAssociado,
+  type Aniversariante,
+  type Associado,
+} from '@/lib/firestore';
 import { getPlanos, type Plano } from '@/lib/firestore-planos';
 import { associadoFormPatchFromBrasilApi, fetchCnpjBrasilApi, onlyDigitsCnpj } from '@/lib/brasil-api-cnpj';
 import {
   IMPORT_API_DELAY_MS,
   mergeAssociadoRowWithCnpjApi,
   parseAssociadosCsv,
-  validateAssociadoFormForSave,
   CSV_TEMPLATE_HEADER,
   associadoFormCsvTemplateExampleRow,
 } from '@/lib/associados-csv-import';
@@ -26,7 +32,9 @@ export default function AdicionarAssociadoPage() {
     razao_social: '',
     cnpj: '',
     telefone: '',
+    telefone_responsavel: '',
     email: '',
+    quantidade_funcionarios: '',
     cep: '',
     endereco: '',
     cidade: '',
@@ -73,7 +81,8 @@ export default function AdicionarAssociadoPage() {
       
     } catch (err) {
       console.error('Erro ao criar associado:', err);
-      setError('Erro ao criar associado. Tente novamente.');
+      const msg = err instanceof Error ? err.message : 'Erro ao criar associado. Tente novamente.';
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +105,17 @@ export default function AdicionarAssociadoPage() {
     else if (d.length <= 10) value = `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
     else value = `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
     setFormData((prev) => ({ ...prev, telefone: value }));
+  };
+
+  const handleResponsavelPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const d = e.target.value.replace(/\D/g, '').slice(0, 11);
+    let value = '';
+    if (d.length === 0) value = '';
+    else if (d.length <= 2) value = `(${d}`;
+    else if (d.length <= 6) value = `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    else if (d.length <= 10) value = `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    else value = `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    setFormData((prev) => ({ ...prev, telefone_responsavel: value }));
   };
 
   const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,6 +233,7 @@ export default function AdicionarAssociadoPage() {
     try {
       const merged = await mergeAssociadoRowWithCnpjApi(csvRows[0]);
       setFormData((prev) => ({
+        ...prev,
         ...merged,
         aniversariantes: merged.aniversariantes?.length ? merged.aniversariantes : prev.aniversariantes,
       }));
@@ -240,17 +261,47 @@ export default function AdicionarAssociadoPage() {
     setCsvError('');
     const errors: { line: number; msg: string }[] = [];
     let success = 0;
+    const existentes = await getAssociados();
+    const existentesByCnpj = new Map<string, Associado>();
+    existentes.forEach((a) => {
+      const digits = onlyDigitsCnpj(a.cnpj || '');
+      if (digits.length === 14) existentesByCnpj.set(digits, a);
+    });
 
     for (let i = 0; i < csvRows.length; i++) {
       const lineNo = i + 2;
       try {
         const merged = await mergeAssociadoRowWithCnpjApi(csvRows[i]);
-        const validation = validateAssociadoFormForSave(merged);
-        if (validation) {
-          errors.push({ line: lineNo, msg: validation });
+        const digits = onlyDigitsCnpj(merged.cnpj || '');
+        const existente = digits.length === 14 ? existentesByCnpj.get(digits) : undefined;
+
+        if (existente) {
+          const confirmarAtualizacao = window.confirm(
+            `Linha ${lineNo}: já existe associado com este CNPJ (${existente.empresa || existente.nome}). Deseja atualizar esse cadastro com os dados do CSV?`
+          );
+          if (confirmarAtualizacao) {
+            const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...base } = existente;
+            await updateAssociado(existente.id, {
+              ...base,
+              ...merged,
+            });
+            success++;
+            existentesByCnpj.set(digits, { ...existente, ...merged });
+          } else {
+            errors.push({ line: lineNo, msg: 'CNPJ já existente (não atualizado por escolha do usuário).' });
+          }
           continue;
         }
-        await createAssociado(merged);
+
+        const newId = await createAssociadoFromImport(merged);
+        if (digits.length === 14) {
+          existentesByCnpj.set(digits, {
+            id: newId,
+            ...merged,
+            created_at: new Date(),
+            updated_at: new Date(),
+          } as Associado);
+        }
         success++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Erro ao salvar.';
@@ -440,6 +491,18 @@ export default function AdicionarAssociadoPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefone do responsável
+                </label>
+                <input
+                  type="tel"
+                  value={formData.telefone_responsavel}
+                  onChange={handleResponsavelPhoneChange}
+                  placeholder="(00) 00000-0000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome da Empresa *{' '}
                   <span className="font-normal text-cdl-gray-text">(nome fantasia)</span>
                 </label>
@@ -493,7 +556,7 @@ export default function AdicionarAssociadoPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefone *
+                  Telefone Empresa *
                 </label>
                 <input
                   type="tel"
@@ -524,6 +587,25 @@ export default function AdicionarAssociadoPage() {
                   onChange={(e) => setFormData({ ...formData, codigo_spc: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
                   placeholder="Código SPC"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quantidade de funcionários
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formData.quantidade_funcionarios}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      quantidade_funcionarios: e.target.value.replace(/\D/g, ''),
+                    })
+                  }
+                  placeholder="Ex.: 15"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
                 />
               </div>
             </div>

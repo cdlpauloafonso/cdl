@@ -1,4 +1,5 @@
 import { getApps } from 'firebase/app';
+import { onlyDigitsCnpj } from './brasil-api-cnpj';
 import { initFirebase } from './firebase';
 import {
   getFirestore,
@@ -10,6 +11,10 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
+  runTransaction,
+  writeBatch,
+  deleteField,
   query,
   orderBy,
   where,
@@ -21,6 +26,18 @@ export function getDb() {
   initFirebase();
   return getFirestore();
 }
+
+/** Inscrição em evento: link externo ou formulário com campos do cadastro de associados. */
+export type CampaignRegistrationConfig =
+  | { type: 'external'; url: string }
+  | { type: 'form'; fieldKeys: string[]; observationText?: string };
+
+/** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
+export type CampaignPaymentConfig = {
+  pixImageUrl?: string;
+  pixCopyPaste?: string;
+  pixObservationText?: string;
+};
 
 export type Campaign = {
   id?: string;
@@ -34,6 +51,12 @@ export type Campaign = {
   benefits?: string[];
   howToParticipate?: string;
   contact?: string;
+  /** Preferencial. Legado: só `registrationUrl`. */
+  registrationConfig?: CampaignRegistrationConfig;
+  /** @deprecated usar registrationConfig.type === 'external' */
+  registrationUrl?: string;
+  /** Pagamento PIX opcional (eventos). */
+  paymentConfig?: CampaignPaymentConfig;
 };
 
 export async function listCampaigns(): Promise<Campaign[]> {
@@ -64,15 +87,69 @@ export async function createCampaign(data: Campaign) {
   return ref.id;
 }
 
-export async function updateCampaign(id: string, data: Partial<Campaign>) {
+export async function updateCampaign(
+  id: string,
+  data: Partial<Omit<Campaign, 'registrationUrl' | 'registrationConfig' | 'paymentConfig'>> & {
+    registrationUrl?: string | null;
+    registrationConfig?: CampaignRegistrationConfig | null;
+    paymentConfig?: CampaignPaymentConfig | null;
+  }
+) {
   const db = getDb();
   const ref = doc(db, 'campaigns', id);
-  // remove undefined fields
   const payload: Record<string, any> = {};
   Object.entries(data as Record<string, any>).forEach(([k, v]) => {
-    if (v !== undefined) payload[k] = v;
+    if (v === undefined) return;
+    if (v === null && (k === 'registrationConfig' || k === 'registrationUrl' || k === 'paymentConfig')) {
+      payload[k] = deleteField();
+      return;
+    }
+    if (k === 'registrationUrl' && v === '') {
+      payload[k] = deleteField();
+    } else {
+      payload[k] = v;
+    }
   });
   await updateDoc(ref, payload as any);
+}
+
+/** Inscrição em `campaigns/{campaignId}/inscricoes/{docId}` (o id do evento é o caminho). */
+export type EventInscriptionPaymentStatus = 'pending' | 'paid';
+
+export type EventInscriptionRecord = {
+  createdAt: string;
+  /** Valores preenchidos (chaves = ids dos campos configurados). */
+  fields: Record<string, string>;
+  paymentStatus?: EventInscriptionPaymentStatus;
+};
+
+export async function createEventInscription(campaignId: string, fields: Record<string, string>): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'campaigns', campaignId, 'inscricoes');
+  const ref = await addDoc(col, {
+    createdAt: new Date().toISOString(),
+    fields,
+  } satisfies EventInscriptionRecord);
+  return ref.id;
+}
+
+/** Lista inscrições de um evento (painel admin / relatórios). */
+export async function listEventInscriptions(campaignId: string): Promise<(EventInscriptionRecord & { id: string })[]> {
+  const db = getDb();
+  const col = collection(db, 'campaigns', campaignId, 'inscricoes');
+  const q = query(col, orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as EventInscriptionRecord) }));
+}
+
+export async function updateEventInscriptionPaymentStatus(
+  campaignId: string,
+  inscriptionId: string,
+  status: EventInscriptionPaymentStatus
+): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  await updateDoc(ref, { paymentStatus: status });
 }
 
 export async function setCampaign(id: string, data: Campaign) {
@@ -462,6 +539,51 @@ export async function setAbout(data: AboutItem): Promise<void> {
   });
 }
 
+/** Índice público: id = 14 dígitos do CNPJ; permite checar inscrição sem expor `associados`. */
+const ASSOCIADOS_CNPJ_INDEX = 'associadosCnpjIndex';
+
+async function setAssociadoCnpjIndex(digits: string): Promise<void> {
+  if (digits.length !== 14) return;
+  const db = getDb();
+  await setDoc(doc(db, ASSOCIADOS_CNPJ_INDEX, digits), { updatedAt: serverTimestamp() });
+}
+
+async function removeAssociadoCnpjIndex(digits: string): Promise<void> {
+  if (digits.length !== 14) return;
+  const db = getDb();
+  try {
+    await deleteDoc(doc(db, ASSOCIADOS_CNPJ_INDEX, digits));
+  } catch {
+    /* doc pode não existir */
+  }
+}
+
+async function syncAssociadosCnpjIndexBatch(cnpjs: string[]): Promise<void> {
+  if (cnpjs.length === 0) return;
+  const db = getDb();
+  const uniqueDigits = Array.from(new Set(cnpjs.map((c) => onlyDigitsCnpj(c)).filter((d) => d.length === 14)));
+  if (uniqueDigits.length === 0) return;
+
+  const chunkSize = 450; // abaixo do limite de 500 writes por batch
+  for (let i = 0; i < uniqueDigits.length; i += chunkSize) {
+    const chunk = uniqueDigits.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((digits) => {
+      batch.set(doc(db, ASSOCIADOS_CNPJ_INDEX, digits), { updatedAt: serverTimestamp() }, { merge: true });
+    });
+    await batch.commit();
+  }
+}
+
+/** Leitura pública (regras Firestore): retorna true se o CNPJ está na base de associados. */
+export async function isCnpjCadastradoComoAssociado(cnpjRaw: string): Promise<boolean> {
+  const d = onlyDigitsCnpj(cnpjRaw);
+  if (d.length !== 14) return false;
+  const db = getDb();
+  const snap = await getDoc(doc(db, ASSOCIADOS_CNPJ_INDEX, d));
+  return snap.exists();
+}
+
 // ---- Associados (Firestore: collection) ----
 export type Aniversariante = {
   nome: string;
@@ -476,7 +598,11 @@ export type Associado = {
   razao_social?: string;
   cnpj: string;
   telefone: string;
+  /** Opcional: telefone direto do responsável. */
+  telefone_responsavel?: string;
   email: string;
+  /** Opcional: quantidade de funcionários informada no cadastro. */
+  quantidade_funcionarios?: string;
   cep: string;
   endereco: string;
   cidade: string;
@@ -494,19 +620,59 @@ export async function getAssociados(): Promise<Associado[]> {
   const col = collection(db, 'associados');
   const q = query(col, orderBy('created_at', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({
+  const list = snap.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as Associado));
+  // Backfill automático do índice público de CNPJ para cadastros antigos.
+  await syncAssociadosCnpjIndexBatch(list.map((a) => a.cnpj));
+  return list;
 }
 
 export async function createAssociado(data: Omit<Associado, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  const db = getDb();
+  const digits = onlyDigitsCnpj(data.cnpj);
+  if (digits.length !== 14) {
+    throw new Error('CNPJ inválido. Informe os 14 dígitos.');
+  }
+  const col = collection(db, 'associados');
+  const newRef = doc(col);
+  const indexRef = doc(db, ASSOCIADOS_CNPJ_INDEX, digits);
+
+  await runTransaction(db, async (tx) => {
+    const idx = await tx.get(indexRef);
+    if (idx.exists()) {
+      throw new Error('Já existe um associado cadastrado com este CNPJ.');
+    }
+    tx.set(newRef, {
+      ...data,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+    tx.set(indexRef, { updatedAt: serverTimestamp() });
+  });
+
+  return newRef.id;
+}
+
+/**
+ * Fluxo de importação CSV: permite salvar mesmo com CNPJ vazio/inválido.
+ * Quando o CNPJ tiver 14 dígitos, mantém as mesmas validações da criação padrão.
+ */
+export async function createAssociadoFromImport(
+  data: Omit<Associado, 'id' | 'created_at' | 'updated_at'>
+): Promise<string> {
+  const digits = onlyDigitsCnpj(data.cnpj);
+  if (digits.length === 14) {
+    return createAssociado(data);
+  }
+
   const db = getDb();
   const col = collection(db, 'associados');
   const docRef = await addDoc(col, {
     ...data,
     created_at: new Date(),
-    updated_at: new Date()
+    updated_at: new Date(),
   });
   return docRef.id;
 }
@@ -514,16 +680,38 @@ export async function createAssociado(data: Omit<Associado, 'id' | 'created_at' 
 export async function updateAssociado(id: string, data: Partial<Omit<Associado, 'id' | 'created_at'>>): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'associados', id);
+  let prevCnpjDigits = '';
+  if (data.cnpj !== undefined) {
+    const prevSnap = await getDoc(docRef);
+    if (prevSnap.exists() && prevSnap.data()?.cnpj) {
+      prevCnpjDigits = onlyDigitsCnpj(String(prevSnap.data().cnpj));
+    }
+  }
   await updateDoc(docRef, {
     ...data,
     updated_at: new Date()
   });
+  if (data.cnpj !== undefined) {
+    const newDigits = onlyDigitsCnpj(data.cnpj);
+    if (prevCnpjDigits.length === 14 && prevCnpjDigits !== newDigits) {
+      await removeAssociadoCnpjIndex(prevCnpjDigits);
+    }
+    if (newDigits.length === 14) {
+      await setAssociadoCnpjIndex(newDigits);
+    }
+  }
 }
 
 export async function deleteAssociado(id: string): Promise<void> {
+  const prev = await getAssociadoById(id);
   const db = getDb();
-  const docRef = doc(db, 'associados', id);
-  await deleteDoc(docRef);
+  if (prev?.cnpj) {
+    const d = onlyDigitsCnpj(prev.cnpj);
+    if (d.length === 14) {
+      await removeAssociadoCnpjIndex(d);
+    }
+  }
+  await deleteDoc(doc(db, 'associados', id));
 }
 
 export async function getAssociadoById(id: string): Promise<Associado | null> {

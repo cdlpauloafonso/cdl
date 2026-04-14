@@ -5,6 +5,4 @@ alwaysApply: true
 
 # Contexto do projeto CDL
 
-- **Este repositório não é configurado para rodar localmente.** Não execute `npm install`, `npm run dev`, `npm run build` nem assuma que o projeto será executado na máquina do usuário.
-- Não crie ou preencha `node_modules` neste projeto.
-- O frontend e o backend são implantados em ambientes externos (ex.: Vercel, servidor); o desenvolvimento/run local não é requisito.
+

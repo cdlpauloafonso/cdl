@@ -27,6 +27,14 @@ const mockServices = [
     external: false,
   },
   {
+    id: 'vagas-emprego',
+    title: 'Vagas de Emprego',
+    slug: 'vagas-emprego',
+    description: 'Divulgue oportunidades e conecte empresas a candidatos com espaço para vagas e currículos.',
+    href: '/servicos/vagas-emprego',
+    external: false,
+  },
+  {
     id: 'defesa-comercio',
     title: 'Defesa do Comércio',
     slug: 'defesa-comercio',

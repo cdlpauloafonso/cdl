@@ -20,6 +20,19 @@ service cloud.firestore {
     match /campaigns/{campaignId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
+
+      // Inscrições por evento: subcoleção inscricoes (formulário público); leitura/gestão só admin
+      match /inscricoes/{inscriptionId} {
+        allow create: if
+          request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
+          request.resource.data.createdAt is string &&
+          request.resource.data.createdAt.size() >= 10 &&
+          request.resource.data.fields is map &&
+          request.resource.data.fields.size() >= 1 &&
+          request.resource.data.fields.size() <= 20;
+
+        allow get, list, update, delete: if isAdmin();
+      }
     }
 
     // Notícias: leitura só publicadas (ou admin vê tudo)
@@ -76,9 +89,81 @@ service cloud.firestore {
       allow get, list, create, update, delete: if isAdmin();
     }
 
+    // Índice só com CNPJ (14 dígitos como id): leitura unitária pública para validar inscrição em eventos
+    match /associadosCnpjIndex/{cnpjDigits} {
+      allow get: if cnpjDigits.matches('^[0-9]{14}$');
+      allow list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
     // Planos de associados (gestão interna): apenas admin
     match /planos/{planoId} {
       allow get, list, create, update, delete: if isAdmin();
+    }
+
+    // Currículos: criação pública sem login; leitura/gestão apenas admin
+    match /curriculos/{curriculoId} {
+      allow create: if true;
+
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // Vagas: criação pública sem login; leitura pública apenas aprovadas; gestão admin
+    match /vagas/{vagaId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'tituloVaga',
+          'empresa',
+          'cidade',
+          'tipoVaga',
+          'tipoContrato',
+          'quantidadeVagas',
+          'salario',
+          'salarioACombinar',
+          'descricaoVaga',
+          'requisitos',
+          'diferenciais',
+          'cargaHoraria',
+          'prazoCandidatura',
+          'recrutadorNome',
+          'recrutadorEmail',
+          'recrutadorTelefone',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.tituloVaga is string &&
+        request.resource.data.tituloVaga.size() >= 3 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.tipoVaga in ['presencial', 'hibrida', 'remota'] &&
+        request.resource.data.tipoContrato in ['clt', 'estagio', 'temporario', 'pj', 'jovem-aprendiz', 'outro'] &&
+        request.resource.data.quantidadeVagas is int &&
+        request.resource.data.quantidadeVagas >= 1 &&
+        request.resource.data.salario is string &&
+        request.resource.data.salarioACombinar is bool &&
+        request.resource.data.descricaoVaga is string &&
+        request.resource.data.descricaoVaga.size() >= 10 &&
+        request.resource.data.requisitos is string &&
+        request.resource.data.requisitos.size() >= 2 &&
+        request.resource.data.diferenciais is string &&
+        request.resource.data.cargaHoraria is string &&
+        request.resource.data.cargaHoraria.size() >= 2 &&
+        request.resource.data.prazoCandidatura is string &&
+        request.resource.data.recrutadorNome is string &&
+        request.resource.data.recrutadorNome.size() >= 2 &&
+        request.resource.data.recrutadorEmail is string &&
+        request.resource.data.recrutadorEmail.size() >= 5 &&
+        request.resource.data.recrutadorTelefone is string &&
+        request.resource.data.recrutadorTelefone.size() >= 8 &&
+        request.resource.data.status == 'pendente' &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.updatedAt is string;
+
+      allow get, list: if isAdmin() || resource.data.status == 'aprovada';
+      allow update, delete: if isAdmin();
     }
 
     // Negar o restante

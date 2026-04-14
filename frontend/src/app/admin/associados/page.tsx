@@ -1,16 +1,85 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { getAssociados, deleteAssociado, type Associado } from '@/lib/firestore';
 
+function hasRequiredMissingFields(a: Associado): boolean {
+  const isBlank = (v?: string) => !v || !v.trim();
+  const cnpjDigits = (a.cnpj || '').replace(/\D/g, '');
+  return (
+    cnpjDigits.length !== 14 ||
+    isBlank(a.nome) ||
+    isBlank(a.empresa) ||
+    isBlank(a.telefone) ||
+    isBlank(a.endereco) ||
+    isBlank(a.cidade) ||
+    isBlank(a.estado)
+  );
+}
+
 export default function AdminAssociadosPage() {
+  const allFieldKeys = [
+    'cnpj',
+    'empresa',
+    'razao_social',
+    'telefone',
+    'plano',
+    'codigo_spc',
+    'endereco',
+    'nome',
+    'telefone_responsavel',
+    'email',
+    'quantidade_funcionarios',
+    'cep',
+    'cidade',
+    'estado',
+  ] as const;
+  type VisibleFieldKey = (typeof allFieldKeys)[number];
+  const fieldLabel: Record<VisibleFieldKey, string> = {
+    nome: 'Nome',
+    empresa: 'Empresa',
+    razao_social: 'Razão social',
+    cnpj: 'CNPJ',
+    telefone: 'Telefone Empresa',
+    telefone_responsavel: 'Telefone do responsável',
+    email: 'Email',
+    plano: 'Plano',
+    codigo_spc: 'Código SPC',
+    quantidade_funcionarios: 'Qtd. funcionários',
+    cep: 'CEP',
+    endereco: 'Endereço',
+    cidade: 'Cidade',
+    estado: 'Estado',
+  };
+
   const [associados, setAssociados] = useState<Associado[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPlano, setSelectedPlano] = useState('todos');
+  const [selectedCidade, setSelectedCidade] = useState('todas');
+  const [sortBy, setSortBy] = useState<'nome' | 'empresa' | 'plano' | 'cidade'>('nome');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [onlyPendingRequired, setOnlyPendingRequired] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingBulk, setDeletingBulk] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [visibleFieldKeys, setVisibleFieldKeys] = useState<VisibleFieldKey[]>([
+    'empresa',
+    'razao_social',
+    'cnpj',
+    'telefone',
+    'plano',
+    'codigo_spc',
+    'endereco',
+  ]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [excluirPendente, setExcluirPendente] = useState<Associado | null>(null);
+  const [visualizacaoPendente, setVisualizacaoPendente] = useState<Associado | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   useEffect(() => {
     loadAssociados();
@@ -27,12 +96,19 @@ export default function AdminAssociadosPage() {
     }
   };
 
-  const handleDelete = async (id: string, nome: string) => {
+  const handleDelete = async (id: string) => {
     const associadoParaExcluir = associados.find(a => a.id === id);
     if (associadoParaExcluir) {
       setExcluirPendente(associadoParaExcluir);
       setShowDeleteModal(true);
     }
+  };
+
+  const handleView = (id: string) => {
+    const associado = associados.find((a) => a.id === id);
+    if (!associado) return;
+    setVisualizacaoPendente(associado);
+    setShowViewModal(true);
   };
 
   const confirmarExcluir = async () => {
@@ -42,6 +118,7 @@ export default function AdminAssociadosPage() {
     try {
       await deleteAssociado(excluirPendente.id);
       setAssociados(prev => prev.filter(a => a.id !== excluirPendente.id));
+      setSelectedIds(prev => prev.filter((id) => id !== excluirPendente.id));
       setShowDeleteModal(false);
       setExcluirPendente(null);
     } catch (error) {
@@ -57,13 +134,194 @@ export default function AdminAssociadosPage() {
     setExcluirPendente(null);
   };
 
-  const filteredAssociados = associados.filter(associado =>
-    associado.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    associado.empresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (associado.razao_social || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    associado.cnpj.includes(searchTerm) ||
-    associado.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const confirmarExcluirSelecionados = async () => {
+    if (selectedCount === 0) {
+      setShowBulkDeleteModal(false);
+      return;
+    }
+    setDeletingBulk(true);
+    try {
+      const idsToDelete = filteredAssociados.filter((a) => selectedIds.includes(a.id)).map((a) => a.id);
+      for (const id of idsToDelete) {
+        await deleteAssociado(id);
+      }
+      setAssociados((prev) => prev.filter((a) => !idsToDelete.includes(a.id)));
+      setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+      setShowBulkDeleteModal(false);
+    } catch (error) {
+      console.error('Erro ao excluir associados selecionados:', error);
+      alert('Erro ao excluir associados selecionados. Tente novamente.');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
+  const planos = useMemo(
+    () => Array.from(new Set(associados.map((a) => a.plano).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [associados]
   );
+
+  const cidades = useMemo(
+    () => Array.from(new Set(associados.map((a) => a.cidade).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [associados]
+  );
+
+  const filteredAssociados = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    const filtered = associados.filter((associado) => {
+      const matchSearch =
+        !term ||
+        associado.nome.toLowerCase().includes(term) ||
+        associado.empresa.toLowerCase().includes(term) ||
+        (associado.razao_social || '').toLowerCase().includes(term) ||
+        associado.cnpj.includes(searchTerm) ||
+        associado.email.toLowerCase().includes(term);
+      const matchPlano = selectedPlano === 'todos' || associado.plano === selectedPlano;
+      const matchCidade = selectedCidade === 'todas' || associado.cidade === selectedCidade;
+      const matchPendencia = !onlyPendingRequired || hasRequiredMissingFields(associado);
+      return matchSearch && matchPlano && matchCidade && matchPendencia;
+    });
+
+    return filtered.sort((a, b) => {
+      const aValue = (a[sortBy] || '').toString().toLowerCase();
+      const bValue = (b[sortBy] || '').toString().toLowerCase();
+      const comparison = aValue.localeCompare(bValue, 'pt-BR');
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [associados, searchTerm, selectedPlano, selectedCidade, sortBy, sortDirection, onlyPendingRequired]);
+
+  const selectedCount = useMemo(
+    () => filteredAssociados.filter((a) => selectedIds.includes(a.id)).length,
+    [filteredAssociados, selectedIds]
+  );
+
+  const allFilteredSelected = filteredAssociados.length > 0 && selectedCount === filteredAssociados.length;
+  const displayedFieldKeys = allFieldKeys.filter((k) => visibleFieldKeys.includes(k));
+  const associadosParaExportar = useMemo(
+    () =>
+      selectedCount > 0
+        ? filteredAssociados.filter((a) => selectedIds.includes(a.id))
+        : filteredAssociados,
+    [filteredAssociados, selectedIds, selectedCount]
+  );
+
+  function exportarCsv() {
+    if (associadosParaExportar.length === 0) return;
+    if (displayedFieldKeys.length === 0) {
+      alert('Selecione ao menos um campo visível para exportar.');
+      return;
+    }
+    setExportingCsv(true);
+    try {
+      const headers = displayedFieldKeys.map((k) => fieldLabel[k]);
+      const escapeCsv = (value: string) => {
+        const v = (value ?? '').toString();
+        if (/[",;\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+        return v;
+      };
+      const lines = [
+        headers.join(';'),
+        ...associadosParaExportar.map((a) =>
+          displayedFieldKeys
+            .map((k) => (a[k] ?? '').toString())
+            .map(escapeCsv)
+            .join(';')
+        ),
+      ];
+      const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `associados-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingCsv(false);
+    }
+  }
+
+  async function exportarPdf() {
+    if (associadosParaExportar.length === 0) return;
+    if (displayedFieldKeys.length === 0) {
+      alert('Selecione ao menos um campo visível para exportar.');
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const lineH = 3.6;
+      let y = margin;
+
+      const headers = displayedFieldKeys.map((k) => fieldLabel[k]);
+      const colW = (pageW - margin * 2) / headers.length;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Lista de Associados', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(
+        `Gerado em ${new Date().toLocaleString('pt-BR')} · ${associadosParaExportar.length} registro(s)`,
+        margin,
+        y
+      );
+      y += 6;
+
+      const drawHeader = () => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        headers.forEach((h, i) => {
+          const x = margin + i * colW;
+          doc.rect(x, y, colW, 7);
+          const lines = doc.splitTextToSize(h, colW - 2) as string[];
+          doc.text(lines[0] ?? h, x + 1, y + 4.5);
+        });
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+      };
+
+      const ensureRowSpace = (rowH: number) => {
+        if (y + rowH > pageH - margin) {
+          doc.addPage();
+          y = margin;
+          drawHeader();
+        }
+      };
+
+      drawHeader();
+
+      associadosParaExportar.forEach((a) => {
+        const rowValues = displayedFieldKeys.map((k) => (a[k] ?? '—').toString());
+        const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
+        const maxLines = Math.max(1, ...wrapped.map((w) => w.length));
+        const rowH = Math.max(6, maxLines * lineH + 2);
+        ensureRowSpace(rowH);
+
+        wrapped.forEach((lines, i) => {
+          const x = margin + i * colW;
+          doc.rect(x, y, colW, rowH);
+          lines.forEach((line, idx) => {
+            doc.text(line, x + 1, y + 4 + idx * lineH);
+          });
+        });
+        y += rowH;
+      });
+
+      doc.save(`associados-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Não foi possível exportar o PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -83,12 +341,40 @@ export default function AdminAssociadosPage() {
           <h1 className="text-2xl font-bold text-gray-900">Lista de Associados</h1>
           <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
         </div>
-        <Link href="/admin/associados/adicionar" className="btn-primary">
-          Adicionar Associado
-        </Link>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => void exportarPdf()}
+            disabled={exportingPdf || filteredAssociados.length === 0}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
+          </button>
+          <button
+            type="button"
+            onClick={exportarCsv}
+            disabled={exportingCsv || filteredAssociados.length === 0}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
+          </button>
+          {selectedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteModal(true)}
+              disabled={deletingBulk}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {deletingBulk ? 'Excluindo...' : 'Excluir'}
+            </button>
+          )}
+          <Link href="/admin/associados/adicionar" className="btn-primary">
+            Adicionar Associado
+          </Link>
+        </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-4">
             <div className="relative">
               <input
                 type="text"
@@ -103,6 +389,107 @@ export default function AdminAssociadosPage() {
                 </svg>
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <select
+                value={selectedPlano}
+                onChange={(e) => setSelectedPlano(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+              >
+                <option value="todos">Todos os planos</option>
+                {planos.map((plano) => (
+                  <option key={plano} value={plano}>{plano}</option>
+                ))}
+              </select>
+              <select
+                value={selectedCidade}
+                onChange={(e) => setSelectedCidade(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+              >
+                <option value="todas">Todas as cidades</option>
+                {cidades.map((cidade) => (
+                  <option key={cidade} value={cidade}>{cidade}</option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'nome' | 'empresa' | 'plano' | 'cidade')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+              >
+                <option value="nome">Ordenar por Nome</option>
+                <option value="empresa">Ordenar por Empresa</option>
+                <option value="plano">Ordenar por Plano</option>
+                <option value="cidade">Ordenar por Cidade</option>
+              </select>
+              <select
+                value={sortDirection}
+                onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+              >
+                <option value="asc">Ordem: A-Z</option>
+                <option value="desc">Ordem: Z-A</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedPlano('todos');
+                  setSelectedCidade('todas');
+                  setSortBy('nome');
+                  setSortDirection('asc');
+                  setOnlyPendingRequired(false);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Limpar filtros
+              </button>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={onlyPendingRequired}
+                onChange={(e) => setOnlyPendingRequired(e.target.checked)}
+              />
+              Auditoria: exibir apenas cadastros com campos obrigatórios pendentes
+            </label>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-gray-900">Campos visíveis na tabela</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleFieldKeys([...allFieldKeys])}
+                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Marcar todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleFieldKeys([])}
+                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {allFieldKeys.map((k) => (
+                  <label key={k} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={visibleFieldKeys.includes(k)}
+                      onChange={(e) =>
+                        setVisibleFieldKeys((prev) =>
+                          e.target.checked
+                            ? [...prev, k]
+                            : prev.filter((x) => x !== k)
+                        )
+                      }
+                    />
+                    {fieldLabel[k]}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
       <div className="bg-white shadow-lg rounded-lg overflow-hidden">
@@ -110,45 +497,102 @@ export default function AdminAssociadosPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-cdl-gray">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Nome</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Empresa</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">CNPJ</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Telefone</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Plano</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const ids = filteredAssociados.map((a) => a.id);
+                            setSelectedIds((prev) => Array.from(new Set([...prev, ...ids])));
+                          } else {
+                            const idsSet = new Set(filteredAssociados.map((a) => a.id));
+                            setSelectedIds((prev) => prev.filter((id) => !idsSet.has(id)));
+                          }
+                        }}
+                      />
+                    </th>
+                    {displayedFieldKeys.map((k) => (
+                      <th key={k} className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        {fieldLabel[k]}
+                      </th>
+                    ))}
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredAssociados.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-cdl-gray-text">
+                      <td colSpan={displayedFieldKeys.length + 2} className="px-4 py-8 text-center text-cdl-gray-text">
                         {searchTerm ? 'Nenhum associado encontrado para esta busca.' : 'Nenhum associado cadastrado.'}
                       </td>
                     </tr>
                   ) : (
                     filteredAssociados.map((associado) => (
                       <tr key={associado.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.nome}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.empresa}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.cnpj}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.telefone}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.email}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{associado.plano}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(associado.id)}
+                            onChange={(e) => {
+                              setSelectedIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, associado.id]
+                                  : prev.filter((id) => id !== associado.id)
+                              );
+                            }}
+                          />
+                        </td>
+                        {displayedFieldKeys.map((k) => {
+                          const value = (associado[k] ?? '').toString().trim();
+                          return (
+                            <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                              {value || '—'}
+                            </td>
+                          );
+                        })}
                         <td className="px-4 py-3 text-sm text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleView(associado.id)}
+                              aria-label="Ver associado"
+                              title="Ver"
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-gray-700 hover:bg-gray-100"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
                             <Link
                               href={`/admin/associados/editar?id=${encodeURIComponent(associado.id)}`}
-                              className="text-cdl-blue hover:underline"
+                              aria-label="Editar associado"
+                              title="Editar"
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-cdl-blue hover:bg-cdl-blue/10"
                             >
-                              Editar
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
                             </Link>
                             <button
-                              onClick={() => handleDelete(associado.id, associado.nome)}
+                              onClick={() => handleDelete(associado.id)}
                               disabled={deletingId === associado.id}
-                              className="text-red-600 hover:underline disabled:opacity-50"
+                              aria-label="Excluir associado"
+                              title="Excluir"
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
                             >
-                              {deletingId === associado.id ? 'Excluindo...' : 'Excluir'}
+                              {deletingId === associado.id ? (
+                                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" aria-hidden>
+                                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-25" />
+                                  <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-75" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                                </svg>
+                              )}
                             </button>
                           </div>
                         </td>
@@ -164,11 +608,13 @@ export default function AdminAssociadosPage() {
         <div className="text-center py-12">
           <div className="text-6xl text-gray-300 mb-4">📋</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {searchTerm ? 'Nenhum associado encontrado' : 'Nenhum associado cadastrado'}
+            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas'
+              ? 'Nenhum associado encontrado'
+              : 'Nenhum associado cadastrado'}
           </h3>
           <p className="text-cdl-gray-text mb-6">
-            {searchTerm
-              ? 'Tente buscar com outros termos.'
+            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas'
+              ? 'Ajuste os filtros ou tente outra busca.'
               : 'Comece adicionando seu primeiro associado.'}
           </p>
           <Link href="/admin/associados/adicionar" className="btn-primary">
@@ -206,6 +652,115 @@ export default function AdminAssociadosPage() {
                 >
                   Sim, excluir
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-8 max-w-lg mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-700 mb-2">DANGER · área sensível</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Excluir vários associados?</h3>
+              <p className="text-gray-600 mb-6">
+                Tem certeza que deseja excluir <strong>{selectedCount}</strong> associado(s) selecionado(s)? Esta ação não pode ser desfeita.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  disabled={deletingBulk}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarExcluirSelecionados()}
+                  disabled={deletingBulk}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingBulk ? 'Excluindo...' : 'Sim, excluir selecionados'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showViewModal && visualizacaoPendente && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Dados do Associado</h3>
+                <p className="text-sm text-cdl-gray-text mt-1">
+                  {visualizacaoPendente.nome || '—'} · {visualizacaoPendente.empresa || '—'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowViewModal(false);
+                  setVisualizacaoPendente(null);
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {[
+                ['ID', visualizacaoPendente.id],
+                ['Nome', visualizacaoPendente.nome],
+                ['Empresa', visualizacaoPendente.empresa],
+                ['Razão social', visualizacaoPendente.razao_social || '—'],
+                ['CNPJ', visualizacaoPendente.cnpj],
+                ['Telefone Empresa', visualizacaoPendente.telefone],
+                ['Telefone do responsável', visualizacaoPendente.telefone_responsavel || '—'],
+                ['Email', visualizacaoPendente.email],
+                ['Plano', visualizacaoPendente.plano || '—'],
+                ['Código SPC', visualizacaoPendente.codigo_spc || '—'],
+                ['Qtd. funcionários', visualizacaoPendente.quantidade_funcionarios || '—'],
+                ['CEP', visualizacaoPendente.cep || '—'],
+                ['Endereço', visualizacaoPendente.endereco || '—'],
+                ['Cidade', visualizacaoPendente.cidade || '—'],
+                ['Estado', visualizacaoPendente.estado || '—'],
+              ].map(([label, value]) => (
+                <div key={label as string} className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+                  <p className="mt-1 text-gray-900 break-words">{value as string}</p>
+                </div>
+              ))}
+
+              <div className="md:col-span-2 rounded-lg border border-gray-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Observações</p>
+                <p className="mt-1 text-gray-900 whitespace-pre-wrap break-words">
+                  {visualizacaoPendente.observacoes || '—'}
+                </p>
+              </div>
+
+              <div className="md:col-span-2 rounded-lg border border-gray-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Aniversariantes</p>
+                {visualizacaoPendente.aniversariantes?.length ? (
+                  <ul className="space-y-1 text-gray-900">
+                    {visualizacaoPendente.aniversariantes.map((a, idx) => (
+                      <li key={`${a.nome}-${idx}`}>
+                        {a.nome || '—'} — {a.data || '—'}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-900">—</p>
+                )}
               </div>
             </div>
           </div>

@@ -19,6 +19,7 @@ const adminNav = [
     ],
   },
   { href: '/admin/aniversarios', label: 'Aniversários' },
+  { href: '/admin/eventos', label: 'Eventos' },
   { href: '/admin/paginas', label: 'Páginas' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
@@ -38,6 +39,13 @@ const adminNav = [
         { href: '/admin/servicos', label: 'Serviços' },
       ],
     },
+  {
+    label: 'Vagas de Emprego',
+    children: [
+      { href: '/admin/vagas-emprego/vagas', label: 'Vagas' },
+      { href: '/admin/vagas-emprego/curriculos', label: 'Currículos' },
+    ],
+  },
   { href: '/admin/noticias', label: 'Notícias' },
   { href: '/admin/campanhas', label: 'Campanhas' },
   { href: '/admin/contato', label: 'Mensagens' },
@@ -200,7 +208,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === item.href ? 'bg-cdl-blue text-white' : 'text-gray-700 hover:bg-cdl-gray'
+                  (item.href === '/admin/eventos' ? pathname.startsWith('/admin/eventos') : pathname === item.href)
+                    ? 'bg-cdl-blue text-white'
+                    : 'text-gray-700 hover:bg-cdl-gray'
                 }`}
               >
                 {item.label}

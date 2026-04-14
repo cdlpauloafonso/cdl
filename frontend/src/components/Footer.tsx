@@ -11,6 +11,7 @@ const links = [
   { href: '/servicos', label: 'Soluções para empresas' },
   { href: '/servicos/auditorio', label: 'Auditório' },
   { href: '/servicos/certificado-digital', label: 'Certificado Digital' },
+  { href: '/servicos/vagas-emprego', label: 'Vagas de Emprego' },
   { href: '/noticias', label: 'Notícias' },
   { href: '/atendimento', label: 'Atendimento' },
   { href: '/area-associado', label: 'Área do Associado' },

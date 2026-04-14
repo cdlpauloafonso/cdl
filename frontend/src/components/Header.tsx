@@ -11,7 +11,7 @@ const menuItems = [
     children: [
       { href: '/institucional/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
       { href: '/institucional/nossa-cidade', label: 'Nossa Cidade' },
-      { href: '/institucional/campanhas', label: 'Campanhas' },
+      { href: '/institucional/campanhas', label: 'Campanhas e Eventos' },
     ],
   },
   {
@@ -21,6 +21,7 @@ const menuItems = [
       { href: '/servicos/auditorio', label: 'Auditório' },
       { href: '/servicos/certificado-digital', label: 'Certificado Digital' },
       { href: '/servicos/beneficios-associados', label: 'Benefícios para associados' },
+      { href: '/servicos/vagas-emprego', label: 'Vagas de Emprego' },
     ],
   },
   { href: '/noticias', label: 'Notícias' },
