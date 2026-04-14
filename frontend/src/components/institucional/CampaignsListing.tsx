@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCampaigns, Campaign } from '@/lib/firestore';
+import { listCampaignsByCreatedAtDesc, Campaign } from '@/lib/firestore';
 
 type CampaignsListingProps = {
   title: string;
@@ -16,7 +16,7 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
 
   useEffect(() => {
     let mounted = true;
-    listCampaigns()
+    listCampaignsByCreatedAtDesc()
       .then((list) => {
         if (mounted) setItems(list);
       })
@@ -43,12 +43,12 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
           <p className="text-center text-cdl-gray-text">{loadingLabel}</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12 [direction:rtl]">
               {items.map((event) => (
                 <Link
                   key={event.id}
-                  href={`/institucional/campanhas/${event.id}`}
-                  className="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg hover:border-cdl-blue/30 transition-all block"
+                  href={`/institucional/campanhas/ver?slug=${encodeURIComponent(event.id)}`}
+                  className="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg hover:border-cdl-blue/30 transition-all block [direction:ltr]"
                 >
                   <div className="relative h-48 overflow-hidden">
                     {event.image ? (

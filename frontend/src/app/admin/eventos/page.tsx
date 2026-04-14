@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCampaigns, deleteCampaignById, type Campaign } from '@/lib/firestore';
+import { listCampaigns, deleteCampaignById, countEventInscriptions, type Campaign } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
@@ -15,19 +15,35 @@ export default function AdminEventosPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [eventoParaExcluir, setEventoParaExcluir] = useState<Campaign | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [inscritosPorEvento, setInscritosPorEvento] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let mounted = true;
-    listCampaigns()
-      .then((list) => {
-        if (mounted) setItems(list);
-      })
-      .catch(() => {
+    (async () => {
+      try {
+        const list = await listCampaigns();
+        if (!mounted) return;
+        setItems(list);
+        const countEntries = await Promise.all(
+          list
+            .filter((ev) => !!ev.id && getEffectiveRegistration(ev).kind === 'form')
+            .map(async (ev) => {
+              try {
+                const total = await countEventInscriptions(ev.id as string);
+                return [ev.id as string, total] as const;
+              } catch {
+                return [ev.id as string, 0] as const;
+              }
+            })
+        );
+        if (!mounted) return;
+        setInscritosPorEvento(Object.fromEntries(countEntries));
+      } catch {
         if (mounted) setError('Erro ao carregar eventos');
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    })();
     return () => {
       mounted = false;
     };
@@ -113,7 +129,7 @@ export default function AdminEventosPage() {
                         Data / período
                       </th>
                       <th scope="col" className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
-                        Inscrição
+                        Inscritos
                       </th>
                       <th scope="col" className="px-4 py-3 font-semibold text-gray-900 text-right whitespace-nowrap">
                         Ações
@@ -123,12 +139,7 @@ export default function AdminEventosPage() {
                   <tbody className="divide-y divide-gray-100">
                     {items.map((ev) => {
                       const reg = getEffectiveRegistration(ev);
-                      const inscricaoLabel =
-                        reg.kind === 'external'
-                          ? 'Link externo'
-                          : reg.kind === 'form'
-                            ? 'Formulário no site'
-                            : '—';
+                      const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50/80">
                           <td className="px-4 py-3 align-top">
@@ -139,11 +150,11 @@ export default function AdminEventosPage() {
                           </td>
                           <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
                           <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
-                          <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{inscricaoLabel}</td>
+                          <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{inscritos}</td>
                           <td className="px-4 py-3 align-top text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
                               <Link
-                                href={`/institucional/campanhas/${ev.id}`}
+                                href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id)}`}
                                 target="_blank"
                                 className="inline-block px-2 py-1.5 text-cdl-blue hover:bg-cdl-blue/10 rounded-md text-xs sm:text-sm"
                               >
@@ -158,7 +169,7 @@ export default function AdminEventosPage() {
                                     Ver inscritos
                                   </Link>
                                   <Link
-                                    href={`/institucional/campanhas/inscricao/${ev.id}`}
+                                    href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(ev.id)}`}
                                     target="_blank"
                                     className="inline-block px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-md text-xs sm:text-sm"
                                   >
@@ -168,17 +179,33 @@ export default function AdminEventosPage() {
                               )}
                               <Link
                                 href={`/admin/campanhas/edit?id=${ev.id}`}
-                                className="inline-block px-2 py-1.5 bg-cdl-blue text-white hover:opacity-90 rounded-md text-xs sm:text-sm"
+                                aria-label="Editar evento"
+                                title="Editar"
+                                className="inline-flex items-center justify-center rounded-md p-1.5 text-cdl-blue hover:bg-cdl-blue/10"
                               >
-                                Editar
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
                               </Link>
                               <button
                                 type="button"
                                 onClick={() => abrirConfirmacaoExclusao(ev)}
                                 disabled={deletingId === ev.id}
-                                className="inline-block px-2 py-1.5 text-red-600 hover:bg-red-50 rounded-md text-xs sm:text-sm disabled:opacity-50"
+                                aria-label="Excluir evento"
+                                title="Excluir"
+                                className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
                               >
-                                {deletingId === ev.id ? 'Excluindo...' : 'Excluir'}
+                                {deletingId === ev.id ? (
+                                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden>
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-25" />
+                                    <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-75" />
+                                  </svg>
+                                ) : (
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                                  </svg>
+                                )}
                               </button>
                             </div>
                           </td>

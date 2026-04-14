@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   createEventInscription,
   getCampaign,
+  getSettings,
   isCnpjCadastradoComoAssociado,
   type Campaign,
 } from '@/lib/firestore';
@@ -38,6 +39,14 @@ const DOC_TITLE_BASE = 'CDL Paulo Afonso';
 
 const MSG_CNPJ_NAO_ASSOCIADO =
   'Este CNPJ não está cadastrado como associado da CDL Paulo Afonso. Somente associados podem se inscrever.';
+const WHATSAPP_STORAGE_KEY = 'cdl_whatsapp_number';
+
+function formatWhatsAppNumber(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (digits.startsWith('55')) return digits;
+  if (digits.length >= 10) return `55${digits}`;
+  return digits;
+}
 
 type CnpjLookupProps = {
   loading: boolean;
@@ -152,6 +161,8 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [cnpjStepValue, setCnpjStepValue] = useState('');
+  const [cnpjStepDone, setCnpjStepDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -159,6 +170,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [cnpjRejeitadoNaoAssociado, setCnpjRejeitadoNaoAssociado] = useState(false);
+  const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
   const cnpjLookupReq = useRef(0);
 
   useEffect(() => {
@@ -184,6 +196,33 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     document.title = `Inscrição · ${campanha.title} | ${DOC_TITLE_BASE}`;
     return () => {
       document.title = DOC_TITLE_BASE;
+    };
+  }, [campanha?.title]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const env = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
+      const stored =
+        typeof window !== 'undefined' ? localStorage.getItem(WHATSAPP_STORAGE_KEY)?.trim() ?? '' : '';
+      let number = '';
+      try {
+        const settings = await getSettings();
+        const apiNum = settings?.whatsapp_number?.trim();
+        if (apiNum) number = formatWhatsAppNumber(apiNum);
+      } catch {
+        // fallback para storage/env
+      }
+      if (!number && stored) number = formatWhatsAppNumber(stored);
+      if (!number && env) number = formatWhatsAppNumber(env);
+      if (!mounted || !number || number.length < 10) return;
+      const msg = encodeURIComponent(
+        `Olá! Sou associado (ou estou tentando me inscrever) e meu CNPJ não validou na inscrição do evento "${campanha?.title ?? ''}". Podem me ajudar?`
+      );
+      setSupportWhatsappUrl(`https://wa.me/${number}?text=${msg}`);
+    })();
+    return () => {
+      mounted = false;
     };
   }, [campanha?.title]);
 
@@ -217,14 +256,17 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       ? reg.observationText.trim()
       : '';
   const payment = getEffectivePayment(campanha);
+  const needsCnpjValidationStep = userInputKeys.includes('cnpj');
 
-  async function handleCnpjBlur(e: React.FocusEvent<HTMLInputElement>) {
-    const raw = e.currentTarget.value;
-    const digits = onlyDigitsCnpj(raw);
+  async function lookupCnpjAndPrefill(raw: string, opts?: { setFormErrorOnInvalid?: boolean }): Promise<boolean> {
+    const digits = onlyDigitsCnpj(raw ?? '');
     if (digits.length !== 14) {
       setCnpjLookupHint(null);
       setCnpjRejeitadoNaoAssociado(false);
-      return;
+      if (opts?.setFormErrorOnInvalid) {
+        setError('Informe um CNPJ válido para continuar.');
+      }
+      return false;
     }
     const req = ++cnpjLookupReq.current;
     setCnpjLookupLoading(true);
@@ -235,7 +277,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       if (!isAssociado) {
         setCnpjRejeitadoNaoAssociado(true);
         setCnpjLookupHint({ type: 'err', text: MSG_CNPJ_NAO_ASSOCIADO });
-        return;
+        return false;
       }
       setCnpjRejeitadoNaoAssociado(false);
 
@@ -243,20 +285,32 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       if (req !== cnpjLookupReq.current) return;
       const patch = associadoFormPatchFromBrasilApi(data);
       const merged = mergeInscriptionValuesFromCnpjPatch(userInputKeys, patch);
-      setValues((prev) => ({ ...prev, ...merged }));
+      const maskedCnpj = applyInscriptionFieldMask('cnpj', digits);
+      setValues((prev) => ({ ...prev, ...merged, cnpj: maskedCnpj }));
+      setCnpjStepValue(maskedCnpj);
       setCnpjLookupHint({
         type: 'ok',
         text: 'Dados preenchidos via Brasil API (CNPJ / Minha Receita). Revise antes de enviar.',
       });
+      return true;
     } catch (err) {
       if (req !== cnpjLookupReq.current) return;
       const text = err instanceof Error ? err.message : 'Não foi possível consultar o CNPJ.';
       setCnpjLookupHint({ type: 'err', text });
+      if (opts?.setFormErrorOnInvalid) {
+        setError(text);
+      }
+      return false;
     } finally {
       if (req === cnpjLookupReq.current) {
         setCnpjLookupLoading(false);
       }
     }
+    return false;
+  }
+
+  async function handleCnpjBlur(e: React.FocusEvent<HTMLInputElement>) {
+    await lookupCnpjAndPrefill(e.currentTarget.value);
   }
 
   const cnpjLookupUi: CnpjLookupProps | undefined = userInputKeys.includes('cnpj')
@@ -317,6 +371,14 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     }
   }
 
+  async function handleCnpjStepSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    const ok = await lookupCnpjAndPrefill(cnpjStepValue, { setFormErrorOnInvalid: true });
+    if (!ok) return;
+    setCnpjStepDone(true);
+  }
+
   if (done) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
@@ -327,7 +389,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
             <p className="text-cdl-gray-text mb-6">
               Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.
             </p>
-            <Link href={`/institucional/campanhas/${slug}`} className="btn-primary inline-block">
+            <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`} className="btn-primary inline-block">
               Voltar ao evento
             </Link>
           </div>
@@ -341,7 +403,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       <div className="container-cdl max-w-2xl">
         <nav className="mb-8">
           <Link
-            href={`/institucional/campanhas/${slug}`}
+            href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
             className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
           >
             <span aria-hidden>←</span> Voltar ao evento
@@ -375,11 +437,71 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">
-            {payment.kind === 'pix' && pixStepActive ? 'Pagamento (PIX)' : 'Preencha seus dados'}
+            {needsCnpjValidationStep && !cnpjStepDone
+              ? 'Validação de associado'
+              : payment.kind === 'pix' && pixStepActive
+                ? 'Pagamento (PIX)'
+                : 'Preencha seus dados'}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {!(payment.kind === 'pix' && pixStepActive) ? (
+          {needsCnpjValidationStep && !cnpjStepDone ? (
+            <form onSubmit={handleCnpjStepSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CNPJ
+                  <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
+                    Para continuar, informe o CNPJ da empresa associada.
+                  </span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={cnpjStepValue}
+                  onChange={(e) => {
+                    setError('');
+                    setCnpjLookupHint(null);
+                    setCnpjRejeitadoNaoAssociado(false);
+                    const masked = applyInscriptionFieldMask('cnpj', e.target.value);
+                    setCnpjStepValue(masked);
+                    setValues((prev) => ({ ...prev, cnpj: masked }));
+                  }}
+                  placeholder="00.000.000/0000-00"
+                  inputMode="numeric"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+                {cnpjLookupLoading && (
+                  <p className="mt-1 text-xs text-cdl-gray-text">Consultando Brasil API…</p>
+                )}
+                {cnpjLookupHint && !cnpjLookupLoading && (
+                  <p className={`mt-1 text-xs ${cnpjLookupHint.type === 'ok' ? 'text-green-800' : 'text-red-700'}`}>
+                    {cnpjLookupHint.text}
+                  </p>
+                )}
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              {cnpjRejeitadoNaoAssociado && (
+                <div className="rounded-lg border border-cdl-blue/20 bg-cdl-blue/5 p-4">
+                  <p className="text-sm text-cdl-gray-text mb-3">
+                    Se você ainda não for associado, pode iniciar sua associação. Caso já seja associado e a validação não
+                    tenha funcionado, fale com nosso atendimento.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link href="/associe-se" className="btn-primary">
+                      Associe-se
+                    </Link>
+                    <a href={supportWhatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                      Comunicar problema
+                    </a>
+                  </div>
+                </div>
+              )}
+              <button type="submit" disabled={cnpjLookupLoading} className="btn-primary w-full sm:w-auto min-w-[220px]">
+                {cnpjLookupLoading ? 'Validando...' : 'Validar CNPJ e continuar'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {!(payment.kind === 'pix' && pixStepActive) ? (
               <>
                 {adminObservationText && (
                   <section className="rounded-lg border border-cdl-blue/20 bg-cdl-blue/5 px-4 py-3">
@@ -470,6 +592,20 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                   Voltar e revisar dados
                 </button>
               )}
+              {needsCnpjValidationStep && !pixStepActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCnpjStepDone(false);
+                    setPixStepActive(false);
+                    setError('');
+                  }}
+                  disabled={submitting}
+                  className="btn-secondary"
+                >
+                  Alterar CNPJ
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={submitting || (userInputKeys.includes('cnpj') && cnpjRejeitadoNaoAssociado)}
@@ -484,7 +620,8 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                     : 'Confirmar inscrição'}
               </button>
             </div>
-          </form>
+            </form>
+          )}
         </div>
       </div>
     </div>

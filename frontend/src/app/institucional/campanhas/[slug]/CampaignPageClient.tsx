@@ -95,7 +95,7 @@ export function CampaignPageClient({ slug }: { slug: string }) {
               </a>
             ) : (
               <Link
-                href={`/institucional/campanhas/inscricao/${slug}`}
+                href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>

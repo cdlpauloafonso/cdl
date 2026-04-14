@@ -1,6 +1,46 @@
+ 'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getSettings } from '@/lib/firestore';
+
+const WHATSAPP_STORAGE_KEY = 'cdl_whatsapp_number';
+
+function formatWhatsAppNumber(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (digits.startsWith('55')) return digits;
+  if (digits.length >= 10) return `55${digits}`;
+  return digits;
+}
 
 export default function AssocieSePage() {
+  const [specialistUrl, setSpecialistUrl] = useState('/atendimento');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const env = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
+      const stored =
+        typeof window !== 'undefined' ? localStorage.getItem(WHATSAPP_STORAGE_KEY)?.trim() ?? '' : '';
+      let number = '';
+      try {
+        const settings = await getSettings();
+        const apiNum = settings?.whatsapp_number?.trim();
+        if (apiNum) number = formatWhatsAppNumber(apiNum);
+      } catch {
+        // fallback storage/env
+      }
+      if (!number && stored) number = formatWhatsAppNumber(stored);
+      if (!number && env) number = formatWhatsAppNumber(env);
+      if (!mounted || !number || number.length < 10) return;
+      const msg = encodeURIComponent('Olá! Quero falar com um especialista para associação na CDL Paulo Afonso.');
+      setSpecialistUrl(`https://wa.me/${number}?text=${msg}`);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="py-12 sm:py-16">
       <div className="container-cdl max-w-2xl">
@@ -39,9 +79,12 @@ export default function AssocieSePage() {
             Entre em contato para falar com um especialista e fazer sua proposta de associação.
           </p>
           <div className="mt-6 flex flex-wrap gap-4">
-            <Link href="/atendimento" className="btn-primary">
-              Fale com especialista
+            <Link href="/associe-se/me-associar" className="btn-primary">
+              Me associar
             </Link>
+            <a href={specialistUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+              Fale com especialista
+            </a>
             <a href="mailto:cdlpauloafonso@hotmail.com" className="btn-secondary">
               cdlpauloafonso@hotmail.com
             </a>

@@ -27,12 +27,14 @@ export default function AdicionarAssociadoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
+    status: 'ativo' as 'ativo' | 'desativado' | 'em_negociacao',
     nome: '',
     empresa: '',
     razao_social: '',
     cnpj: '',
     telefone: '',
     telefone_responsavel: '',
+    data_nascimento_responsavel: '',
     email: '',
     quantidade_funcionarios: '',
     cep: '',
@@ -503,6 +505,19 @@ export default function AdicionarAssociadoPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de nascimento do responsável
+                </label>
+                <input
+                  type="date"
+                  value={formData.data_nascimento_responsavel}
+                  onChange={(e) =>
+                    setFormData({ ...formData, data_nascimento_responsavel: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome da Empresa *{' '}
                   <span className="font-normal text-cdl-gray-text">(nome fantasia)</span>
                 </label>
@@ -535,6 +550,25 @@ export default function AdicionarAssociadoPage() {
                     Nenhum plano ativo. Cadastre em Associados → Planos.
                   </p>
                 )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value as 'ativo' | 'desativado' | 'em_negociacao',
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="desativado">Desativado</option>
+                  <option value="em_negociacao">Em negociação</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -102,77 +102,54 @@ export default function AdminPlanosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {filteredPlanos.length === 0 ? (
-          <div className="col-span-full text-center py-12">
+          <div className="text-center py-12">
             <div className="text-6xl text-gray-300 mb-4">📋</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               {searchTerm ? 'Nenhum plano encontrado' : 'Nenhum plano cadastrado'}
             </h3>
             <p className="text-cdl-gray-text mb-6">
-              {searchTerm 
-                ? 'Tente buscar com outros termos.' 
-                : 'Comece adicionando seu primeiro plano.'
-              }
+              {searchTerm ? 'Tente buscar com outros termos.' : 'Comece adicionando seu primeiro plano.'}
             </p>
             <Link href="/admin/associados/planos/adicionar" className="btn-primary">
               Adicionar Primeiro Plano
             </Link>
           </div>
         ) : (
-          filteredPlanos.map((plano) => (
-            <div key={plano.id} className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-              <div className={`h-2 ${plano.ativo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">{plano.nome}</h3>
-                    <p className="text-2xl font-bold text-cdl-blue mt-2">{plano.preco}</p>
-                    <p className="text-sm text-gray-600">{plano.periodicidade}</p>
+          <ul className="divide-y divide-gray-200">
+            {filteredPlanos.map((plano) => (
+              <li key={plano.id} className="px-4 py-4 sm:px-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-bold text-gray-900">{plano.nome}</h3>
+                      <button
+                        onClick={() => handleToggleStatus(plano.id, plano.ativo)}
+                        disabled={togglingId === plano.id}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          plano.ativo
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        } disabled:opacity-50`}
+                      >
+                        {togglingId === plano.id ? '...' : plano.ativo ? 'Ativo' : 'Inativo'}
+                      </button>
+                    </div>
+                    <p className="text-cdl-blue font-semibold mt-1">
+                      {plano.preco} <span className="text-gray-600 font-normal">({plano.periodicidade})</span>
+                    </p>
+                    <p className="text-sm text-gray-700 mt-2">{plano.descricao}</p>
+                    {plano.beneficios && plano.beneficios.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        {plano.beneficios.length} benefício(s) cadastrado(s)
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleStatus(plano.id, plano.ativo)}
-                      disabled={togglingId === plano.id}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        plano.ativo 
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      } disabled:opacity-50`}
-                    >
-                      {togglingId === plano.id ? '...' : plano.ativo ? 'Ativo' : 'Inativo'}
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-gray-700 mb-4 line-clamp-3">{plano.descricao}</p>
-
-                {plano.beneficios && plano.beneficios.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Benefícios:</h4>
-                    <ul className="space-y-1">
-                      {plano.beneficios.slice(0, 3).map((beneficio, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start">
-                          <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {beneficio}
-                        </li>
-                      ))}
-                      {plano.beneficios.length > 3 && (
-                        <li className="text-sm text-gray-500">
-                          +{plano.beneficios.length - 3} benefícios...
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="text-xs text-gray-500">
-                    {plano.created_at ? new Date(plano.created_at.seconds * 1000).toLocaleDateString('pt-BR') : '—'}
-                  </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs text-gray-500">
+                      {plano.created_at ? new Date(plano.created_at.seconds * 1000).toLocaleDateString('pt-BR') : '—'}
+                    </span>
                     <Link
                       href={`/admin/associados/planos/editar/${plano.id}`}
                       className="text-cdl-blue hover:underline text-sm font-medium"
@@ -188,9 +165,9 @@ export default function AdminPlanosPage() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  deleteEventInscription,
   getCampaign,
   listEventInscriptions,
   updateEventInscriptionPaymentStatus,
@@ -75,6 +76,8 @@ export default function AdminEventoInscritosPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
   const [paymentConfirmTarget, setPaymentConfirmTarget] = useState<{
     inscriptionId: string;
     nextStatus: EventInscriptionPaymentStatus;
@@ -217,6 +220,7 @@ export default function AdminEventoInscritosPage() {
 
   const allFilteredSelected =
     filteredRows.length > 0 && filteredRows.every((r) => selectedIds.includes(r.id));
+  const selectedCount = selectedIds.length;
 
   function askChangePaymentStatus(
     row: EventInscriptionRecord & { id: string },
@@ -244,6 +248,22 @@ export default function AdminEventoInscritosPage() {
       setError('Não foi possível atualizar o status de pagamento.');
     } finally {
       setUpdatingPaymentId(null);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (!eventId || selectedIds.length === 0) return;
+    setDeletingSelected(true);
+    setError('');
+    try {
+      await Promise.all(selectedIds.map((id) => deleteEventInscription(eventId, id)));
+      setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      setSelectedIds([]);
+      setShowDeleteSelectedModal(false);
+    } catch {
+      setError('Não foi possível excluir as inscrições selecionadas.');
+    } finally {
+      setDeletingSelected(false);
     }
   }
 
@@ -369,6 +389,15 @@ export default function AdminEventoInscritosPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
+          {selectedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteSelectedModal(true)}
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+            >
+              Excluir selecionados ({selectedCount})
+            </button>
+          )}
           <button
             type="button"
             disabled={exportingPdf || filteredRows.length === 0 || !campanha}
@@ -685,6 +714,66 @@ export default function AdminEventoInscritosPage() {
                   className="rounded-lg bg-cdl-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {updatingPaymentId ? 'Salvando...' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteSelectedModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-selected-title"
+          onClick={() => {
+            if (!deletingSelected) setShowDeleteSelectedModal(false);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-amber-200 bg-amber-50 px-5 py-3">
+              <p className="text-sm font-semibold text-amber-900">DANGER · área sensível</p>
+              <p className="mt-1 text-xs text-amber-800">
+                Esta ação remove inscrições oficiais do evento e não pode ser desfeita.
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                  <svg className="h-7 w-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h3 id="confirm-delete-selected-title" className="text-center text-lg font-bold text-gray-900">
+                Excluir inscrições selecionadas?
+              </h3>
+              <p className="mt-3 text-center text-sm text-gray-600">
+                Você está prestes a excluir <strong className="text-gray-900">{selectedCount}</strong> inscrição(ões).
+                <span className="font-medium text-gray-800"> Não é possível desfazer.</span>
+              </p>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteSelectedModal(false)}
+                  disabled={deletingSelected}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSelected()}
+                  disabled={deletingSelected}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingSelected ? 'Excluindo...' : 'Sim, excluir selecionados'}
                 </button>
               </div>
             </div>

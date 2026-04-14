@@ -377,7 +377,7 @@ export default function AdminCampanhaEditByQueryPage() {
 
           <div className="flex gap-4">
             <button onClick={handleSave} disabled={saving} className="btn-primary">{saving ? 'Salvando...' : 'Salvar'}</button>
-            <Link href={`/institucional/campanhas/${campanha.id}`} target="_blank" className="btn-secondary">Ver página pública</Link>
+            <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id)}`} target="_blank" className="btn-secondary">Ver página pública</Link>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { getAssociados, deleteAssociado, type Associado } from '@/lib/firestore';
+import { getAssociados, deleteAssociado, updateAssociado, type Associado } from '@/lib/firestore';
 
 function hasRequiredMissingFields(a: Associado): boolean {
   const isBlank = (v?: string) => !v || !v.trim();
@@ -17,6 +17,14 @@ function hasRequiredMissingFields(a: Associado): boolean {
     isBlank(a.estado)
   );
 }
+
+function labelStatus(status?: string): string {
+  if (status === 'desativado') return 'Desativado';
+  if (status === 'em_negociacao') return 'Em negociação';
+  return 'Ativo';
+}
+
+type AssociadoStatus = 'ativo' | 'desativado' | 'em_negociacao';
 
 export default function AdminAssociadosPage() {
   const allFieldKeys = [
@@ -34,9 +42,11 @@ export default function AdminAssociadosPage() {
     'cep',
     'cidade',
     'estado',
+    'status',
   ] as const;
   type VisibleFieldKey = (typeof allFieldKeys)[number];
   const fieldLabel: Record<VisibleFieldKey, string> = {
+    status: 'Status',
     nome: 'Nome',
     empresa: 'Empresa',
     razao_social: 'Razão social',
@@ -58,6 +68,7 @@ export default function AdminAssociadosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPlano, setSelectedPlano] = useState('todos');
   const [selectedCidade, setSelectedCidade] = useState('todas');
+  const [selectedStatus, setSelectedStatus] = useState<'todos' | 'ativo' | 'desativado' | 'em_negociacao'>('todos');
   const [sortBy, setSortBy] = useState<'nome' | 'empresa' | 'plano' | 'cidade'>('nome');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [onlyPendingRequired, setOnlyPendingRequired] = useState(false);
@@ -72,10 +83,19 @@ export default function AdminAssociadosPage() {
     'plano',
     'codigo_spc',
     'endereco',
+    'status',
   ]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{
+    id: string;
+    nome: string;
+    empresa: string;
+    current: AssociadoStatus;
+    next: AssociadoStatus;
+  } | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [excluirPendente, setExcluirPendente] = useState<Associado | null>(null);
   const [visualizacaoPendente, setVisualizacaoPendente] = useState<Associado | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -156,6 +176,37 @@ export default function AdminAssociadosPage() {
     }
   };
 
+  const solicitarAlteracaoStatus = (associado: Associado, nextStatus: AssociadoStatus) => {
+    const current = (associado.status as AssociadoStatus | undefined) ?? 'ativo';
+    if (current === nextStatus) return;
+    setStatusChangeTarget({
+      id: associado.id,
+      nome: associado.nome,
+      empresa: associado.empresa,
+      current,
+      next: nextStatus,
+    });
+  };
+
+  const confirmarAlteracaoStatus = async () => {
+    if (!statusChangeTarget) return;
+    setUpdatingStatusId(statusChangeTarget.id);
+    try {
+      await updateAssociado(statusChangeTarget.id, { status: statusChangeTarget.next });
+      setAssociados((prev) =>
+        prev.map((a) =>
+          a.id === statusChangeTarget.id ? { ...a, status: statusChangeTarget.next } : a
+        )
+      );
+      setStatusChangeTarget(null);
+    } catch (error) {
+      console.error('Erro ao atualizar status do associado:', error);
+      alert('Erro ao atualizar status. Tente novamente.');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   const planos = useMemo(
     () => Array.from(new Set(associados.map((a) => a.plano).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [associados]
@@ -163,6 +214,27 @@ export default function AdminAssociadosPage() {
 
   const cidades = useMemo(
     () => Array.from(new Set(associados.map((a) => a.cidade).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [associados]
+  );
+  const statusResumo = useMemo(() => {
+    let ativo = 0;
+    let desativado = 0;
+    let emNegociacao = 0;
+    associados.forEach((a) => {
+      const status = a.status ?? 'ativo';
+      if (status === 'desativado') desativado += 1;
+      else if (status === 'em_negociacao') emNegociacao += 1;
+      else ativo += 1;
+    });
+    return {
+      total: associados.length,
+      ativo,
+      desativado,
+      emNegociacao,
+    };
+  }, [associados]);
+  const associadosEmNegociacaoCount = useMemo(
+    () => associados.filter((a) => (a.status ?? 'ativo') === 'em_negociacao').length,
     [associados]
   );
 
@@ -178,8 +250,9 @@ export default function AdminAssociadosPage() {
         associado.email.toLowerCase().includes(term);
       const matchPlano = selectedPlano === 'todos' || associado.plano === selectedPlano;
       const matchCidade = selectedCidade === 'todas' || associado.cidade === selectedCidade;
+      const matchStatus = selectedStatus === 'todos' || (associado.status ?? 'ativo') === selectedStatus;
       const matchPendencia = !onlyPendingRequired || hasRequiredMissingFields(associado);
-      return matchSearch && matchPlano && matchCidade && matchPendencia;
+      return matchSearch && matchPlano && matchCidade && matchStatus && matchPendencia;
     });
 
     return filtered.sort((a, b) => {
@@ -188,7 +261,7 @@ export default function AdminAssociadosPage() {
       const comparison = aValue.localeCompare(bValue, 'pt-BR');
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [associados, searchTerm, selectedPlano, selectedCidade, sortBy, sortDirection, onlyPendingRequired]);
+  }, [associados, searchTerm, selectedPlano, selectedCidade, selectedStatus, sortBy, sortDirection, onlyPendingRequired]);
 
   const selectedCount = useMemo(
     () => filteredAssociados.filter((a) => selectedIds.includes(a.id)).length,
@@ -213,7 +286,7 @@ export default function AdminAssociadosPage() {
     }
     setExportingCsv(true);
     try {
-      const headers = displayedFieldKeys.map((k) => fieldLabel[k]);
+      const headers = ['Nº', ...displayedFieldKeys.map((k) => fieldLabel[k])];
       const escapeCsv = (value: string) => {
         const v = (value ?? '').toString();
         if (/[",;\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
@@ -221,9 +294,9 @@ export default function AdminAssociadosPage() {
       };
       const lines = [
         headers.join(';'),
-        ...associadosParaExportar.map((a) =>
-          displayedFieldKeys
-            .map((k) => (a[k] ?? '').toString())
+        ...associadosParaExportar.map((a, index) =>
+          [String(index + 1), ...displayedFieldKeys
+            .map((k) => (k === 'status' ? labelStatus(a.status) : (a[k] ?? '').toString()))]
             .map(escapeCsv)
             .join(';')
         ),
@@ -258,7 +331,7 @@ export default function AdminAssociadosPage() {
       const lineH = 3.6;
       let y = margin;
 
-      const headers = displayedFieldKeys.map((k) => fieldLabel[k]);
+      const headers = ['Nº', ...displayedFieldKeys.map((k) => fieldLabel[k])];
       const colW = (pageW - margin * 2) / headers.length;
 
       doc.setFont('helvetica', 'bold');
@@ -297,8 +370,10 @@ export default function AdminAssociadosPage() {
 
       drawHeader();
 
-      associadosParaExportar.forEach((a) => {
-        const rowValues = displayedFieldKeys.map((k) => (a[k] ?? '—').toString());
+      associadosParaExportar.forEach((a, index) => {
+        const rowValues = [String(index + 1), ...displayedFieldKeys.map((k) =>
+          k === 'status' ? labelStatus(a.status) : (a[k] ?? '—').toString()
+        )];
         const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
         const maxLines = Math.max(1, ...wrapped.map((w) => w.length));
         const rowH = Math.max(6, maxLines * lineH + 2);
@@ -375,6 +450,24 @@ export default function AdminAssociadosPage() {
       </div>
 
       <div className="mb-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <p className="text-xs text-cdl-gray-text uppercase tracking-wide">Total cadastrados</p>
+                <p className="text-xl font-semibold text-gray-900">{statusResumo.total}</p>
+              </div>
+              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                <p className="text-xs text-green-700 uppercase tracking-wide">Ativo</p>
+                <p className="text-xl font-semibold text-green-900">{statusResumo.ativo}</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs text-amber-700 uppercase tracking-wide">Em negociação</p>
+                <p className="text-xl font-semibold text-amber-900">{statusResumo.emNegociacao}</p>
+              </div>
+              <div className="rounded-lg border border-gray-300 bg-gray-50 px-4 py-3">
+                <p className="text-xs text-gray-700 uppercase tracking-wide">Desativado</p>
+                <p className="text-xl font-semibold text-gray-900">{statusResumo.desativado}</p>
+              </div>
+            </div>
             <div className="relative">
               <input
                 type="text"
@@ -389,7 +482,7 @@ export default function AdminAssociadosPage() {
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <select
                 value={selectedPlano}
                 onChange={(e) => setSelectedPlano(e.target.value)}
@@ -409,6 +502,20 @@ export default function AdminAssociadosPage() {
                 {cidades.map((cidade) => (
                   <option key={cidade} value={cidade}>{cidade}</option>
                 ))}
+              </select>
+              <select
+                value={selectedStatus}
+                onChange={(e) =>
+                  setSelectedStatus(
+                    e.target.value as 'todos' | 'ativo' | 'desativado' | 'em_negociacao'
+                  )
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="ativo">Ativo</option>
+                <option value="desativado">Desativado</option>
+                <option value="em_negociacao">Em negociação</option>
               </select>
               <select
                 value={sortBy}
@@ -434,6 +541,7 @@ export default function AdminAssociadosPage() {
                   setSearchTerm('');
                   setSelectedPlano('todos');
                   setSelectedCidade('todas');
+                  setSelectedStatus('todos');
                   setSortBy('nome');
                   setSortDirection('asc');
                   setOnlyPendingRequired(false);
@@ -443,7 +551,7 @@ export default function AdminAssociadosPage() {
                 Limpar filtros
               </button>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={onlyPendingRequired}
@@ -451,6 +559,15 @@ export default function AdminAssociadosPage() {
               />
               Auditoria: exibir apenas cadastros com campos obrigatórios pendentes
             </label>
+            {associadosEmNegociacaoCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedStatus('em_negociacao')}
+                className="flex w-fit text-left rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 hover:bg-amber-100"
+              >
+                Existem associados em negociação ({associadosEmNegociacaoCount}). Clique para visualizar.
+              </button>
+            )}
             <div className="rounded-lg border border-gray-200 bg-white p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-gray-900">Campos visíveis na tabela</p>
@@ -529,7 +646,14 @@ export default function AdminAssociadosPage() {
                     </tr>
                   ) : (
                     filteredAssociados.map((associado) => (
-                      <tr key={associado.id} className="hover:bg-gray-50">
+                      <tr
+                        key={associado.id}
+                        className={`hover:bg-gray-50 ${
+                          (associado.status ?? 'ativo') === 'em_negociacao'
+                            ? 'bg-amber-50/70'
+                            : ''
+                        }`}
+                      >
                         <td className="px-4 py-3 text-sm text-gray-900">
                           <input
                             type="checkbox"
@@ -544,6 +668,30 @@ export default function AdminAssociadosPage() {
                           />
                         </td>
                         {displayedFieldKeys.map((k) => {
+                          if (k === 'status') {
+                            const statusValue = ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
+                            const disabled = updatingStatusId === associado.id;
+                            return (
+                              <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                <select
+                                  value={statusValue}
+                                  disabled={disabled}
+                                  onChange={(e) =>
+                                    solicitarAlteracaoStatus(
+                                      associado,
+                                      e.target.value as AssociadoStatus
+                                    )
+                                  }
+                                  className="w-full min-w-[130px] max-w-[145px] px-1 py-1 border border-gray-300 rounded-md text-xs leading-tight bg-white disabled:opacity-60"
+                                  title="Alterar status do associado"
+                                >
+                                  <option value="ativo">Ativo</option>
+                                  <option value="desativado">Desativado</option>
+                                  <option value="em_negociacao">Em negociação</option>
+                                </select>
+                              </td>
+                            );
+                          }
                           const value = (associado[k] ?? '').toString().trim();
                           return (
                             <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
@@ -608,12 +756,12 @@ export default function AdminAssociadosPage() {
         <div className="text-center py-12">
           <div className="text-6xl text-gray-300 mb-4">📋</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas'
+            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas' || selectedStatus !== 'todos'
               ? 'Nenhum associado encontrado'
               : 'Nenhum associado cadastrado'}
           </h3>
           <p className="text-cdl-gray-text mb-6">
-            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas'
+            {searchTerm || selectedPlano !== 'todos' || selectedCidade !== 'todas' || selectedStatus !== 'todos'
               ? 'Ajuste os filtros ou tente outra busca.'
               : 'Comece adicionando seu primeiro associado.'}
           </p>
@@ -719,7 +867,6 @@ export default function AdminAssociadosPage() {
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               {[
-                ['ID', visualizacaoPendente.id],
                 ['Nome', visualizacaoPendente.nome],
                 ['Empresa', visualizacaoPendente.empresa],
                 ['Razão social', visualizacaoPendente.razao_social || '—'],
@@ -761,6 +908,39 @@ export default function AdminAssociadosPage() {
                 ) : (
                   <p className="text-gray-900">—</p>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusChangeTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Confirmar alteração de status</h3>
+              <p className="text-sm text-gray-600">
+                Deseja alterar o status de <strong>{statusChangeTarget.nome}</strong> ({statusChangeTarget.empresa}) de{' '}
+                <strong>{labelStatus(statusChangeTarget.current)}</strong> para{' '}
+                <strong>{labelStatus(statusChangeTarget.next)}</strong>?
+              </p>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatusChangeTarget(null)}
+                  disabled={Boolean(updatingStatusId)}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarAlteracaoStatus()}
+                  disabled={Boolean(updatingStatusId)}
+                  className="rounded-lg bg-cdl-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {updatingStatusId ? 'Salvando...' : 'Confirmar'}
+                </button>
               </div>
             </div>
           </div>

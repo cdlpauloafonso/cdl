@@ -84,9 +84,112 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Associados (dados sensíveis): apenas admin
+    // Associados (dados sensíveis): admin total; criação pública restrita via "me associar"
     match /associados/{associadoId} {
-      allow get, list, create, update, delete: if isAdmin();
+      allow get, list, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly([
+          'status',
+          'origem',
+          'nome',
+          'empresa',
+          'razao_social',
+          'cnpj',
+          'telefone',
+          'telefone_responsavel',
+          'data_nascimento_responsavel',
+          'email',
+          'quantidade_funcionarios',
+          'cep',
+          'endereco',
+          'cidade',
+          'estado',
+          'plano',
+          'codigo_spc',
+          'aniversariantes',
+          'observacoes',
+          'created_at',
+          'updated_at'
+        ]) &&
+        request.resource.data.status == 'em_negociacao' &&
+        request.resource.data.origem == 'site' &&
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() >= 2 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cnpj is string &&
+        request.resource.data.cnpj.size() >= 14 &&
+        request.resource.data.telefone is string &&
+        request.resource.data.telefone.size() >= 8 &&
+        request.resource.data.data_nascimento_responsavel is string &&
+        request.resource.data.email is string &&
+        request.resource.data.endereco is string &&
+        request.resource.data.endereco.size() >= 3 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.estado is string &&
+        request.resource.data.estado.size() >= 2 &&
+        request.resource.data.plano is string &&
+        request.resource.data.codigo_spc is string &&
+        request.resource.data.aniversariantes is list &&
+        request.resource.data.observacoes is string &&
+        request.resource.data.created_at is timestamp &&
+        request.resource.data.updated_at is timestamp
+      );
+    }
+
+    // Solicitações públicas de associação: criação sem login; leitura/gestão admin
+    match /solicitacoesAssociacao/{docId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'status',
+          'nome',
+          'empresa',
+          'razao_social',
+          'cnpj',
+          'telefone',
+          'telefone_responsavel',
+          'data_nascimento_responsavel',
+          'email',
+          'quantidade_funcionarios',
+          'cep',
+          'endereco',
+          'cidade',
+          'estado',
+          'plano',
+          'codigo_spc',
+          'aniversariantes',
+          'observacoes',
+          'created_at',
+          'updated_at',
+          'origem'
+        ]) &&
+        request.resource.data.status in ['em_negociacao', 'ativo', 'desativado'] &&
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() >= 2 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cnpj is string &&
+        request.resource.data.cnpj.size() >= 14 &&
+        request.resource.data.telefone is string &&
+        request.resource.data.telefone.size() >= 8 &&
+        request.resource.data.data_nascimento_responsavel is string &&
+        request.resource.data.email is string &&
+        request.resource.data.endereco is string &&
+        request.resource.data.endereco.size() >= 3 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.estado is string &&
+        request.resource.data.estado.size() >= 2 &&
+        request.resource.data.plano is string &&
+        request.resource.data.codigo_spc is string &&
+        request.resource.data.aniversariantes is list &&
+        request.resource.data.observacoes is string &&
+        request.resource.data.created_at is timestamp &&
+        request.resource.data.updated_at is timestamp &&
+        request.resource.data.origem == 'site';
+
+      allow get, list, update, delete: if isAdmin();
     }
 
     // Índice só com CNPJ (14 dígitos como id): leitura unitária pública para validar inscrição em eventos

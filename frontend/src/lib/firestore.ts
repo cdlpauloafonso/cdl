@@ -19,6 +19,7 @@ import {
   orderBy,
   where,
   limit,
+  getCountFromServer,
 } from 'firebase/firestore';
 
 export function getDb() {
@@ -41,6 +42,7 @@ export type CampaignPaymentConfig = {
 
 export type Campaign = {
   id?: string;
+  createdAt?: string;
   title: string;
   description: string;
   fullDescription?: string;
@@ -64,7 +66,7 @@ export async function listCampaigns(): Promise<Campaign[]> {
   const col = collection(db, 'campaigns');
   const q = query(col, orderBy('title'));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+  return snap.docs.map((d) => ({ ...(d.data() as any), id: d.id }));
 }
 
 export async function getCampaign(id: string): Promise<Campaign | null> {
@@ -72,19 +74,35 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
   const ref = doc(db, 'campaigns', id);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
-  return { id: snap.id, ...(snap.data() as any) };
+  return { ...(snap.data() as any), id: snap.id };
 }
 
 export async function createCampaign(data: Campaign) {
   const db = getDb();
   const col = collection(db, 'campaigns');
   // remove undefined fields to avoid Firestore errors
-  const payload: Record<string, any> = {};
+  const payload: Record<string, any> = { createdAt: data.createdAt ?? new Date().toISOString() };
   Object.entries(data).forEach(([k, v]) => {
     if (v !== undefined) payload[k] = v;
   });
   const ref = await addDoc(col, payload);
   return ref.id;
+}
+
+export async function listCampaignsByCreatedAtDesc(): Promise<Campaign[]> {
+  const db = getDb();
+  const col = collection(db, 'campaigns');
+  const snap = await getDocs(col);
+  return snap.docs
+    .map((d) => ({ ...(d.data() as any), id: d.id }))
+    .sort((a, b) => {
+      const ta = Date.parse(a.createdAt ?? '');
+      const tb = Date.parse(b.createdAt ?? '');
+      const sa = Number.isNaN(ta) ? Number.NEGATIVE_INFINITY : ta;
+      const sb = Number.isNaN(tb) ? Number.NEGATIVE_INFINITY : tb;
+      if (sa !== sb) return sb - sa;
+      return (a.title || '').localeCompare(b.title || '', 'pt-BR');
+    });
 }
 
 export async function updateCampaign(
@@ -150,6 +168,19 @@ export async function updateEventInscriptionPaymentStatus(
   const db = getDb();
   const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
   await updateDoc(ref, { paymentStatus: status });
+}
+
+export async function deleteEventInscription(campaignId: string, inscriptionId: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  await deleteDoc(ref);
+}
+
+export async function countEventInscriptions(campaignId: string): Promise<number> {
+  const db = getDb();
+  const col = collection(db, 'campaigns', campaignId, 'inscricoes');
+  const snap = await getCountFromServer(col);
+  return snap.data().count;
 }
 
 export async function setCampaign(id: string, data: Campaign) {
@@ -592,6 +623,8 @@ export type Aniversariante = {
 
 export type Associado = {
   id: string;
+  status?: 'ativo' | 'desativado' | 'em_negociacao';
+  origem?: 'site' | 'admin';
   nome: string;
   empresa: string;
   /** Razão social (cadastro Receita); opcional em documentos antigos. */
@@ -600,6 +633,8 @@ export type Associado = {
   telefone: string;
   /** Opcional: telefone direto do responsável. */
   telefone_responsavel?: string;
+  /** Opcional: data de nascimento do responsável. */
+  data_nascimento_responsavel?: string;
   email: string;
   /** Opcional: quantidade de funcionários informada no cadastro. */
   quantidade_funcionarios?: string;
@@ -615,6 +650,27 @@ export type Associado = {
   updated_at: any;
 };
 
+export type SolicitacaoAssociacao = {
+  status?: 'em_negociacao' | 'ativo' | 'desativado';
+  nome: string;
+  empresa: string;
+  razao_social?: string;
+  cnpj: string;
+  telefone: string;
+  telefone_responsavel?: string;
+  data_nascimento_responsavel?: string;
+  email: string;
+  quantidade_funcionarios?: string;
+  cep: string;
+  endereco: string;
+  cidade: string;
+  estado: string;
+  plano: string;
+  codigo_spc: string;
+  aniversariantes: Aniversariante[];
+  observacoes: string;
+};
+
 export async function getAssociados(): Promise<Associado[]> {
   const db = getDb();
   const col = collection(db, 'associados');
@@ -624,8 +680,6 @@ export async function getAssociados(): Promise<Associado[]> {
     id: doc.id,
     ...doc.data()
   } as Associado));
-  // Backfill automático do índice público de CNPJ para cadastros antigos.
-  await syncAssociadosCnpjIndexBatch(list.map((a) => a.cnpj));
   return list;
 }
 
@@ -646,6 +700,7 @@ export async function createAssociado(data: Omit<Associado, 'id' | 'created_at' 
     }
     tx.set(newRef, {
       ...data,
+      status: data.status ?? 'ativo',
       created_at: new Date(),
       updated_at: new Date(),
     });
@@ -671,6 +726,7 @@ export async function createAssociadoFromImport(
   const col = collection(db, 'associados');
   const docRef = await addDoc(col, {
     ...data,
+    status: data.status ?? 'ativo',
     created_at: new Date(),
     updated_at: new Date(),
   });
@@ -714,6 +770,35 @@ export async function deleteAssociado(id: string): Promise<void> {
   await deleteDoc(doc(db, 'associados', id));
 }
 
+export async function createSolicitacaoAssociacao(data: SolicitacaoAssociacao): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'solicitacoesAssociacao');
+  const payload = {
+    ...data,
+    status: data.status ?? 'em_negociacao',
+    created_at: new Date(),
+    updated_at: new Date(),
+    origem: 'site',
+  };
+  const ref = await addDoc(col, payload);
+  return ref.id;
+}
+
+export async function createAssociadoFromSite(
+  data: Omit<Associado, 'id' | 'created_at' | 'updated_at' | 'status' | 'origem'>
+): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'associados');
+  const ref = await addDoc(col, {
+    ...data,
+    status: 'em_negociacao',
+    origem: 'site',
+    created_at: new Date(),
+    updated_at: new Date(),
+  });
+  return ref.id;
+}
+
 export async function getAssociadoById(id: string): Promise<Associado | null> {
   const db = getDb();
   const docRef = doc(db, 'associados', id);
@@ -727,12 +812,27 @@ export async function getAssociadoById(id: string): Promise<Associado | null> {
 
 // ---- Settings (Firestore: single doc settings/site) ----
 const SETTINGS_DOC_ID = 'site';
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+let settingsCache: { value: Record<string, string>; expiresAt: number } | null = null;
+let settingsInFlight: Promise<Record<string, string>> | null = null;
 
 export async function getSettings(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (settingsCache && settingsCache.expiresAt > now) {
+    return settingsCache.value;
+  }
+  if (settingsInFlight) {
+    return settingsInFlight;
+  }
+
+  settingsInFlight = (async () => {
   const db = getDb();
   const ref = doc(db, 'settings', SETTINGS_DOC_ID);
   const snap = await getDoc(ref);
-  if (!snap.exists()) return {};
+  if (!snap.exists()) {
+    settingsCache = { value: {}, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+    return {};
+  }
   const data = snap.data();
   const out: Record<string, string> = {};
   if (data && typeof data === 'object') {
@@ -740,13 +840,21 @@ export async function getSettings(): Promise<Record<string, string>> {
       if (typeof v === 'string') out[k] = v;
     });
   }
+    settingsCache = { value: out, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
   return out;
+  })();
+  try {
+    return await settingsInFlight;
+  } finally {
+    settingsInFlight = null;
+  }
 }
 
 export async function setSettings(settings: Record<string, string>): Promise<void> {
   const db = getDb();
   const ref = doc(db, 'settings', SETTINGS_DOC_ID);
   await setDoc(ref, settings);
+  settingsCache = { value: settings, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
 }
 
 // ---- Agendamentos Auditorio (Firestore: collection) ----
