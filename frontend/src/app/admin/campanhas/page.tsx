@@ -84,7 +84,7 @@ export default function AdminCampanhasPage() {
                   <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-cdl-blue text-white mb-3">{campanha.category}</span>
                   <p className="text-sm text-cdl-gray-text mb-4 line-clamp-2">{campanha.description}</p>
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
-                    <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id)}`} target="_blank" className="flex-1 text-center px-3 py-2 text-sm text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors">
+                    <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id ?? '')}`} target="_blank" className="flex-1 text-center px-3 py-2 text-sm text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors">
                       Ver página
                     </Link>
                     <Link href={`/admin/campanhas/edit?id=${campanha.id}`} className="flex-1 text-center px-3 py-2 text-sm bg-cdl-blue text-white hover:bg-cdl-blue-dark rounded-lg transition-colors">

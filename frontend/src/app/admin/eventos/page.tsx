@@ -154,7 +154,7 @@ export default function AdminEventosPage() {
                           <td className="px-4 py-3 align-top text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
                               <Link
-                                href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id)}`}
+                                href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id ?? '')}`}
                                 target="_blank"
                                 className="inline-block px-2 py-1.5 text-cdl-blue hover:bg-cdl-blue/10 rounded-md text-xs sm:text-sm"
                               >
@@ -169,7 +169,7 @@ export default function AdminEventosPage() {
                                     Ver inscritos
                                   </Link>
                                   <Link
-                                    href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(ev.id)}`}
+                                    href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(ev.id ?? '')}`}
                                     target="_blank"
                                     className="inline-block px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-md text-xs sm:text-sm"
                                   >

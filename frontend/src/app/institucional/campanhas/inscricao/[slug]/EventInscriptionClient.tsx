@@ -273,7 +273,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     setCnpjLookupHint(null);
     try {
       const isAssociado = await isCnpjCadastradoComoAssociado(raw);
-      if (req !== cnpjLookupReq.current) return;
+      if (req !== cnpjLookupReq.current) return false;
       if (!isAssociado) {
         setCnpjRejeitadoNaoAssociado(true);
         setCnpjLookupHint({ type: 'err', text: MSG_CNPJ_NAO_ASSOCIADO });
@@ -282,7 +282,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       setCnpjRejeitadoNaoAssociado(false);
 
       const data = await fetchCnpjBrasilApi(digits);
-      if (req !== cnpjLookupReq.current) return;
+      if (req !== cnpjLookupReq.current) return false;
       const patch = associadoFormPatchFromBrasilApi(data);
       const merged = mergeInscriptionValuesFromCnpjPatch(userInputKeys, patch);
       const maskedCnpj = applyInscriptionFieldMask('cnpj', digits);
@@ -294,7 +294,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       });
       return true;
     } catch (err) {
-      if (req !== cnpjLookupReq.current) return;
+      if (req !== cnpjLookupReq.current) return false;
       const text = err instanceof Error ? err.message : 'Não foi possível consultar o CNPJ.';
       setCnpjLookupHint({ type: 'err', text });
       if (opts?.setFormErrorOnInvalid) {

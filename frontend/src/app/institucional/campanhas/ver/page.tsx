@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CampaignPageClient } from '../[slug]/CampaignPageClient';
 
-export default function CampaignByQueryPage() {
+function CampaignByQueryContent() {
   const searchParams = useSearchParams();
   const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
 
@@ -24,5 +25,13 @@ export default function CampaignByQueryPage() {
   }
 
   return <CampaignPageClient slug={slug} />;
+}
+
+export default function CampaignByQueryPage() {
+  return (
+    <Suspense fallback={<p className="p-8 text-cdl-gray-text">Carregando...</p>}>
+      <CampaignByQueryContent />
+    </Suspense>
+  );
 }
 

@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventInscriptionClient } from './[slug]/EventInscriptionClient';
 
-export default function EventInscriptionByQueryPage() {
+function EventInscriptionByQueryContent() {
   const searchParams = useSearchParams();
   const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
 
@@ -24,5 +25,13 @@ export default function EventInscriptionByQueryPage() {
   }
 
   return <EventInscriptionClient slug={slug} />;
+}
+
+export default function EventInscriptionByQueryPage() {
+  return (
+    <Suspense fallback={<p className="p-8 text-cdl-gray-text">Carregando...</p>}>
+      <EventInscriptionByQueryContent />
+    </Suspense>
+  );
 }
 

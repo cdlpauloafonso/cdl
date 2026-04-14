@@ -108,6 +108,28 @@ export async function ServicesPreview() {
                     </Link>
                   );
                 }
+                if (title === 'SPC e Serasa') {
+                  return (
+                    <a
+                      key={i}
+                      href="https://sistema.spc.org.br/spc/controleacesso/autenticacao/entry.action"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
+                    >
+                      <h3 className="font-semibold text-gray-900 group-hover:text-cdl-blue">{title}</h3>
+                      <p className="mt-2 text-sm text-cdl-gray-text">
+                        Serviços empresariais para associados CDL.
+                      </p>
+                      <span className="mt-3 inline-flex items-center text-sm font-medium text-cdl-blue group-hover:underline">
+                        Acessar SPC Brasil
+                        <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </a>
+                  );
+                }
                 return (
                   <div
                     key={i}
