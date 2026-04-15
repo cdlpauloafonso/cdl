@@ -1,4 +1,22 @@
 [[redirects]]
+  from = "http://cdlpauloafonso.com/admin/*"
+  to = "https://www.cdlpauloafonso.com/admin/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://cdlpauloafonso.com/admin/*"
+  to = "https://www.cdlpauloafonso.com/admin/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://cdlpauloafonso.com/*"
+  to = "https://www.cdlpauloafonso.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "https://cdlpauloafonso.com/*"
   to = "https://www.cdlpauloafonso.com/:splat"
   status = 301

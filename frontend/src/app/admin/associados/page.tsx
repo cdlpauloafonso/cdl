@@ -100,6 +100,9 @@ export default function AdminAssociadosPage() {
   const [visualizacaoPendente, setVisualizacaoPendente] = useState<Associado | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [quickEditMode, setQuickEditMode] = useState(false);
+  const [savingQuickEdit, setSavingQuickEdit] = useState(false);
+  const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, Partial<Record<VisibleFieldKey, string>>>>({});
 
   useEffect(() => {
     loadAssociados();
@@ -173,6 +176,87 @@ export default function AdminAssociadosPage() {
       alert('Erro ao excluir associados selecionados. Tente novamente.');
     } finally {
       setDeletingBulk(false);
+    }
+  };
+
+  const startQuickEditMode = () => {
+    setQuickEditDrafts({});
+    setQuickEditMode(true);
+  };
+
+  const cancelQuickEditMode = () => {
+    setQuickEditDrafts({});
+    setQuickEditMode(false);
+  };
+
+  const getQuickFieldValue = (associado: Associado, key: VisibleFieldKey): string => {
+    const draft = quickEditDrafts[associado.id]?.[key];
+    if (draft !== undefined) return draft;
+    if (key === 'status') return ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
+    return (associado[key] ?? '').toString();
+  };
+
+  const updateQuickField = (associadoId: string, key: VisibleFieldKey, value: string) => {
+    setQuickEditDrafts((prev) => ({
+      ...prev,
+      [associadoId]: {
+        ...(prev[associadoId] ?? {}),
+        [key]: value,
+      },
+    }));
+  };
+
+  const concluirQuickEdit = async () => {
+    setSavingQuickEdit(true);
+    try {
+      const updates: Array<{ id: string; data: Partial<Omit<Associado, 'id' | 'created_at'>> }> = [];
+
+      Object.entries(quickEditDrafts).forEach(([id, draft]) => {
+        const associadoAtual = associados.find((a) => a.id === id);
+        if (!associadoAtual) return;
+        const payload: Partial<Omit<Associado, 'id' | 'created_at'>> = {};
+
+        (Object.keys(draft) as VisibleFieldKey[]).forEach((key) => {
+          if (key === 'cnpj') return; // exceção solicitada: CNPJ não entra na edição rápida
+          const next = draft[key];
+          if (next === undefined) return;
+          const current =
+            key === 'status'
+              ? ((associadoAtual.status as AssociadoStatus | undefined) ?? 'ativo')
+              : (associadoAtual[key] ?? '').toString();
+          if (next === current) return;
+          if (key === 'status') {
+            payload.status = next as AssociadoStatus;
+          } else {
+            (payload as Record<string, string>)[key] = next;
+          }
+        });
+
+        if (Object.keys(payload).length > 0) {
+          updates.push({ id, data: payload });
+        }
+      });
+
+      for (const item of updates) {
+        await updateAssociado(item.id, item.data);
+      }
+
+      if (updates.length > 0) {
+        setAssociados((prev) =>
+          prev.map((a) => {
+            const changed = updates.find((u) => u.id === a.id);
+            return changed ? ({ ...a, ...changed.data } as Associado) : a;
+          })
+        );
+      }
+
+      setQuickEditDrafts({});
+      setQuickEditMode(false);
+    } catch (error) {
+      console.error('Erro ao salvar edição rápida:', error);
+      alert('Erro ao salvar alterações rápidas. Tente novamente.');
+    } finally {
+      setSavingQuickEdit(false);
     }
   };
 
@@ -417,6 +501,34 @@ export default function AdminAssociadosPage() {
           <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
+          {!quickEditMode ? (
+            <button
+              type="button"
+              onClick={startQuickEditMode}
+              className="btn-secondary"
+            >
+              Modo de edição rápida
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void concluirQuickEdit()}
+                disabled={savingQuickEdit}
+                className="btn-primary disabled:opacity-50"
+              >
+                {savingQuickEdit ? 'Salvando...' : 'Concluir'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelQuickEditMode}
+                disabled={savingQuickEdit}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => void exportarPdf()}
@@ -668,6 +780,43 @@ export default function AdminAssociadosPage() {
                           />
                         </td>
                         {displayedFieldKeys.map((k) => {
+                          if (quickEditMode) {
+                            const value = getQuickFieldValue(associado, k);
+                            if (k === 'cnpj') {
+                              return (
+                                <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                  <span title="CNPJ não pode ser alterado na edição rápida">
+                                    {(associado.cnpj ?? '').toString().trim() || '—'}
+                                  </span>
+                                </td>
+                              );
+                            }
+                            if (k === 'status') {
+                              return (
+                                <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                  <select
+                                    value={value || 'ativo'}
+                                    onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
+                                    className="w-full min-w-[130px] max-w-[145px] px-1 py-1 border border-gray-300 rounded-md text-xs leading-tight bg-white"
+                                  >
+                                    <option value="ativo">Ativo</option>
+                                    <option value="desativado">Desativado</option>
+                                    <option value="em_negociacao">Em negociação</option>
+                                  </select>
+                                </td>
+                              );
+                            }
+                            return (
+                              <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                <input
+                                  type={k === 'email' ? 'email' : 'text'}
+                                  value={value}
+                                  onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
+                                  className="w-full min-w-[140px] rounded-md border border-gray-300 px-2 py-1 text-xs"
+                                />
+                              </td>
+                            );
+                          }
                           if (k === 'status') {
                             const statusValue = ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
                             const disabled = updatingStatusId === associado.id;

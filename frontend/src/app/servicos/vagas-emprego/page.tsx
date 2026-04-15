@@ -1,18 +1,23 @@
+import Link from 'next/link';
+
 const opcoes = [
   {
     titulo: 'Ver vagas',
     descricao: 'Consulte as oportunidades de emprego disponíveis e encontre a vaga ideal para o seu perfil.',
     cta: 'Em breve',
+    href: '',
   },
   {
     titulo: 'Publicar vaga',
     descricao: 'Empresas podem divulgar novas vagas para alcançar candidatos da região com mais agilidade.',
     cta: 'Em breve',
+    href: '',
   },
   {
     titulo: 'Cadastrar currículo',
     descricao: 'Cadastre seu currículo para facilitar o contato com empresas que estão buscando talentos.',
-    cta: 'Em breve',
+    cta: 'Enviar currículo',
+    href: '/servicos/vagas-emprego/cadastrar-curriculo',
   },
 ];
 
@@ -39,14 +44,20 @@ export default function VagasEmpregoPage() {
               </div>
               <h2 className="mt-4 text-xl font-semibold text-gray-900">{opcao.titulo}</h2>
               <p className="mt-2 text-cdl-gray-text">{opcao.descricao}</p>
-              <button
-                type="button"
-                disabled
-                className="mt-5 inline-flex btn-secondary cursor-not-allowed opacity-60"
-                aria-disabled="true"
-              >
-                {opcao.cta}
-              </button>
+              {opcao.href ? (
+                <Link href={opcao.href} className="mt-5 inline-flex btn-secondary">
+                  {opcao.cta}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-5 inline-flex btn-secondary cursor-not-allowed opacity-60"
+                  aria-disabled="true"
+                >
+                  {opcao.cta}
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -73,6 +73,7 @@ export default function AdminEventoInscritosPage() {
   const [filterEstado, setFilterEstado] = useState('todos');
   const [filterPayment, setFilterPayment] = useState<'all' | EventInscriptionPaymentStatus>('all');
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>([]);
+  const [showPaymentColumn, setShowPaymentColumn] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -149,8 +150,15 @@ export default function AdminEventoInscritosPage() {
     }
   }, [sortBy, displayedColumnKeys]);
 
+  useEffect(() => {
+    if (!showPaymentColumn && sortBy === 'paymentStatus') {
+      setSortBy('createdAt');
+    }
+  }, [showPaymentColumn, sortBy]);
+
   const hasCidade = columnKeys.includes('cidade');
   const hasEstado = columnKeys.includes('estado');
+  const hasPaymentColumn = rows.length > 0;
 
   const cidadesUnicas = useMemo(() => {
     if (!hasCidade) return [];
@@ -278,7 +286,11 @@ export default function AdminEventoInscritosPage() {
       const margin = 10;
       const lineH = 3.6;
       let y = margin;
-      const headers = [...displayedColumnKeys.map((k) => labelForInscriptionField(k)), 'Data', 'Pagamento'];
+      const headers = [
+        ...displayedColumnKeys.map((k) => labelForInscriptionField(k)),
+        'Data',
+        ...(showPaymentColumn ? ['Pagamento'] : []),
+      ];
       const colCount = Math.max(headers.length, 1);
       const tableW = pageW - margin * 2;
       const colW = tableW / colCount;
@@ -323,7 +335,7 @@ export default function AdminEventoInscritosPage() {
         const rowValues = [
           ...displayedColumnKeys.map((k) => (row.fields?.[k] ?? '').toString().trim() || '—'),
           formatDateBr(row.createdAt),
-          paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente',
+          ...(showPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
         ];
         const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
         const maxLines = Math.max(1, ...wrapped.map((lines) => lines.length));
@@ -481,7 +493,7 @@ export default function AdminEventoInscritosPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
               >
                 <option value="createdAt">Ordenar por data da inscrição</option>
-                <option value="paymentStatus">Ordenar por pagamento</option>
+                {showPaymentColumn && <option value="paymentStatus">Ordenar por pagamento</option>}
                 {displayedColumnKeys.map((k) => (
                   <option key={k} value={k}>
                     Ordenar por {labelForInscriptionField(k)}
@@ -526,14 +538,20 @@ export default function AdminEventoInscritosPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setVisibleColumnKeys([...columnKeys])}
+                    onClick={() => {
+                      setVisibleColumnKeys([...columnKeys]);
+                      setShowPaymentColumn(hasPaymentColumn);
+                    }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
                     Marcar todos
                   </button>
                   <button
                     type="button"
-                    onClick={() => setVisibleColumnKeys([])}
+                    onClick={() => {
+                      setVisibleColumnKeys([]);
+                      setShowPaymentColumn(false);
+                    }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
                     Limpar
@@ -558,6 +576,16 @@ export default function AdminEventoInscritosPage() {
                       {labelForInscriptionField(k)}
                     </label>
                   ))}
+                  {hasPaymentColumn && (
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={showPaymentColumn}
+                        onChange={(e) => setShowPaymentColumn(e.target.checked)}
+                      />
+                      Pagamento
+                    </label>
+                  )}
                 </div>
               )}
             </div>
@@ -604,9 +632,11 @@ export default function AdminEventoInscritosPage() {
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
                         Data
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
-                        Pagamento
-                      </th>
+                      {showPaymentColumn && (
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
+                          Pagamento
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -635,29 +665,31 @@ export default function AdminEventoInscritosPage() {
                         <td className="px-3 py-2 text-gray-700 whitespace-nowrap align-top">
                           {formatDateBr(row.createdAt)}
                         </td>
-                        <td className="px-3 py-2 align-top whitespace-nowrap">
-                          {paymentStatusOf(row) === 'paid' ? (
-                            <button
-                              type="button"
-                              disabled={updatingPaymentId === row.id}
-                              onClick={() => askChangePaymentStatus(row, 'pending')}
-                              className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50"
-                              title="Clique para marcar como pendente"
-                            >
-                              {updatingPaymentId === row.id ? 'Salvando...' : 'Pago'}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={updatingPaymentId === row.id}
-                              onClick={() => askChangePaymentStatus(row, 'paid')}
-                              className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
-                              title="Clique para marcar como pago"
-                            >
-                              {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
-                            </button>
-                          )}
-                        </td>
+                        {showPaymentColumn && (
+                          <td className="px-3 py-2 align-top whitespace-nowrap">
+                            {paymentStatusOf(row) === 'paid' ? (
+                              <button
+                                type="button"
+                                disabled={updatingPaymentId === row.id}
+                                onClick={() => askChangePaymentStatus(row, 'pending')}
+                                className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50"
+                                title="Clique para marcar como pendente"
+                              >
+                                {updatingPaymentId === row.id ? 'Salvando...' : 'Pago'}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={updatingPaymentId === row.id}
+                                onClick={() => askChangePaymentStatus(row, 'paid')}
+                                className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+                                title="Clique para marcar como pago"
+                              >
+                                {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
+                              </button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
