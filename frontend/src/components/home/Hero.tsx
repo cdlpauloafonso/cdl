@@ -9,6 +9,7 @@ const DEFAULT_SLIDES: CarouselSlideData[] = [
     title: 'A CDL que faz sua empresa vender mais, gastar menos e crescer mais rápido',
     subtitle: 'Comunidade empresarial de Paulo Afonso. Serviços, networking e apoio ao comércio local.',
     photo: null,
+    photoLink: null,
     buttons: [
       { text: 'Associe-se', href: '/associe-se' },
       { text: 'Conheça os serviços', href: '/servicos' },
@@ -28,6 +29,7 @@ export function Hero() {
               title: s.title,
               subtitle: s.description,
               photo: s.photo,
+              photoLink: s.photoLink ?? null,
               buttons: s.buttons ?? [],
             }))
           );

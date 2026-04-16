@@ -26,6 +26,7 @@ export default function AdminPaginaEditPage() {
     title: '',
     description: '',
     photo: null,
+    photoLink: null,
     buttons: [],
     order: 0,
   });
@@ -156,10 +157,16 @@ export default function AdminPaginaEditPage() {
       }
 
       const buttons = (slide.buttons ?? []).filter((b) => b.text?.trim() && b.href?.trim());
+      const isPhotoOnlySlide =
+        Boolean(slide.photo) &&
+        !(slide.title ?? '').trim() &&
+        !(slide.description ?? '').trim() &&
+        buttons.length === 0;
       const payload: Omit<CarouselSlide, 'id'> = {
         title: slide.title!,
         description: slide.description ?? '',
         photo: slide.photo ?? null,
+        photoLink: isPhotoOnlySlide ? (slide.photoLink ?? '').trim() || null : null,
         buttons,
         order: slide.order ?? 0,
       };
@@ -179,6 +186,11 @@ export default function AdminPaginaEditPage() {
   }
 
   const buttons = (slide.buttons ?? []) as CarouselButton[];
+  const isPhotoOnlyDraft =
+    Boolean(slide.photo) &&
+    !(slide.title ?? '').trim() &&
+    !(slide.description ?? '').trim() &&
+    !buttons.some((b) => (b.text ?? '').trim() || (b.href ?? '').trim());
 
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
 
@@ -245,6 +257,22 @@ export default function AdminPaginaEditPage() {
           )}
           <p className="mt-1 text-xs text-cdl-gray-text">Opcional. Se não houver foto, o gradiente padrão será usado.</p>
         </div>
+
+        {isPhotoOnlyDraft && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Link da foto (opcional)</label>
+            <input
+              type="text"
+              value={slide.photoLink ?? ''}
+              onChange={(e) => setSlide((s) => ({ ...s, photoLink: e.target.value }))}
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+              placeholder="/servicos ou https://exemplo.com"
+            />
+            <p className="mt-1 text-xs text-cdl-gray-text">
+              Quando o slide tiver somente foto, este link torna a imagem clicável no site.
+            </p>
+          </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-2">

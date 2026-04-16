@@ -56,11 +56,14 @@ export function CampaignPageClient({ slug }: { slug: string }) {
           <p className="text-xl text-cdl-gray-text leading-relaxed">{campanha.description}</p>
         </div>
 
-        <div className="rounded-xl overflow-hidden mb-10">
+        <div
+          className="rounded-xl overflow-hidden mb-10 bg-gray-100"
+          style={{ aspectRatio: '16 / 9' }}
+        >
           {campanha.image ? (
-            <img src={campanha.image} alt={campanha.title} className="w-full h-64 sm:h-80 object-cover" />
+            <img src={campanha.image} alt={campanha.title} className="w-full h-full object-cover" />
           ) : (
-            <div className="relative h-64 sm:h-80 flex items-center justify-center bg-gradient-to-br from-cdl-blue/20 to-cdl-blue-dark/20">
+            <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-cdl-blue/20 to-cdl-blue-dark/20">
               <div className="text-center p-6">
                 <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-cdl-blue/10 flex items-center justify-center">
                   <svg className="w-12 h-12 text-cdl-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">

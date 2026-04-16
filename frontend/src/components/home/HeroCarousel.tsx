@@ -8,6 +8,7 @@ export type CarouselSlideData = {
   title: string;
   subtitle: string;
   photo: string | null;
+  photoLink?: string | null;
   buttons: { text: string; href: string }[];
 };
 
@@ -46,67 +47,107 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
 
   if (slides.length === 0) return null;
 
+  const isExternalLink = (href: string) => /^https?:\/\//i.test(href);
+
   return (
     <section className="relative overflow-hidden h-[500px] sm:h-[600px] lg:h-[650px]">
       {/* Slides */}
       <div className="relative h-full">
-        {slides.map((slide, index) => (
-          <div
-            key={index}
-            className={`transition-opacity duration-700 ease-in-out absolute inset-0 flex flex-col justify-center overflow-hidden h-full ${
-              index === currentIndex ? 'opacity-100 relative z-10' : 'opacity-0 pointer-events-none'
-            }`}
-            aria-hidden={index !== currentIndex}
-          >
-            {/* Background: foto ou gradiente */}
-            <div className="absolute inset-0 -z-10 h-full">
-              {slide.photo ? (
-                <>
-                  <Image
-                    src={slide.photo}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="100vw"
-                    unoptimized={slide.photo.startsWith('http')}
-                  />
-                  <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue/90 via-cdl-blue-dark/85 to-cdl-blue/90" />
-                </>
-              ) : (
-                <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue via-cdl-blue-dark to-cdl-blue" />
-              )}
-            </div>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.08)_0%,_transparent_50%)]" aria-hidden="true" />
+        {slides.map((slide, index) => {
+          const isPhotoOnlySlide =
+            Boolean(slide.photo) &&
+            !slide.title.trim() &&
+            !slide.subtitle.trim() &&
+            (!slide.buttons || slide.buttons.length === 0);
+          const photoLink = slide.photoLink?.trim() ?? '';
 
-            <div className="container-cdl relative w-full flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-                  {slide.title}
-                </h1>
-                <p className="mt-6 text-lg sm:text-xl text-blue-100/95 leading-relaxed">
-                  {slide.subtitle}
-                </p>
-                {slide.buttons && slide.buttons.length > 0 && (
-                  <div className="mt-10 flex flex-wrap gap-4">
-                    {slide.buttons.map((btn, i) => (
-                      <Link
-                        key={i}
-                        href={btn.href}
-                        className={
-                          i === 0
-                            ? 'inline-flex items-center rounded-lg bg-white px-6 py-3.5 text-base font-semibold text-cdl-blue shadow-sm hover:bg-blue-50 transition-colors'
-                            : 'inline-flex items-center rounded-lg border-2 border-white/80 px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors'
-                        }
-                      >
-                        {btn.text}
-                      </Link>
-                    ))}
-                  </div>
+          return (
+            <div
+              key={index}
+              className={`transition-opacity duration-700 ease-in-out absolute inset-0 flex flex-col justify-center overflow-hidden h-full ${
+                index === currentIndex ? 'opacity-100 relative z-10' : 'opacity-0 pointer-events-none'
+              }`}
+              aria-hidden={index !== currentIndex}
+            >
+              {/* Background: foto ou gradiente */}
+              <div className="absolute inset-0 -z-10 h-full">
+                {slide.photo ? (
+                  <>
+                    <Image
+                      src={slide.photo}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="100vw"
+                      unoptimized={slide.photo.startsWith('http')}
+                    />
+                    {!isPhotoOnlySlide && (
+                      <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue/90 via-cdl-blue-dark/85 to-cdl-blue/90" />
+                    )}
+                  </>
+                ) : (
+                  <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue via-cdl-blue-dark to-cdl-blue" />
                 )}
               </div>
+              {!isPhotoOnlySlide && (
+                <div
+                  className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.08)_0%,_transparent_50%)]"
+                  aria-hidden="true"
+                />
+              )}
+
+              {!isPhotoOnlySlide && (
+                <div className="container-cdl relative w-full flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+                  <div className="max-w-3xl">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                      {slide.title}
+                    </h1>
+                    <p className="mt-6 text-lg sm:text-xl text-blue-100/95 leading-relaxed">
+                      {slide.subtitle}
+                    </p>
+                    {slide.buttons && slide.buttons.length > 0 && (
+                      <div className="mt-10 flex flex-wrap gap-4">
+                        {slide.buttons.map((btn, i) => (
+                          <Link
+                            key={i}
+                            href={btn.href}
+                            className={
+                              i === 0
+                                ? 'inline-flex items-center rounded-lg bg-white px-6 py-3.5 text-base font-semibold text-cdl-blue shadow-sm hover:bg-blue-50 transition-colors'
+                                : 'inline-flex items-center rounded-lg border-2 border-white/80 px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors'
+                            }
+                          >
+                            {btn.text}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isPhotoOnlySlide && photoLink && (
+                isExternalLink(photoLink) ? (
+                  <a
+                    href={photoLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 z-10"
+                    aria-label="Abrir link da imagem do carrossel"
+                    title="Abrir"
+                  />
+                ) : (
+                  <Link
+                    href={photoLink}
+                    className="absolute inset-0 z-10"
+                    aria-label="Abrir link da imagem do carrossel"
+                    title="Abrir"
+                  />
+                )
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Controles */}

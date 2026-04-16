@@ -1,50 +1,179 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { getAssociados, type Associado } from '@/lib/firestore';
+
+type BirthdayRow = {
+  associado: Associado;
+  aniversarianteNome: string;
+  data: string;
+};
+
+function extractMonthDay(dateValue: string): { month: number; day: number } {
+  if (!dateValue) return { month: 99, day: 99 };
+  const normalized = dateValue.trim();
+  const matchIso = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (matchIso) {
+    return { month: Number(matchIso[2]), day: Number(matchIso[3]) };
+  }
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return { month: 99, day: 99 };
+  return { month: parsed.getMonth() + 1, day: parsed.getDate() };
+}
+
+function formatBirthday(dateValue: string): string {
+  if (!dateValue) return '—';
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return dateValue;
+  return parsed.toLocaleDateString('pt-BR');
+}
+
+function labelStatus(status?: string): string {
+  if (status === 'desativado') return 'Desativado';
+  if (status === 'em_negociacao') return 'Em negociação';
+  return 'Ativo';
+}
 
 export default function AniversariosPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const [associados, setAssociados] = useState<Associado[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAssociado, setSelectedAssociado] = useState<Associado | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    const load = async () => {
+      try {
+        const list = await getAssociados();
+        setAssociados(list);
+      } catch (error) {
+        console.error('Erro ao carregar aniversariantes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
   }, []);
 
-  if (!mounted) return null;
+  const rows = useMemo(() => {
+    const flattened: BirthdayRow[] = [];
+    associados.forEach((associado) => {
+      (associado.aniversariantes ?? []).forEach((aniversariante) => {
+        if (!aniversariante.nome?.trim() && !aniversariante.data?.trim()) return;
+        flattened.push({
+          associado,
+          aniversarianteNome: aniversariante.nome?.trim() || '—',
+          data: aniversariante.data?.trim() || '',
+        });
+      });
+    });
+
+    return flattened.sort((a, b) => {
+      const aMd = extractMonthDay(a.data);
+      const bMd = extractMonthDay(b.data);
+      if (aMd.month !== bMd.month) return aMd.month - bMd.month;
+      if (aMd.day !== bMd.day) return aMd.day - bMd.day;
+
+      const byName = a.aniversarianteNome.localeCompare(b.aniversarianteNome, 'pt-BR');
+      if (byName !== 0) return byName;
+
+      return (a.associado.empresa || '').localeCompare(b.associado.empresa || '', 'pt-BR');
+    });
+  }, [associados]);
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Aniversários</h1>
-          <p className="text-gray-600 mt-1">Gerencie os aniversariantes do mês</p>
+          <p className="text-gray-600 mt-1">Aniversariantes cadastrados nos associados</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="text-center text-gray-500 py-8">
-          <div className="mb-4">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Carregando aniversariantes...</div>
+        ) : rows.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            Nenhum aniversariante cadastrado nos associados.
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aniversariantes do Mês</h3>
-          <p className="text-gray-600 mb-4">
-            Funcionalidade em desenvolvimento. Em breve você poderá gerenciar os aniversariantes dos associados.
-          </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Recursos planejados:</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Lista de aniversariantes do mês</li>
-              <li>• Filtros por mês e categoria</li>
-              <li>• Envio de mensagens de parabéns</li>
-              <li>• Configurações de lembretes</li>
-              <li>• Integração com sistema de associados</li>
-            </ul>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-cdl-gray">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Data</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Nome</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Empresa</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {rows.map((row, index) => (
+                  <tr key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatBirthday(row.data)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{row.aniversarianteNome}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{row.associado.empresa || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAssociado(row.associado)}
+                        className="rounded-lg border border-cdl-blue/30 bg-cdl-blue/5 px-3 py-1.5 text-xs font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                      >
+                        Ver associado
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {selectedAssociado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 p-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Dados do Associado</h3>
+                <p className="mt-1 text-sm text-cdl-gray-text">
+                  {selectedAssociado.nome || '—'} · {selectedAssociado.empresa || '—'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAssociado(null)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 p-6 text-sm md:grid-cols-2">
+              {[
+                ['Nome', selectedAssociado.nome],
+                ['Empresa', selectedAssociado.empresa],
+                ['Razão social', selectedAssociado.razao_social || '—'],
+                ['CNPJ', selectedAssociado.cnpj || '—'],
+                ['Telefone Empresa', selectedAssociado.telefone || '—'],
+                ['Telefone do responsável', selectedAssociado.telefone_responsavel || '—'],
+                ['Email', selectedAssociado.email || '—'],
+                ['Status', labelStatus(selectedAssociado.status)],
+                ['Plano', selectedAssociado.plano || '—'],
+                ['Código SPC', selectedAssociado.codigo_spc || '—'],
+                ['CEP', selectedAssociado.cep || '—'],
+                ['Endereço', selectedAssociado.endereco || '—'],
+                ['Cidade', selectedAssociado.cidade || '—'],
+                ['Estado', selectedAssociado.estado || '—'],
+              ].map(([label, value]) => (
+                <div key={label as string} className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+                  <p className="mt-1 break-words text-gray-900">{value as string}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

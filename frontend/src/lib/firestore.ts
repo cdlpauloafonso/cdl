@@ -325,6 +325,7 @@ export type CarouselSlide = {
   title: string;
   description: string;
   photo: string | null;
+  photoLink?: string | null;
   buttons: CarouselButton[];
   order: number;
 };
@@ -341,6 +342,7 @@ export async function listCarouselSlides(): Promise<CarouselSlide[]> {
       title: data.title ?? '',
       description: data.description ?? '',
       photo: data.photo ?? null,
+      photoLink: data.photoLink ?? null,
       buttons: Array.isArray(data.buttons) ? data.buttons : [],
       order: data.order ?? 0,
     };
@@ -358,6 +360,7 @@ export async function getCarouselSlide(id: string): Promise<CarouselSlide | null
     title: data?.title ?? '',
     description: data?.description ?? '',
     photo: data?.photo ?? null,
+    photoLink: data?.photoLink ?? null,
     buttons: Array.isArray(data?.buttons) ? data.buttons : [],
     order: data?.order ?? 0,
   };
@@ -370,6 +373,7 @@ export async function createCarouselSlide(data: Omit<CarouselSlide, 'id'>): Prom
     title: data.title,
     description: data.description,
     photo: data.photo ?? null,
+    photoLink: data.photoLink ?? null,
     buttons: data.buttons ?? [],
     order: data.order ?? 0,
   };
@@ -384,6 +388,7 @@ export async function updateCarouselSlide(id: string, data: Partial<CarouselSlid
   if (data.title !== undefined) payload.title = data.title;
   if (data.description !== undefined) payload.description = data.description;
   if (data.photo !== undefined) payload.photo = data.photo;
+  if (data.photoLink !== undefined) payload.photoLink = data.photoLink;
   if (data.buttons !== undefined) payload.buttons = data.buttons;
   if (data.order !== undefined) payload.order = data.order;
   await updateDoc(ref, payload);

@@ -13,6 +13,7 @@ export default function CarouselPage() {
     title: '',
     description: '',
     photo: '',
+    photoLink: '',
     buttons: [{ text: '', href: '' }],
     order: 0
   });
@@ -40,6 +41,7 @@ export default function CarouselPage() {
       title: slide.title,
       description: slide.description,
       photo: slide.photo || '',
+      photoLink: slide.photoLink || '',
       buttons: slide.buttons || [{ text: '', href: '' }],
       order: slide.order
     });
@@ -70,10 +72,17 @@ export default function CarouselPage() {
     setIsSubmitting(true);
 
     try {
+      const hasFilledButtons = formData.buttons.some((b) => b.text.trim() || b.href.trim());
+      const isPhotoOnlySlide =
+        Boolean(formData.photo) &&
+        !formData.title.trim() &&
+        !formData.description.trim() &&
+        !hasFilledButtons;
       const slideData = {
         title: formData.title,
         description: formData.description,
         photo: formData.photo || null,
+        photoLink: isPhotoOnlySlide ? formData.photoLink.trim() || null : null,
         buttons: formData.buttons.filter(b => b.text && b.href),
         order: formData.order
       };
@@ -100,6 +109,7 @@ export default function CarouselPage() {
       title: '',
       description: '',
       photo: '',
+      photoLink: '',
       buttons: [{ text: '', href: '' }],
       order: 0
     });
@@ -181,6 +191,18 @@ export default function CarouselPage() {
           {editingSlide ? 'Editar Slide' : 'Novo Slide'}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/*
+            Quando só houver foto (sem título/descrição/botões), permitimos opcionalmente
+            um link para tornar a imagem clicável no carrossel do site.
+          */}
+          {Boolean(formData.photo) &&
+            !formData.title.trim() &&
+            !formData.description.trim() &&
+            !formData.buttons.some((b) => b.text.trim() || b.href.trim()) && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+                Slide apenas com foto detectado. Você pode informar um link para a foto.
+              </div>
+            )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -191,7 +213,7 @@ export default function CarouselPage() {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                required
+                required={!formData.photo}
               />
             </div>
             <div>
@@ -217,7 +239,7 @@ export default function CarouselPage() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
+                required={!formData.photo}
             />
           </div>
 
@@ -238,9 +260,33 @@ export default function CarouselPage() {
                   alt="Preview"
                   className="h-32 object-cover rounded-lg"
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Com imagem enviada, título e descrição tornam-se opcionais.
+                </p>
               </div>
             )}
           </div>
+
+          {Boolean(formData.photo) &&
+            !formData.title.trim() &&
+            !formData.description.trim() &&
+            !formData.buttons.some((b) => b.text.trim() || b.href.trim()) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Link da foto (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.photoLink}
+                  onChange={(e) => setFormData({ ...formData, photoLink: e.target.value })}
+                  placeholder="/servicos ou https://exemplo.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  No site, ao clicar nesta foto, o usuário será direcionado para este link.
+                </p>
+              </div>
+            )}
 
           <div>
             <div className="flex justify-between items-center mb-2">

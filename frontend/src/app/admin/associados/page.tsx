@@ -69,7 +69,7 @@ export default function AdminAssociadosPage() {
   const [selectedPlano, setSelectedPlano] = useState('todos');
   const [selectedCidade, setSelectedCidade] = useState('todas');
   const [selectedStatus, setSelectedStatus] = useState<'todos' | 'ativo' | 'desativado' | 'em_negociacao'>('todos');
-  const [sortBy, setSortBy] = useState<'nome' | 'empresa' | 'plano' | 'cidade'>('nome');
+  const [sortBy, setSortBy] = useState<'nome' | 'empresa' | 'plano' | 'cidade'>('empresa');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [onlyPendingRequired, setOnlyPendingRequired] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -80,6 +80,7 @@ export default function AdminAssociadosPage() {
     'razao_social',
     'cnpj',
     'telefone',
+    'email',
     'plano',
     'codigo_spc',
     'endereco',
@@ -654,7 +655,7 @@ export default function AdminAssociadosPage() {
                   setSelectedPlano('todos');
                   setSelectedCidade('todas');
                   setSelectedStatus('todos');
-                  setSortBy('nome');
+                  setSortBy('empresa');
                   setSortDirection('asc');
                   setOnlyPendingRequired(false);
                 }}
