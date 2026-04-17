@@ -334,12 +334,8 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       if (d.length === 14) {
         // Se o evento for aberto para todos, permite CNPJ não associado
         if (!campanha?.registrationConfig?.associadosOnly) {
-          const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
-          if (!ok) {
-            setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
-            setCnpjRejeitadoNaoAssociado(true);
-            return false;
-          }
+          // Evento aberto: permite qualquer CNPJ
+          // Não faz validação de associado
         } else {
           // Se for exclusivo para associados, valida mesmo que não seja associado
           const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
