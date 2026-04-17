@@ -61,6 +61,36 @@ export type Campaign = {
   paymentConfig?: CampaignPaymentConfig;
 };
 
+/** Informativos: comunicados e avisos importantes */
+export type Informativo = {
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  titulo: string;
+  descricao: string;
+  tipo: 'sistema' | 'aviso' | 'manutencao' | 'evento';
+  status: 'ativo' | 'inativo' | 'agendado';
+  data_publicacao?: string;
+  data_expiracao?: string;
+  autor?: string;
+};
+
+export async function getInformativos(limit = 10): Promise<Informativo[]> {
+  const db = getDb();
+  const col = collection(db, 'informativos');
+  const q = query(
+    col,
+    where('status', '==', 'ativo'),
+    orderBy('createdAt', 'desc'),
+    limit(limit)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as Informativo));
+}
+
 export async function listCampaigns(): Promise<Campaign[]> {
   const db = getDb();
   const col = collection(db, 'campaigns');
