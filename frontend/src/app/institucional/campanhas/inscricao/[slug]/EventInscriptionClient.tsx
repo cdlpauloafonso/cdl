@@ -451,7 +451,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">
             {needsCnpjValidationStep && !cnpjStepDone
-              ? 'Validação de associado'
+              ? (campanha?.registrationConfig?.associadosOnly ? 'Validação de associado' : 'Validação de dados')
               : payment.kind === 'pix' && pixStepActive
                 ? 'Pagamento (PIX)'
                 : 'Preencha seus dados'}
