@@ -24,6 +24,9 @@ export type RegistrationLinkSectionProps = {
   onObservationTextChange: (value: string) => void;
   /** Quando definido (ex.: novo evento com inscrição no site), o PIX fica dentro do modal «Configurar inscrição». */
   pixPayment?: EventPaymentSectionProps;
+  /** Controla se o evento é exclusivo para associados */
+  associadosOnly: boolean;
+  onAssociadosOnlyChange: (value: boolean) => void;
 };
 
 export function RegistrationLinkSection({
@@ -38,6 +41,8 @@ export function RegistrationLinkSection({
   observationText,
   onObservationTextChange,
   pixPayment,
+  associadosOnly,
+  onAssociadosOnlyChange,
 }: RegistrationLinkSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [draftMode, setDraftMode] = useState<RegistrationLinkMode>('form');
@@ -158,6 +163,11 @@ export function RegistrationLinkSection({
                     {fieldKeys.includes('observacoes') && observationText.trim() && (
                       <p className="text-xs text-cdl-gray-text mt-1">Observações padrão: {observationText.trim()}</p>
                     )}
+                    {associadosOnly && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        <span className="font-medium">Apenas associados:</span> Restrito a membros da CDL
+                      </p>
+                    )}
                   </div>
                 )}
                 {pixPayment && pixSummaryOk && (
@@ -218,6 +228,36 @@ export function RegistrationLinkSection({
                 />
                 <span className="text-sm text-gray-700">Link externo (Sympla, Google Forms, etc.)</span>
               </label>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <span className="block text-sm font-medium text-gray-800">Obrigatoriedade</span>
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="radio"
+                  name="associados-mode"
+                  className="mt-1"
+                  checked={!associadosOnly}
+                  onChange={() => onAssociadosOnlyChange(false)}
+                />
+                <span className="text-sm text-gray-700">Aberto para todos (associados e não associados)</span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="radio"
+                  name="associados-mode"
+                  className="mt-1"
+                  checked={associadosOnly}
+                  onChange={() => onAssociadosOnlyChange(true)}
+                />
+                <span className="text-sm text-gray-700">Exclusivo para associados</span>
+              </label>
+              <p className="text-xs text-cdl-gray-text mt-2">
+                {associadosOnly 
+                  ? 'Apenas associados CDL poderão se inscrever neste evento.'
+                  : 'Qualquer pessoa poderá se inscrever neste evento.'
+                }
+              </p>
             </div>
 
             {draftMode === 'external' ? (

@@ -31,7 +31,7 @@ export function getDb() {
 /** Inscrição em evento: link externo ou formulário com campos do cadastro de associados. */
 export type CampaignRegistrationConfig =
   | { type: 'external'; url: string }
-  | { type: 'form'; fieldKeys: string[]; observationText?: string };
+  | { type: 'form'; fieldKeys: string[]; observationText?: string; associadosOnly?: boolean };
 
 /** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
 export type CampaignPaymentConfig = {

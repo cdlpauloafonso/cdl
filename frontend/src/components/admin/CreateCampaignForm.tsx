@@ -47,6 +47,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [registrationExternalUrl, setRegistrationExternalUrl] = useState('');
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
+  const [associadosOnly, setAssociadosOnly] = useState(false);
   const [wantsPixPayment, setWantsPixPayment] = useState(false);
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -112,17 +113,17 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         category: category || undefined,
         image: imageUrl || undefined,
         ...(variant === 'event' && wantsRegistrationLink
-          ? registrationMode === 'external'
-            ? { registrationConfig: { type: 'external' as const, url: registrationExternalUrl.trim() } }
-            : {
-                registrationConfig: {
-                  type: 'form' as const,
-                  fieldKeys: registrationFieldKeys,
-                  ...(registrationObservationText.trim()
-                    ? { observationText: registrationObservationText.trim() }
-                    : {}),
-                },
-              }
+          ? {
+              registrationConfig: {
+                ...(registrationMode === 'external'
+                  ? { type: 'external', url: registrationExternalUrl.trim() }
+                  : { type: 'form', fieldKeys: registrationFieldKeys }),
+                ...(registrationObservationText.trim()
+                  ? { observationText: registrationObservationText.trim() }
+                  : {}),
+                associadosOnly: associadosOnly,
+              },
+            }
           : {}),
         ...(variant === 'event' && wantsPixPayment && (pixImageUrl.trim() || pixCopyPaste.trim())
           ? {
@@ -324,6 +325,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
               onFieldKeysChange={setRegistrationFieldKeys}
               observationText={registrationObservationText}
               onObservationTextChange={setRegistrationObservationText}
+              associadosOnly={associadosOnly}
+              onAssociadosOnlyChange={setAssociadosOnly}
               pixPayment={
                 wantsRegistrationLink
                   ? {
