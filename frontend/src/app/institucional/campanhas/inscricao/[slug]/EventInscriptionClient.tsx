@@ -117,8 +117,10 @@ function FieldRow({
         {label}
         {isCnpjApi && (
           <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
-            O CNPJ precisa estar cadastrado como associado da CDL para enviar a inscrição. Ao completar 14 dígitos, saia
-            do campo para consultar a Receita e preencher os dados.
+            {campanha?.registrationConfig?.associadosOnly 
+              ? 'O CNPJ precisa estar cadastrado como associado da CDL para enviar a inscrição. Ao completar 14 dígitos, saia do campo para consultar a Receita e preencher os dados.'
+              : 'O CNPJ precisa estar cadastrado como associado da CDL para enviar a inscrição. Ao completar 14 dígitos, saia do campo para consultar a Receita e preencher os dados. Se o evento for aberto para todos, não associados também podem se inscrever.'
+            }
           </span>
         )}
       </label>
@@ -330,11 +332,22 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     if (userInputKeys.includes('cnpj')) {
       const d = onlyDigitsCnpj(values.cnpj ?? '');
       if (d.length === 14) {
-        const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
-        if (!ok) {
-          setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
-          setCnpjRejeitadoNaoAssociado(true);
-          return false;
+        // Se o evento for aberto para todos, permite CNPJ não associado
+        if (!campanha?.registrationConfig?.associadosOnly) {
+          const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
+          if (!ok) {
+            setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
+            setCnpjRejeitadoNaoAssociado(true);
+            return false;
+          }
+        } else {
+          // Se for exclusivo para associados, valida mesmo que não seja associado
+          const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
+          if (!ok) {
+            setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
+            setCnpjRejeitadoNaoAssociado(true);
+            return false;
+          }
         }
       }
     }
