@@ -48,6 +48,13 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Informativos: leitura só ativos (ou admin vê tudo)
+    match /informativos/{informativoId} {
+      allow get, list: if resource.data.status == 'ativo' || isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
     match /certificadoDigital/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
