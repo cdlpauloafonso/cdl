@@ -23,6 +23,7 @@ const adminNav = [
   { href: '/admin/paginas', label: 'Páginas' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
+  { href: '/admin/informativos', label: 'Informativos' },
     {
       label: 'Auditório',
       children: [
