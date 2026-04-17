@@ -14,6 +14,7 @@ export default function AdicionarInformativoPage() {
     tipo: 'aviso' as Informativo['tipo'],
     status: 'ativo' as Informativo['status'],
     data_publicacao: new Date(),
+    data_expiracao: undefined as Date | undefined,
     autor: 'Administrador'
   });
 
@@ -151,6 +152,26 @@ export default function AdicionarInformativoPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
               required
             />
+          </div>
+
+          {/* Data de Expiração */}
+          <div>
+            <label htmlFor="data_expiracao" className="block text-sm font-medium text-gray-700 mb-2">
+              Data de Expiração <span className="text-gray-500">(opcional)</span>
+            </label>
+            <input
+              type="datetime-local"
+              id="data_expiracao"
+              value={formData.data_expiracao ? new Date(formData.data_expiracao).toISOString().slice(0, 16) : ''}
+              onChange={(e) => handleInputChange('data_expiracao', e.target.value ? new Date(e.target.value) : undefined)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              {formData.data_expiracao 
+                ? `O informativo será automaticamente desativado em ${new Date(formData.data_expiracao).toLocaleDateString('pt-BR')} às ${new Date(formData.data_expiracao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Se não definida, o informativo permanecerá ativo indefinidamente'
+              }
+            </p>
           </div>
 
           {/* Autor */}

@@ -254,6 +254,7 @@ export default function InformativosPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Descrição</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tipo</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Data</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Expiração</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
               </tr>
@@ -261,7 +262,7 @@ export default function InformativosPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredInformativos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-cdl-gray-text">
+                  <td colSpan={7} className="px-4 py-8 text-center text-cdl-gray-text">
                     {searchTerm ? 'Nenhum informativo encontrado para esta busca.' : 'Nenhum informativo cadastrado.'}
                   </td>
                 </tr>
@@ -281,6 +282,12 @@ export default function InformativosPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {informativo.data_publicacao ? new Date(informativo.data_publicacao).toLocaleDateString('pt-BR') : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {informativo.data_expiracao 
+                        ? new Date(informativo.data_expiracao).toLocaleDateString('pt-BR')
+                        : '—'
+                      }
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(informativo.status)}`}>
