@@ -16,14 +16,49 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
-    // Campanhas: leitura pública; escrita só admin
+    // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
+    // na inscrição pública quando há limite (transação com criação em inscricoes/).
+    // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
+    function publicInscriptionWebCountIncrement() {
+      let oldCount = resource.data.get('inscriptionWebCount', 0);
+      let newCount = request.resource.data.inscriptionWebCount;
+      let lim = resource.data.registrationConfig.inscriptionLimit;
+      return request.auth == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
+        && (newCount is int || newCount is float)
+        && (oldCount is int || oldCount is float)
+        && newCount == oldCount + 1
+        && resource.data.registrationConfig is map
+        && resource.data.registrationConfig.type == 'form'
+        && (lim is int || lim is float)
+        && lim > 0
+        && newCount <= lim;
+    }
+
+    // Limite de inscrições: só permite criar doc em inscricoes se ainda houver vaga (n < limite).
+    function campaignDocAllowsAnotherInscription(d) {
+      let cfg = d.get('registrationConfig', null);
+      if (!(cfg is map) || cfg.get('type', '') != 'form') return true;
+      let lim = cfg.inscriptionLimit;
+      if (!((lim is int || lim is float) && lim > 0)) return true;
+      let n = d.get('inscriptionWebCount', 0);
+      return n < lim;
+    }
+
+    function campaignAllowsAnotherPublicInscription(campaignId) {
+      let snap = get(/databases/$(database)/documents/campaigns/$(campaignId));
+      return snap.exists && campaignDocAllowsAnotherInscription(snap.data);
+    }
+
     match /campaigns/{campaignId} {
       allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || publicInscriptionWebCountIncrement();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público); leitura/gestão só admin
       match /inscricoes/{inscriptionId} {
         allow create: if
+          campaignAllowsAnotherPublicInscription(campaignId) &&
           request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
           request.resource.data.createdAt is string &&
           request.resource.data.createdAt.size() >= 10 &&

@@ -31,6 +31,13 @@
   status = 200
   force = true
 
+# Mesmo padrão: existe `inscricao.html` e a pasta `inscricao/` (rotas dinâmicas); sem index na pasta.
+[[redirects]]
+  from = "/institucional/campanhas/inscricao/"
+  to = "/institucional/campanhas/inscricao.html"
+  status = 200
+  force = true
+
 [build]
   base = "frontend"
   command = "npm run build"

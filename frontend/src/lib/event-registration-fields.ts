@@ -1,4 +1,5 @@
 import type { Campaign } from './firestore';
+import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
 
 /** Campos alinhados ao cadastro de associados (admin) — subconjunto para inscrição em eventos. */
 export const ASSOCIADO_INSCRIPTION_FIELDS = [
@@ -85,11 +86,17 @@ export type EffectiveRegistration =
 export function getInscriptionLimit(c: Pick<Campaign, 'registrationConfig'>): number | null {
   const cfg = c.registrationConfig;
   if (cfg?.type !== 'form') return null;
-  const n = cfg.inscriptionLimit;
-  if (typeof n !== 'number' || !Number.isFinite(n)) return null;
-  const i = Math.floor(n);
-  if (i <= 0) return null;
-  return i;
+  return parsePositiveInscriptionLimit(cfg.inscriptionLimit);
+}
+
+/** Limite de inscrições atingido (usa `inscriptionWebCount` no documento da campanha). */
+export function isInscriptionSoldOut(
+  c: Pick<Campaign, 'registrationConfig' | 'inscriptionWebCount'>
+): boolean {
+  const limit = getInscriptionLimit(c);
+  if (limit == null) return false;
+  const count = parseInscriptionWebCountField(c.inscriptionWebCount);
+  return count >= limit;
 }
 
 export function getEffectiveRegistration(c: Pick<Campaign, 'registrationConfig' | 'registrationUrl'>): EffectiveRegistration {

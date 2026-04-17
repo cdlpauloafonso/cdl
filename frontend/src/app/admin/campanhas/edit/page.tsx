@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getCampaign, updateCampaign, Campaign } from '@/lib/firestore';
+import { getCampaign, updateCampaign, countEventInscriptions, Campaign } from '@/lib/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
 import { getEffectiveRegistration } from '@/lib/event-registration-fields';
+import { parsePositiveInscriptionLimit } from '@/lib/inscription-limit';
 
 // imgbb upload key
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -44,7 +45,7 @@ export default function AdminCampanhaEditByQueryPage() {
         const c = await getCampaign(id);
         if (mounted) setCampanha(c);
       } catch {
-        if (mounted) setError('Erro ao carregar campanha');
+        if (mounted) setError('Erro ao carregar evento');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -81,12 +82,7 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationExternalUrl('');
       setRegistrationFieldKeys(eff.keys);
       setRegistrationObservationText(eff.observationText ?? '');
-      const lim =
-        formCfg?.type === 'form' &&
-        typeof formCfg.inscriptionLimit === 'number' &&
-        formCfg.inscriptionLimit > 0
-          ? Math.floor(formCfg.inscriptionLimit)
-          : null;
+      const lim = formCfg?.type === 'form' ? parsePositiveInscriptionLimit(formCfg.inscriptionLimit) : null;
       setInscriptionLimit(lim);
     }
   }, [campanha?.id, campanha?.registrationConfig]);
@@ -105,9 +101,9 @@ export default function AdminCampanhaEditByQueryPage() {
   if (!id) {
     return (
       <div>
-        <Link href="/admin/campanhas" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar às campanhas</Link>
+        <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
         <div className="mt-8 p-8 rounded-xl border border-gray-200 bg-white text-center">
-          <p className="text-cdl-gray-text">ID da campanha não informado.</p>
+          <p className="text-cdl-gray-text">ID do evento não informado.</p>
         </div>
       </div>
     );
@@ -115,9 +111,9 @@ export default function AdminCampanhaEditByQueryPage() {
   if (!campanha) {
     return (
       <div>
-        <Link href="/admin/campanhas" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar às campanhas</Link>
+        <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
         <div className="mt-8 p-8 rounded-xl border border-gray-200 bg-white text-center">
-          <p className="text-cdl-gray-text">Campanha não encontrada.</p>
+          <p className="text-cdl-gray-text">Evento não encontrado.</p>
         </div>
       </div>
     );
@@ -153,8 +149,24 @@ export default function AdminCampanhaEditByQueryPage() {
         paymentConfig: _pay,
         ...rest
       } = campanha;
+
+      let inscriptionWebCountSync: number | undefined;
+      if (
+        wantsRegistrationLink &&
+        registrationMode === 'form' &&
+        inscriptionLimit != null &&
+        inscriptionLimit > 0
+      ) {
+        try {
+          inscriptionWebCountSync = await countEventInscriptions(id);
+        } catch {
+          /* mantém o valor já salvo no documento se a contagem falhar */
+        }
+      }
+
       await updateCampaign(id, {
         ...rest,
+        ...(inscriptionWebCountSync !== undefined ? { inscriptionWebCount: inscriptionWebCountSync } : {}),
         ...(wantsRegistrationLink
           ? registrationMode === 'external'
             ? {
@@ -186,9 +198,9 @@ export default function AdminCampanhaEditByQueryPage() {
             }
           : { paymentConfig: null }),
       });
-      router.push('/admin/campanhas');
+      router.push('/admin/eventos');
     } catch {
-      setError('Erro ao salvar campanha');
+      setError('Erro ao salvar evento');
     } finally {
       setSaving(false);
     }
@@ -285,15 +297,15 @@ export default function AdminCampanhaEditByQueryPage() {
 
   return (
     <div>
-      <Link href="/admin/campanhas" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar às campanhas</Link>
+      <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
 
       <div className="mt-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Editar campanha</h1>
-        <p className="text-cdl-gray-text mb-6">Visualização e edição da campanha</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Editar evento</h1>
+        <p className="text-cdl-gray-text mb-6">Visualização e edição do evento</p>
 
         <div className="space-y-6">
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações da Campanha</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações do evento</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
@@ -394,7 +406,7 @@ export default function AdminCampanhaEditByQueryPage() {
               </svg>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Edição via interface</h3>
-                <p className="text-sm text-cdl-gray-text mb-3">Edite os campos acima e clique em salvar para atualizar a campanha no Firebase.</p>
+                <p className="text-sm text-cdl-gray-text mb-3">Edite os campos acima e clique em salvar para atualizar o evento no Firebase.</p>
                 <p className="text-sm text-cdl-gray-text">A edição via código ainda funciona e pode ser usada como backup.</p>
               </div>
             </div>

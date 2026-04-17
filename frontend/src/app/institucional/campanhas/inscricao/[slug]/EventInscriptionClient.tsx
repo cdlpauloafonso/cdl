@@ -1,14 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
-  countEventInscriptions,
   createEventInscription,
   getCampaign,
   getSettings,
-  INSCRIPTION_LIMIT_REACHED_ERROR,
+  isInscriptionLimitReachedError,
   isCnpjCadastradoComoAssociado,
   type Campaign,
 } from '@/lib/firestore';
@@ -21,7 +19,7 @@ import { mergeInscriptionValuesFromCnpjPatch } from '@/lib/cnpj-prefill-inscript
 import {
   EXTRA_INSCRIPTION_FIELDS,
   getEffectiveRegistration,
-  getInscriptionLimit,
+  isInscriptionSoldOut,
   inscriptionFieldInputKind,
   isInscriptionFieldOptional,
   labelForInscriptionField,
@@ -178,7 +176,6 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [cnpjRejeitadoNaoAssociado, setCnpjRejeitadoNaoAssociado] = useState(false);
   const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
-  const [inscriptionCount, setInscriptionCount] = useState(0);
   const cnpjLookupReq = useRef(0);
 
   useEffect(() => {
@@ -189,13 +186,6 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         const c = await getCampaign(slug);
         if (!mounted) return;
         setCampanha(c);
-        let count = 0;
-        const regEff = c ? getEffectiveRegistration(c) : { kind: 'none' as const };
-        if (c && regEff.kind === 'form' && getInscriptionLimit(c) != null) {
-          count = await countEventInscriptions(slug);
-          if (!mounted) return;
-        }
-        setInscriptionCount(count);
       } catch {
         if (mounted) setCampanha(null);
       } finally {
@@ -257,13 +247,48 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     );
   }
 
-  if (!campanha) notFound();
+  if (!campanha) {
+    return (
+      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+        <div className="container-cdl max-w-2xl">
+          <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
+            ← Campanhas e eventos
+          </Link>
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-lg font-medium text-gray-900 mb-2">Evento não encontrado</p>
+            <p className="text-cdl-gray-text text-sm">Verifique o link ou entre em contato com a CDL.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const reg = getEffectiveRegistration(campanha);
-  if (reg.kind !== 'form' || reg.keys.length === 0) notFound();
+  if (reg.kind !== 'form' || reg.keys.length === 0) {
+    return (
+      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+        <div className="container-cdl max-w-2xl">
+          <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
+            ← Campanhas e eventos
+          </Link>
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-lg font-medium text-gray-900 mb-2">Inscrição indisponível</p>
+            <p className="text-cdl-gray-text text-sm mb-6">
+              Este evento não está com inscrição pelo site ativa no momento.
+            </p>
+            <Link
+              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              className="btn-primary inline-block"
+            >
+              Voltar ao evento
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const limiteInscricoes = getInscriptionLimit(campanha);
-  const inscricoesEncerradas = limiteInscricoes != null && inscriptionCount >= limiteInscricoes;
+  const inscricoesEncerradas = isInscriptionSoldOut(campanha);
 
   if (inscricoesEncerradas) {
     return (
@@ -285,9 +310,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
           <div className="rounded-2xl border border-gray-200 bg-white p-8 sm:p-10 text-center shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-cdl-blue mb-2">Inscrição no evento</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">{campanha.title}</h1>
-            <p className="text-xl font-semibold text-gray-900">Inscrições encerradas.</p>
+            <p className="text-xl font-semibold text-gray-900">Ingressos esgotados</p>
             <p className="mt-3 text-cdl-gray-text max-w-md mx-auto">
-              O limite de vagas para este evento foi atingido. Acompanhe nossos canais para novas oportunidades.
+              O limite de inscrições para este evento foi atingido. Acompanhe nossos canais para novas oportunidades.
             </p>
             <Link
               href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
@@ -429,17 +454,22 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       userInputKeys.forEach((k) => {
         fields[k] = values[k]?.trim() ?? '';
       });
+      const fresh = await getCampaign(slug);
+      if (fresh && isInscriptionSoldOut(fresh)) {
+        setCampanha(fresh);
+        return;
+      }
       await createEventInscription(slug, fields);
       setDone(true);
     } catch (err) {
-      if (err instanceof Error && err.message === INSCRIPTION_LIMIT_REACHED_ERROR) {
-        setError('Inscrições encerradas. O limite de vagas para este evento foi atingido.');
+      if (isInscriptionLimitReachedError(err)) {
         try {
-          const n = await countEventInscriptions(slug);
-          setInscriptionCount(n);
+          const again = await getCampaign(slug);
+          if (again) setCampanha(again);
         } catch {
           /* ignore */
         }
+        setError('Ingressos esgotados. O limite de inscrições para este evento foi atingido.');
       } else {
         setError('Não foi possível enviar. Tente novamente.');
       }

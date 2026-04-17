@@ -48,7 +48,6 @@ const adminNav = [
     ],
   },
   { href: '/admin/noticias', label: 'Notícias' },
-  { href: '/admin/campanhas', label: 'Campanhas' },
   { href: '/admin/contato', label: 'Mensagens' },
   { href: '/admin/configuracoes', label: 'Configurações' },
 ];

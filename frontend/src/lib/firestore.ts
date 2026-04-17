@@ -1,5 +1,6 @@
 import { getApps } from 'firebase/app';
 import { onlyDigitsCnpj } from './brasil-api-cnpj';
+import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
 import { initFirebase } from './firebase';
 import {
   getFirestore,
@@ -20,6 +21,7 @@ import {
   where,
   limit,
   getCountFromServer,
+  increment,
 } from 'firebase/firestore';
 
 export function getDb() {
@@ -91,6 +93,11 @@ export type Campaign = {
   registrationUrl?: string;
   /** Pagamento PIX opcional (eventos). */
   paymentConfig?: CampaignPaymentConfig;
+  /**
+   * Contador público de inscrições pelo site (só incrementa quando há limite configurado).
+   * Usado para exibir «ingressos esgotados» sem listar a subcoleção.
+   */
+  inscriptionWebCount?: number;
 };
 
 /** Informativos: comunicados e avisos importantes */
@@ -204,33 +211,51 @@ export type EventInscriptionRecord = {
   paymentStatus?: EventInscriptionPaymentStatus;
 };
 
-/** Limite de inscrições atingido (tratar na UI pública). */
+/** Limite atingido (UI e transação). */
 export const INSCRIPTION_LIMIT_REACHED_ERROR = 'INSCRIPTION_LIMIT_REACHED';
+
+/** Erro de transação / permissão ao incrementar contador (mensagem pode vir encapsulada pelo SDK). */
+export function isInscriptionLimitReachedError(err: unknown): boolean {
+  if (err instanceof Error && err.message === INSCRIPTION_LIMIT_REACHED_ERROR) return true;
+  const s = err instanceof Error ? err.message : String(err);
+  if (s.includes(INSCRIPTION_LIMIT_REACHED_ERROR)) return true;
+  return false;
+}
 
 export async function createEventInscription(campaignId: string, fields: Record<string, string>): Promise<string> {
   const db = getDb();
   const campaignRef = doc(db, 'campaigns', campaignId);
-  const campaignSnap = await getDoc(campaignRef);
-  const camp = campaignSnap.data() as Campaign | undefined;
-  const cfg = camp?.registrationConfig;
-  const rawLimit = cfg?.type === 'form' ? cfg.inscriptionLimit : undefined;
-  const max =
-    typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0
-      ? Math.floor(rawLimit)
-      : null;
-  if (max != null) {
-    const inscCol = collection(db, 'campaigns', campaignId, 'inscricoes');
-    const countSnap = await getCountFromServer(inscCol);
-    if (countSnap.data().count >= max) {
+  const inscricoesCol = collection(db, 'campaigns', campaignId, 'inscricoes');
+
+  return runTransaction(db, async (transaction) => {
+    const campSnap = await transaction.get(campaignRef);
+    if (!campSnap.exists()) {
+      throw new Error('CAMPAIGN_NOT_FOUND');
+    }
+    const camp = campSnap.data() as Campaign;
+    const cfg = camp.registrationConfig;
+    const limit =
+      cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;
+
+    const current = parseInscriptionWebCountField(camp.inscriptionWebCount);
+
+    if (limit != null && current >= limit) {
       throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
     }
-  }
-  const col = collection(db, 'campaigns', campaignId, 'inscricoes');
-  const ref = await addDoc(col, {
-    createdAt: new Date().toISOString(),
-    fields,
-  } satisfies EventInscriptionRecord);
-  return ref.id;
+
+    const newInscRef = doc(inscricoesCol);
+    transaction.set(newInscRef, {
+      createdAt: new Date().toISOString(),
+      fields,
+    } satisfies EventInscriptionRecord);
+
+    // increment(1) é atômico no servidor (evita erro de “current + 1” no cliente).
+    if (limit != null) {
+      transaction.update(campaignRef, { inscriptionWebCount: increment(1) });
+    }
+
+    return newInscRef.id;
+  });
 }
 
 /** Lista inscrições de um evento (painel admin / relatórios). */

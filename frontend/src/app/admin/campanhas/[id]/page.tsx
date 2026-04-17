@@ -20,7 +20,7 @@ export default function AdminCampanhaEditPage() {
         const c = await getCampaign(id);
         if (mounted) setCampanha(c);
       } catch {
-        if (mounted) setError('Erro ao carregar campanha');
+        if (mounted) setError('Erro ao carregar evento');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -34,9 +34,9 @@ export default function AdminCampanhaEditPage() {
   if (!campanha) {
     return (
       <div>
-        <Link href="/admin/campanhas" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar às campanhas</Link>
+        <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
         <div className="mt-8 p-8 rounded-xl border border-gray-200 bg-white text-center">
-          <p className="text-cdl-gray-text">Campanha não encontrada.</p>
+          <p className="text-cdl-gray-text">Evento não encontrado.</p>
         </div>
       </div>
     );
@@ -49,7 +49,7 @@ export default function AdminCampanhaEditPage() {
     try {
       await updateCampaign(id, campanha);
     } catch {
-      setError('Erro ao salvar campanha');
+      setError('Erro ao salvar evento');
     } finally {
       setSaving(false);
     }
@@ -57,15 +57,15 @@ export default function AdminCampanhaEditPage() {
 
   return (
     <div>
-      <Link href="/admin/campanhas" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar às campanhas</Link>
+      <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
 
       <div className="mt-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Editar campanha</h1>
-        <p className="text-cdl-gray-text mb-6">Visualização e edição da campanha</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Editar evento</h1>
+        <p className="text-cdl-gray-text mb-6">Visualização e edição do evento</p>
 
         <div className="space-y-6">
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações da Campanha</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações do evento</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
@@ -97,7 +97,7 @@ export default function AdminCampanhaEditPage() {
               </svg>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Edição via interface</h3>
-                <p className="text-sm text-cdl-gray-text mb-3">Edite os campos acima e clique em salvar para atualizar a campanha no Firebase.</p>
+                <p className="text-sm text-cdl-gray-text mb-3">Edite os campos acima e clique em salvar para atualizar o evento no Firebase.</p>
                 <p className="text-sm text-cdl-gray-text">A edição via código ainda funciona e pode ser usada como backup.</p>
               </div>
             </div>

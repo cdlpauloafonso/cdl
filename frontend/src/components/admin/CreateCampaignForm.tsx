@@ -16,12 +16,12 @@ type CreateCampaignFormProps = {
 
 const copy = {
   campaign: {
-    backHref: '/admin/campanhas',
-    backLabel: '← Campanhas',
+    backHref: '/admin/eventos',
+    backLabel: '← Eventos',
     title: 'Nova campanha',
     submitIdle: 'Criar campanha',
     errorCreate: 'Erro ao criar campanha',
-    successPath: '/admin/campanhas',
+    successPath: '/admin/eventos',
   },
   event: {
     title: 'Novo evento',

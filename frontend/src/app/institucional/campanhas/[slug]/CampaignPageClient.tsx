@@ -1,14 +1,38 @@
 'use client';
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { notFound, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { getCampaign, Campaign } from '@/lib/firestore';
-import { getEffectiveRegistration, hrefForExternalRegistration } from '@/lib/event-registration-fields';
+import {
+  getEffectiveRegistration,
+  hrefForExternalRegistration,
+  isInscriptionSoldOut,
+} from '@/lib/event-registration-fields';
+
+const SOLD_OUT_TOAST_MS = 6000;
 
 export function CampaignPageClient({ slug }: { slug: string }) {
+  const router = useRouter();
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
+  const [soldOutNotification, setSoldOutNotification] = useState(false);
+  const soldOutToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSoldOutToast = () => {
+    setSoldOutNotification(true);
+    if (soldOutToastTimerRef.current) clearTimeout(soldOutToastTimerRef.current);
+    soldOutToastTimerRef.current = setTimeout(() => {
+      setSoldOutNotification(false);
+      soldOutToastTimerRef.current = null;
+    }, SOLD_OUT_TOAST_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (soldOutToastTimerRef.current) clearTimeout(soldOutToastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -32,9 +56,40 @@ export function CampaignPageClient({ slug }: { slug: string }) {
   if (!campanha) notFound();
 
   const registration = getEffectiveRegistration(campanha);
+  const ingressosEsgotados =
+    registration.kind === 'form' && isInscriptionSoldOut(campanha);
+
+  async function handleIrParaInscricao() {
+    try {
+      const fresh = await getCampaign(slug);
+      if (fresh) setCampanha(fresh);
+      const c = fresh ?? campanha;
+      const regFresh = getEffectiveRegistration(c);
+      if (c && regFresh.kind === 'form' && isInscriptionSoldOut(c)) {
+        showSoldOutToast();
+        return;
+      }
+      router.push(`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`);
+    } catch {
+      router.push(`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`);
+    }
+  }
 
   return (
-    <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+    <div className="relative py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+      {soldOutNotification && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-base font-semibold text-amber-950">Ingressos esgotados</p>
+          <p className="text-sm text-amber-900/90">
+            O limite de inscrições para este evento foi atingido. Não é possível novas inscrições pelo site.
+          </p>
+        </div>
+      )}
+
       <div className="container-cdl max-w-4xl">
         <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
           ← Voltar às campanhas
@@ -96,16 +151,30 @@ export function CampaignPageClient({ slug }: { slug: string }) {
                 </svg>
                 Fazer inscrição
               </a>
+            ) : ingressosEsgotados ? (
+              <button
+                type="button"
+                title="Ingressos esgotados"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm ring-2 ring-amber-400/60 ring-offset-2 transition-opacity hover:opacity-90"
+                onClick={showSoldOutToast}
+              >
+                <span className="sr-only">Ingressos esgotados. Limite de inscrições atingido. </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                Fazer inscrição
+              </button>
             ) : (
-              <Link
-                href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`}
+              <button
+                type="button"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+                onClick={() => void handleIrParaInscricao()}
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
                 Fazer inscrição
-              </Link>
+              </button>
             )}
           </section>
         )}
