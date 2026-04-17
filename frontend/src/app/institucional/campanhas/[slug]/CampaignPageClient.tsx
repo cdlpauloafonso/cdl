@@ -60,12 +60,14 @@ export function CampaignPageClient({ slug }: { slug: string }) {
     registration.kind === 'form' && isInscriptionSoldOut(campanha);
 
   async function handleIrParaInscricao() {
+    const base = campanha;
+    if (!base) return;
     try {
       const fresh = await getCampaign(slug);
       if (fresh) setCampanha(fresh);
-      const c = fresh ?? campanha;
+      const c = fresh ?? base;
       const regFresh = getEffectiveRegistration(c);
-      if (c && regFresh.kind === 'form' && isInscriptionSoldOut(c)) {
+      if (regFresh.kind === 'form' && isInscriptionSoldOut(c)) {
         showSoldOutToast();
         return;
       }
