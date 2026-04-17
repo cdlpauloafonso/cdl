@@ -56,7 +56,14 @@ function millisFromFirestore(v: unknown): number {
 /** Inscrição em evento: link externo ou formulário com campos do cadastro de associados. */
 export type CampaignRegistrationConfig =
   | { type: 'external'; url: string }
-  | { type: 'form'; fieldKeys: string[]; observationText?: string; associadosOnly?: boolean };
+  | {
+      type: 'form';
+      fieldKeys: string[];
+      observationText?: string;
+      associadosOnly?: boolean;
+      /** Máximo de inscrições aceitas pelo site; ausente ou inválido = sem limite. */
+      inscriptionLimit?: number;
+    };
 
 /** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
 export type CampaignPaymentConfig = {
@@ -197,8 +204,27 @@ export type EventInscriptionRecord = {
   paymentStatus?: EventInscriptionPaymentStatus;
 };
 
+/** Limite de inscrições atingido (tratar na UI pública). */
+export const INSCRIPTION_LIMIT_REACHED_ERROR = 'INSCRIPTION_LIMIT_REACHED';
+
 export async function createEventInscription(campaignId: string, fields: Record<string, string>): Promise<string> {
   const db = getDb();
+  const campaignRef = doc(db, 'campaigns', campaignId);
+  const campaignSnap = await getDoc(campaignRef);
+  const camp = campaignSnap.data() as Campaign | undefined;
+  const cfg = camp?.registrationConfig;
+  const rawLimit = cfg?.type === 'form' ? cfg.inscriptionLimit : undefined;
+  const max =
+    typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.floor(rawLimit)
+      : null;
+  if (max != null) {
+    const inscCol = collection(db, 'campaigns', campaignId, 'inscricoes');
+    const countSnap = await getCountFromServer(inscCol);
+    if (countSnap.data().count >= max) {
+      throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
+    }
+  }
   const col = collection(db, 'campaigns', campaignId, 'inscricoes');
   const ref = await addDoc(col, {
     createdAt: new Date().toISOString(),

@@ -27,6 +27,9 @@ export type RegistrationLinkSectionProps = {
   /** Controla se o evento é exclusivo para associados */
   associadosOnly: boolean;
   onAssociadosOnlyChange: (value: boolean) => void;
+  /** Máximo de inscrições pelo site (só formulário); null = sem limite */
+  inscriptionLimit: number | null;
+  onInscriptionLimitChange: (value: number | null) => void;
 };
 
 export function RegistrationLinkSection({
@@ -43,12 +46,15 @@ export function RegistrationLinkSection({
   pixPayment,
   associadosOnly,
   onAssociadosOnlyChange,
+  inscriptionLimit,
+  onInscriptionLimitChange,
 }: RegistrationLinkSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [draftMode, setDraftMode] = useState<RegistrationLinkMode>('form');
   const [draftUrl, setDraftUrl] = useState('');
   const [draftKeys, setDraftKeys] = useState<string[]>([]);
   const [draftObservationText, setDraftObservationText] = useState('');
+  const [draftInscriptionLimit, setDraftInscriptionLimit] = useState('');
   const [modalError, setModalError] = useState('');
 
   useEffect(() => {
@@ -65,6 +71,9 @@ export function RegistrationLinkSection({
     setDraftUrl(externalUrl);
     setDraftKeys([...fieldKeys]);
     setDraftObservationText(observationText);
+    setDraftInscriptionLimit(
+      inscriptionLimit != null && inscriptionLimit > 0 ? String(inscriptionLimit) : ''
+    );
     setModalError('');
     setModalOpen(true);
   }
@@ -89,6 +98,7 @@ export function RegistrationLinkSection({
       onExternalUrlChange(u);
       onFieldKeysChange([]);
       onObservationTextChange('');
+      onInscriptionLimitChange(null);
     } else {
       if (draftKeys.length === 0) {
         setModalError('Selecione pelo menos um campo (cadastro padrão, associado ou complementar).');
@@ -98,10 +108,21 @@ export function RegistrationLinkSection({
         setModalError('Preencha o texto de observações ou desmarque a opção.');
         return;
       }
+      const rawLimit = draftInscriptionLimit.trim();
+      let parsedLimit: number | null = null;
+      if (rawLimit !== '') {
+        const n = parseInt(rawLimit, 10);
+        if (!Number.isFinite(n) || n < 1) {
+          setModalError('Limite de inscrições deve ser um número inteiro maior ou igual a 1, ou deixe em branco para sem limite.');
+          return;
+        }
+        parsedLimit = n;
+      }
       onModeChange('form');
       onFieldKeysChange(draftKeys);
       onObservationTextChange(draftKeys.includes('observacoes') ? draftObservationText.trim() : '');
       onExternalUrlChange('');
+      onInscriptionLimitChange(parsedLimit);
     }
     setModalOpen(false);
   }
@@ -168,6 +189,16 @@ export function RegistrationLinkSection({
                         <span className="font-medium">Apenas associados:</span> Restrito a membros da CDL
                       </p>
                     )}
+                    <p className="text-xs text-cdl-gray-text mt-1">
+                      {inscriptionLimit != null && inscriptionLimit > 0 ? (
+                        <>
+                          <span className="font-medium text-gray-800">Limite:</span> {inscriptionLimit}{' '}
+                          {inscriptionLimit === 1 ? 'inscrição' : 'inscrições'} pelo site
+                        </>
+                      ) : (
+                        <>Sem limite de inscrições pelo site</>
+                      )}
+                    </p>
                   </div>
                 )}
                 {pixPayment && pixSummaryOk && (
@@ -343,6 +374,24 @@ export function RegistrationLinkSection({
                       </p>
                     </div>
                   )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-1">
+                    Limite de inscrições (formulário no site)
+                  </label>
+                  <p className="text-xs text-cdl-gray-text mb-2">
+                    Opcional. Quando o número de inscrições pelo site atingir esse limite, será exibida a mensagem de
+                    inscrições encerradas. Deixe em branco para não limitar.
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={draftInscriptionLimit}
+                    onChange={(e) => setDraftInscriptionLimit(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Sem limite"
+                    className="mt-1 block w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2"
+                  />
                 </div>
               </div>
             )}

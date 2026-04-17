@@ -27,6 +27,7 @@ export default function AdminCampanhaEditByQueryPage() {
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
   const [associadosOnly, setAssociadosOnly] = useState(false);
+  const [inscriptionLimit, setInscriptionLimit] = useState<number | null>(null);
   const [wantsPixPayment, setWantsPixPayment] = useState(false);
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -65,6 +66,7 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
       setAssociadosOnly(false);
+      setInscriptionLimit(null);
     } else if (eff.kind === 'external') {
       setWantsRegistrationLink(true);
       setRegistrationMode('external');
@@ -72,12 +74,20 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
       setAssociadosOnly(false);
+      setInscriptionLimit(null);
     } else {
       setWantsRegistrationLink(true);
       setRegistrationMode('form');
       setRegistrationExternalUrl('');
       setRegistrationFieldKeys(eff.keys);
       setRegistrationObservationText(eff.observationText ?? '');
+      const lim =
+        formCfg?.type === 'form' &&
+        typeof formCfg.inscriptionLimit === 'number' &&
+        formCfg.inscriptionLimit > 0
+          ? Math.floor(formCfg.inscriptionLimit)
+          : null;
+      setInscriptionLimit(lim);
     }
   }, [campanha?.id, campanha?.registrationConfig]);
 
@@ -158,6 +168,9 @@ export default function AdminCampanhaEditByQueryPage() {
                   associadosOnly,
                   ...(registrationObservationText.trim()
                     ? { observationText: registrationObservationText.trim() }
+                    : {}),
+                  ...(inscriptionLimit != null && inscriptionLimit > 0
+                    ? { inscriptionLimit: inscriptionLimit }
                     : {}),
                 },
                 registrationUrl: null,
@@ -312,6 +325,7 @@ export default function AdminCampanhaEditByQueryPage() {
                     setRegistrationFieldKeys([]);
                     setRegistrationObservationText('');
                     setAssociadosOnly(false);
+                    setInscriptionLimit(null);
                   }
                 }}
                 mode={registrationMode}
@@ -324,6 +338,8 @@ export default function AdminCampanhaEditByQueryPage() {
                 onObservationTextChange={setRegistrationObservationText}
                 associadosOnly={associadosOnly}
                 onAssociadosOnlyChange={setAssociadosOnly}
+                inscriptionLimit={inscriptionLimit}
+                onInscriptionLimitChange={setInscriptionLimit}
               />
               <EventPaymentSection
                 enabled={wantsPixPayment}

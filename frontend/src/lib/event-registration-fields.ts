@@ -81,6 +81,17 @@ export type EffectiveRegistration =
   | { kind: 'form'; keys: string[]; observationText?: string };
 
 /** Une `registrationConfig` e legado `registrationUrl`. */
+/** Limite positivo configurado no admin, ou `null` se não houver teto. */
+export function getInscriptionLimit(c: Pick<Campaign, 'registrationConfig'>): number | null {
+  const cfg = c.registrationConfig;
+  if (cfg?.type !== 'form') return null;
+  const n = cfg.inscriptionLimit;
+  if (typeof n !== 'number' || !Number.isFinite(n)) return null;
+  const i = Math.floor(n);
+  if (i <= 0) return null;
+  return i;
+}
+
 export function getEffectiveRegistration(c: Pick<Campaign, 'registrationConfig' | 'registrationUrl'>): EffectiveRegistration {
   const cfg = c.registrationConfig;
   if (cfg?.type === 'external' && cfg.url?.trim()) return { kind: 'external', url: cfg.url.trim() };

@@ -48,6 +48,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
   const [associadosOnly, setAssociadosOnly] = useState(false);
+  const [inscriptionLimit, setInscriptionLimit] = useState<number | null>(null);
   const [wantsPixPayment, setWantsPixPayment] = useState(false);
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -123,6 +124,9 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                       associadosOnly,
                       ...(registrationObservationText.trim()
                         ? { observationText: registrationObservationText.trim() }
+                        : {}),
+                      ...(inscriptionLimit != null && inscriptionLimit > 0
+                        ? { inscriptionLimit: inscriptionLimit }
                         : {}),
                     },
             }
@@ -317,6 +321,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                 setWantsRegistrationLink(value);
                 if (!value) {
                   setRegistrationObservationText('');
+                  setInscriptionLimit(null);
                 }
               }}
               mode={registrationMode}
@@ -329,6 +334,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
               onObservationTextChange={setRegistrationObservationText}
               associadosOnly={associadosOnly}
               onAssociadosOnlyChange={setAssociadosOnly}
+              inscriptionLimit={inscriptionLimit}
+              onInscriptionLimitChange={setInscriptionLimit}
               pixPayment={
                 wantsRegistrationLink
                   ? {
