@@ -28,6 +28,31 @@ export function getDb() {
   return getFirestore();
 }
 
+/** ISO string a partir de string, Timestamp do Firestore ou { seconds }. */
+function isoFromFirestoreDate(v: unknown): string {
+  if (v == null || v === '') return new Date().toISOString();
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object' && v !== null && typeof (v as { toDate?: () => Date }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (typeof v === 'object' && v !== null && typeof (v as { seconds?: number }).seconds === 'number') {
+    return new Date((v as { seconds: number }).seconds * 1000).toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function millisFromFirestore(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === 'string') return new Date(v).getTime() || 0;
+  if (typeof v === 'object' && v !== null && typeof (v as { toDate?: () => Date }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate().getTime();
+  }
+  if (typeof v === 'object' && v !== null && typeof (v as { seconds?: number }).seconds === 'number') {
+    return (v as { seconds: number }).seconds * 1000;
+  }
+  return 0;
+}
+
 /** Inscrição em evento: link externo ou formulário com campos do cadastro de associados. */
 export type CampaignRegistrationConfig =
   | { type: 'external'; url: string }
@@ -75,20 +100,21 @@ export type Informativo = {
   autor?: string;
 };
 
-export async function getInformativos(limit = 10): Promise<Informativo[]> {
+export async function getInformativos(maxResults = 10): Promise<Informativo[]> {
   const db = getDb();
   const col = collection(db, 'informativos');
-  const q = query(
-    col,
-    where('status', '==', 'ativo'),
-    orderBy('createdAt', 'desc'),
-    limit(limit)
-  );
+  // Só `where` evita índice composto (status + createdAt). Ordenação e limite no cliente.
+  const q = query(col, where('status', '==', 'ativo'));
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  } as Informativo));
+  const items = snap.docs.map(
+    (docSnap) =>
+      ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }) as Informativo
+  );
+  items.sort((a, b) => millisFromFirestore(b.createdAt) - millisFromFirestore(a.createdAt));
+  return items.slice(0, maxResults);
 }
 
 export async function listCampaigns(): Promise<Campaign[]> {
@@ -258,16 +284,12 @@ function newsToPayload(data: Partial<NewsItemFirestore>): Record<string, unknown
 export async function listNews(onlyPublished: boolean, limitCount: number = 100): Promise<NewsItemFirestore[]> {
   const db = getDb();
   const col = collection(db, 'news');
+  // Com `published`: só `where` evita índice composto (published + publishedAt). Ordenação no cliente.
   const q = onlyPublished
-    ? query(
-        col,
-        where('published', '==', true),
-        orderBy('publishedAt', 'desc'),
-        limit(limitCount)
-      )
+    ? query(col, where('published', '==', true))
     : query(col, orderBy('publishedAt', 'desc'), limit(limitCount));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
+  const items = snap.docs.map((d) => {
     const data = d.data();
     return {
       id: d.id,
@@ -278,10 +300,15 @@ export async function listNews(onlyPublished: boolean, limitCount: number = 100)
       image: data.image ?? null,
       links: data.links ?? null,
       published: data.published ?? false,
-      publishedAt: data.publishedAt ?? new Date().toISOString(),
-      createdAt: data.createdAt ?? new Date().toISOString(),
+      publishedAt: isoFromFirestoreDate(data.publishedAt),
+      createdAt: isoFromFirestoreDate(data.createdAt ?? data.publishedAt),
     };
   });
+  if (onlyPublished) {
+    items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    return items.slice(0, limitCount);
+  }
+  return items;
 }
 
 export async function getNewsById(id: string): Promise<NewsItemFirestore | null> {

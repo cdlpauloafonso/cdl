@@ -203,7 +203,8 @@ export function RegistrationLinkSection({
             <p className="text-sm text-cdl-gray-text mb-4">
               Escolha um link externo ou marque os campos desejados em <strong>cadastro padrão</strong> (CPF, nome do
               representante, etc.) e/ou em <strong>dados de associado</strong> (empresa, CNPJ, etc.). Ao salvar, a página
-              pública do evento exibirá o formulário com essa combinação.
+              pública do evento exibirá o formulário com essa combinação. <strong>Todos os itens marcados serão
+              obrigatórios</strong> para o participante preencher.
             </p>
 
             <div className="space-y-3 mb-4">
@@ -310,7 +311,8 @@ export function RegistrationLinkSection({
                 <div>
                   <span className="block text-sm font-medium text-gray-800 mb-2">Complementar</span>
                   <p className="text-xs text-cdl-gray-text mb-2">
-                    Observações é um texto informativo do administrador (não é preenchido pelo participante).
+                    Ao marcar «Observações», informe o texto de apoio ao participante; na inscrição, o campo de
+                    observações também será obrigatório.
                   </p>
                   <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
                     {EXTRA_INSCRIPTION_FIELDS.map((f) => (

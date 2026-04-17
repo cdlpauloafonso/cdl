@@ -37,11 +37,11 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   // Páginas públicas - layout completo com header, footer e WhatsApp
   return (
-    <>
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
       <Header />
-      <main className="flex-1">{children}</main>
+      <main className="min-w-0 w-full flex-1">{children}</main>
       <Footer />
       <WhatsAppButton />
-    </>
+    </div>
   );
 }

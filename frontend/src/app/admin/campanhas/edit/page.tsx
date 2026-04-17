@@ -26,6 +26,7 @@ export default function AdminCampanhaEditByQueryPage() {
   const [registrationExternalUrl, setRegistrationExternalUrl] = useState('');
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
+  const [associadosOnly, setAssociadosOnly] = useState(false);
   const [wantsPixPayment, setWantsPixPayment] = useState(false);
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -55,18 +56,22 @@ export default function AdminCampanhaEditByQueryPage() {
   useEffect(() => {
     if (!campanha?.id) return;
     const eff = getEffectiveRegistration(campanha);
+    const formCfg = campanha.registrationConfig?.type === 'form' ? campanha.registrationConfig : null;
+    setAssociadosOnly(Boolean(formCfg?.associadosOnly));
     if (eff.kind === 'none') {
       setWantsRegistrationLink(false);
       setRegistrationMode('form');
       setRegistrationExternalUrl('');
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
+      setAssociadosOnly(false);
     } else if (eff.kind === 'external') {
       setWantsRegistrationLink(true);
       setRegistrationMode('external');
       setRegistrationExternalUrl(eff.url);
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
+      setAssociadosOnly(false);
     } else {
       setWantsRegistrationLink(true);
       setRegistrationMode('form');
@@ -74,7 +79,7 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationFieldKeys(eff.keys);
       setRegistrationObservationText(eff.observationText ?? '');
     }
-  }, [campanha?.id]);
+  }, [campanha?.id, campanha?.registrationConfig]);
 
   useEffect(() => {
     if (!campanha?.id) return;
@@ -150,6 +155,7 @@ export default function AdminCampanhaEditByQueryPage() {
                 registrationConfig: {
                   type: 'form' as const,
                   fieldKeys: registrationFieldKeys,
+                  associadosOnly,
                   ...(registrationObservationText.trim()
                     ? { observationText: registrationObservationText.trim() }
                     : {}),
@@ -305,6 +311,7 @@ export default function AdminCampanhaEditByQueryPage() {
                     setRegistrationExternalUrl('');
                     setRegistrationFieldKeys([]);
                     setRegistrationObservationText('');
+                    setAssociadosOnly(false);
                   }
                 }}
                 mode={registrationMode}
@@ -315,6 +322,8 @@ export default function AdminCampanhaEditByQueryPage() {
                 onFieldKeysChange={setRegistrationFieldKeys}
                 observationText={registrationObservationText}
                 onObservationTextChange={setRegistrationObservationText}
+                associadosOnly={associadosOnly}
+                onAssociadosOnlyChange={setAssociadosOnly}
               />
               <EventPaymentSection
                 enabled={wantsPixPayment}

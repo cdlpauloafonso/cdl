@@ -114,15 +114,17 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         image: imageUrl || undefined,
         ...(variant === 'event' && wantsRegistrationLink
           ? {
-              registrationConfig: {
-                ...(registrationMode === 'external'
+              registrationConfig:
+                registrationMode === 'external'
                   ? { type: 'external', url: registrationExternalUrl.trim() }
-                  : { type: 'form', fieldKeys: registrationFieldKeys }),
-                ...(registrationObservationText.trim()
-                  ? { observationText: registrationObservationText.trim() }
-                  : {}),
-                associadosOnly: associadosOnly,
-              },
+                  : {
+                      type: 'form',
+                      fieldKeys: registrationFieldKeys,
+                      associadosOnly,
+                      ...(registrationObservationText.trim()
+                        ? { observationText: registrationObservationText.trim() }
+                        : {}),
+                    },
             }
           : {}),
         ...(variant === 'event' && wantsPixPayment && (pixImageUrl.trim() || pixCopyPaste.trim())

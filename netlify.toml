@@ -21,6 +21,16 @@
   to = "https://www.cdlpauloafonso.com/:splat"
   status = 301
   force = true
+
+# Lista pública: o export gera `noticias.html` na raiz, mas também existe a pasta
+# `out/noticias/` (rotas dinâmicas). Sem `index.html` nessa pasta, pedidos a
+# `/noticias/` (barra final) podem retornar 404 no Netlify em vez da listagem.
+[[redirects]]
+  from = "/noticias/"
+  to = "/noticias.html"
+  status = 200
+  force = true
+
 [build]
   base = "frontend"
   command = "npm run build"

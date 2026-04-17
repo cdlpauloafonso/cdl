@@ -17,6 +17,7 @@ import {
   labelForInscriptionField,
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
+import { getEffectivePayment } from '@/lib/event-payment-fields';
 
 function collectColumnKeys(
   reg: ReturnType<typeof getEffectiveRegistration>,
@@ -121,6 +122,25 @@ export default function AdminEventoInscritosPage() {
   }, [load]);
 
   const reg = campanha ? getEffectiveRegistration(campanha) : { kind: 'none' as const };
+  const eventHasConfiguredPayment = useMemo(
+    () => (campanha ? getEffectivePayment(campanha).kind !== 'none' : false),
+    [campanha]
+  );
+  const displayPaymentColumn = eventHasConfiguredPayment && showPaymentColumn;
+
+  useEffect(() => {
+    if (!eventHasConfiguredPayment && sortBy === 'paymentStatus') {
+      setSortBy('createdAt');
+    }
+  }, [eventHasConfiguredPayment, sortBy]);
+
+  useEffect(() => {
+    if (!eventHasConfiguredPayment) {
+      setShowPaymentColumn(false);
+      setFilterPayment('all');
+    }
+  }, [eventHasConfiguredPayment]);
+
   const columnKeys = useMemo(() => {
     if (!campanha) return [];
     const r = getEffectiveRegistration(campanha);
@@ -150,15 +170,8 @@ export default function AdminEventoInscritosPage() {
     }
   }, [sortBy, displayedColumnKeys]);
 
-  useEffect(() => {
-    if (!showPaymentColumn && sortBy === 'paymentStatus') {
-      setSortBy('createdAt');
-    }
-  }, [showPaymentColumn, sortBy]);
-
   const hasCidade = columnKeys.includes('cidade');
   const hasEstado = columnKeys.includes('estado');
-  const hasPaymentColumn = rows.length > 0;
 
   const cidadesUnicas = useMemo(() => {
     if (!hasCidade) return [];
@@ -289,7 +302,7 @@ export default function AdminEventoInscritosPage() {
       const headers = [
         ...displayedColumnKeys.map((k) => labelForInscriptionField(k)),
         'Data',
-        ...(showPaymentColumn ? ['Pagamento'] : []),
+        ...(displayPaymentColumn ? ['Pagamento'] : []),
       ];
       const colCount = Math.max(headers.length, 1);
       const tableW = pageW - margin * 2;
@@ -335,7 +348,7 @@ export default function AdminEventoInscritosPage() {
         const rowValues = [
           ...displayedColumnKeys.map((k) => (row.fields?.[k] ?? '').toString().trim() || '—'),
           formatDateBr(row.createdAt),
-          ...(showPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
+          ...(displayPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
         ];
         const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
         const maxLines = Math.max(1, ...wrapped.map((lines) => lines.length));
@@ -478,22 +491,24 @@ export default function AdminEventoInscritosPage() {
                   ))}
                 </select>
               )}
-              <select
-                value={filterPayment}
-                onChange={(e) => setFilterPayment(e.target.value as 'all' | EventInscriptionPaymentStatus)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
-              >
-                <option value="all">Todos os pagamentos</option>
-                <option value="paid">Pago</option>
-                <option value="pending">Pendente</option>
-              </select>
+              {eventHasConfiguredPayment && (
+                <select
+                  value={filterPayment}
+                  onChange={(e) => setFilterPayment(e.target.value as 'all' | EventInscriptionPaymentStatus)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                >
+                  <option value="all">Todos os pagamentos</option>
+                  <option value="paid">Pago</option>
+                  <option value="pending">Pendente</option>
+                </select>
+              )}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
               >
                 <option value="createdAt">Ordenar por data da inscrição</option>
-                {showPaymentColumn && <option value="paymentStatus">Ordenar por pagamento</option>}
+                {eventHasConfiguredPayment && <option value="paymentStatus">Ordenar por pagamento</option>}
                 {displayedColumnKeys.map((k) => (
                   <option key={k} value={k}>
                     Ordenar por {labelForInscriptionField(k)}
@@ -540,7 +555,7 @@ export default function AdminEventoInscritosPage() {
                     type="button"
                     onClick={() => {
                       setVisibleColumnKeys([...columnKeys]);
-                      setShowPaymentColumn(hasPaymentColumn);
+                      setShowPaymentColumn(eventHasConfiguredPayment);
                     }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
@@ -576,7 +591,7 @@ export default function AdminEventoInscritosPage() {
                       {labelForInscriptionField(k)}
                     </label>
                   ))}
-                  {hasPaymentColumn && (
+                  {eventHasConfiguredPayment && (
                     <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -632,7 +647,7 @@ export default function AdminEventoInscritosPage() {
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
                         Data
                       </th>
-                      {showPaymentColumn && (
+                      {displayPaymentColumn && (
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
                           Pagamento
                         </th>
@@ -665,7 +680,7 @@ export default function AdminEventoInscritosPage() {
                         <td className="px-3 py-2 text-gray-700 whitespace-nowrap align-top">
                           {formatDateBr(row.createdAt)}
                         </td>
-                        {showPaymentColumn && (
+                        {displayPaymentColumn && (
                           <td className="px-3 py-2 align-top whitespace-nowrap">
                             {paymentStatusOf(row) === 'paid' ? (
                               <button

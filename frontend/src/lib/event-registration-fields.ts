@@ -47,9 +47,9 @@ export function labelForInscriptionField(id: string): string {
   return LEGACY_INSCRIPTION_LABELS[id] ?? id;
 }
 
-/** Campos que não são obrigatórios no envio (ex.: observações). */
-export function isInscriptionFieldOptional(id: string): boolean {
-  return id === 'observacoes';
+/** Campos exibidos no formulário vêm só de `fieldKeys`; todos são obrigatórios ao enviar. */
+export function isInscriptionFieldOptional(_id: string): boolean {
+  return false;
 }
 
 /** Tipo de controle na página pública de inscrição. */

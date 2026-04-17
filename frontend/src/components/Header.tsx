@@ -36,7 +36,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200/80">
       <div className="container-cdl">
-        <div className="flex h-16 sm:h-18 items-center justify-between gap-4">
+        <div className="flex h-16 sm:h-20 items-center justify-between gap-4">
           <Link href="/" className="flex items-center shrink-0" aria-label="CDL Paulo Afonso - Home">
             <Image
               src="/logo.png"

@@ -161,21 +161,12 @@ export default function AdminEventosPage() {
                                 Ver
                               </Link>
                               {reg.kind === 'form' && (
-                                <>
-                                  <Link
-                                    href={`/admin/eventos/inscritos?eventId=${ev.id}`}
-                                    className="inline-block px-2 py-1.5 text-emerald-800 hover:bg-emerald-50 rounded-md text-xs sm:text-sm font-medium"
-                                  >
-                                    Ver inscritos
-                                  </Link>
-                                  <Link
-                                    href={`/institucional/campanhas/inscricao?slug=${encodeURIComponent(ev.id ?? '')}`}
-                                    target="_blank"
-                                    className="inline-block px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-md text-xs sm:text-sm"
-                                  >
-                                    Inscrição
-                                  </Link>
-                                </>
+                                <Link
+                                  href={`/admin/eventos/inscritos?eventId=${ev.id}`}
+                                  className="inline-block px-2 py-1.5 text-emerald-800 hover:bg-emerald-50 rounded-md text-xs sm:text-sm font-medium"
+                                >
+                                  Ver inscritos
+                                </Link>
                               )}
                               <Link
                                 href={`/admin/campanhas/edit?id=${ev.id}`}

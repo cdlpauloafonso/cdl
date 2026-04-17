@@ -61,12 +61,15 @@ function FieldRow({
   setValues,
   cnpjLookup,
   observationText,
+  inscricaoAssociadosOnly,
 }: {
   fieldKey: string;
   values: Record<string, string>;
   setValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   cnpjLookup?: CnpjLookupProps;
   observationText?: string;
+  /** Evento restrito a associados (configuração do admin). */
+  inscricaoAssociadosOnly?: boolean;
 }) {
   const kind = inscriptionFieldInputKind(fieldKey);
   const label = labelForInscriptionField(fieldKey);
@@ -117,10 +120,9 @@ function FieldRow({
         {label}
         {isCnpjApi && (
           <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
-            {campanha?.registrationConfig?.associadosOnly 
+            {inscricaoAssociadosOnly
               ? 'O CNPJ precisa estar cadastrado como associado da CDL para enviar a inscrição. Ao completar 14 dígitos, saia do campo para consultar a Receita e preencher os dados.'
-              : 'O CNPJ precisa estar cadastrado como associado da CDL para enviar a inscrição. Ao completar 14 dígitos, saia do campo para consultar a Receita e preencher os dados. Se o evento for aberto para todos, não associados também podem se inscrever.'
-            }
+              : 'Ao completar 14 dígitos, saia do campo para validar o CNPJ na Receita Federal e preencher os dados automaticamente. Neste evento não é obrigatório ser associado da CDL.'}
           </span>
         )}
       </label>
@@ -259,6 +261,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       : '';
   const payment = getEffectivePayment(campanha);
   const needsCnpjValidationStep = userInputKeys.includes('cnpj');
+  const inscricaoAssociadosOnly =
+    campanha.registrationConfig?.type === 'form' &&
+    campanha.registrationConfig.associadosOnly === true;
 
   async function lookupCnpjAndPrefill(raw: string, opts?: { setFormErrorOnInvalid?: boolean }): Promise<boolean> {
     const digits = onlyDigitsCnpj(raw ?? '');
@@ -274,14 +279,17 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     setCnpjLookupLoading(true);
     setCnpjLookupHint(null);
     try {
-      const isAssociado = await isCnpjCadastradoComoAssociado(raw);
-      if (req !== cnpjLookupReq.current) return false;
-      if (!isAssociado) {
-        setCnpjRejeitadoNaoAssociado(true);
-        setCnpjLookupHint({ type: 'err', text: MSG_CNPJ_NAO_ASSOCIADO });
-        return false;
+      if (inscricaoAssociadosOnly) {
+        const isAssociado = await isCnpjCadastradoComoAssociado(raw);
+        if (req !== cnpjLookupReq.current) return false;
+        if (!isAssociado) {
+          setCnpjRejeitadoNaoAssociado(true);
+          setCnpjLookupHint({ type: 'err', text: MSG_CNPJ_NAO_ASSOCIADO });
+          return false;
+        }
+      } else {
+        setCnpjRejeitadoNaoAssociado(false);
       }
-      setCnpjRejeitadoNaoAssociado(false);
 
       const data = await fetchCnpjBrasilApi(digits);
       if (req !== cnpjLookupReq.current) return false;
@@ -333,7 +341,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       const d = onlyDigitsCnpj(values.cnpj ?? '');
       if (d.length === 14) {
         // Se o evento for aberto para todos, permite CNPJ não associado
-        if (!campanha?.registrationConfig?.associadosOnly) {
+        if (!inscricaoAssociadosOnly) {
           // Evento aberto: permite qualquer CNPJ
           // Não faz validação de associado
         } else {
@@ -348,7 +356,6 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       }
     }
     for (const key of userInputKeys) {
-      if (isInscriptionFieldOptional(key)) continue;
       if (!values[key]?.trim()) {
         setError(`Preencha o campo: ${labelForInscriptionField(key)}`);
         return false;
@@ -447,7 +454,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">
             {needsCnpjValidationStep && !cnpjStepDone
-              ? (campanha?.registrationConfig?.associadosOnly ? 'Validação de associado' : 'Validação de dados')
+              ? (inscricaoAssociadosOnly ? 'Validação de associado' : 'Validação de dados')
               : payment.kind === 'pix' && pixStepActive
                 ? 'Pagamento (PIX)'
                 : 'Preencha seus dados'}
@@ -459,10 +466,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   CNPJ
                   <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
-                    {campanha?.registrationConfig?.associadosOnly 
+                    {inscricaoAssociadosOnly
                       ? 'Para continuar, informe o CNPJ da empresa associada.'
-                      : 'Para continuar, informe o CNPJ da sua empresa.'
-                    }
+                      : 'Para continuar, informe o CNPJ da sua empresa.'}
                   </span>
                 </label>
                 <input
@@ -535,6 +541,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                           setValues={setValues}
                           cnpjLookup={key === 'cnpj' ? cnpjLookupUi : undefined}
                           observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
                         />
                       ))}
                     </div>
@@ -553,6 +560,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                           values={values}
                           setValues={setValues}
                           observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
                         />
                       ))}
                     </div>
@@ -571,6 +579,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                           values={values}
                           setValues={setValues}
                           observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
                         />
                       ))}
                     </div>
