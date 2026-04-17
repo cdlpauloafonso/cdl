@@ -463,7 +463,10 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   CNPJ
                   <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
-                    Para continuar, informe o CNPJ da empresa associada.
+                    {campanha?.registrationConfig?.associadosOnly 
+                      ? 'Para continuar, informe o CNPJ da empresa associada.'
+                      : 'Para continuar, informe o CNPJ da sua empresa.'
+                    }
                   </span>
                 </label>
                 <input
