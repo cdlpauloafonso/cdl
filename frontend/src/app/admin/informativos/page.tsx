@@ -2,43 +2,80 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getInformativos, deleteInformativo, ativarInformativo, desativarInformativo, type Informativo } from '@/lib/firestore-informativos';
 
 export default function InformativosPage() {
-  const [informativos, setInformativos] = useState<any[]>([]);
+  const [informativos, setInformativos] = useState<Informativo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [excluirPendente, setExcluirPendente] = useState<Informativo | null>(null);
 
   useEffect(() => {
-    // Simulação de dados - substituir com dados reais do Firestore
-    const mockInformativos = [
-      {
-        id: '1',
-        titulo: 'Novo Sistema de Associados',
-        descricao: 'Lançamento da nova plataforma de gestão de associados com recursos avançados.',
-        data_publicacao: new Date(),
-        status: 'ativo',
-        tipo: 'sistema'
-      },
-      {
-        id: '2',
-        titulo: 'Mudança no Horário de Funcionamento',
-        descricao: 'A partir de segunda-feira, o horário de atendimento será das 8h às 17h.',
-        data_publicacao: new Date(Date.now() - 86400000),
-        status: 'ativo',
-        tipo: 'aviso'
-      },
-      {
-        id: '3',
-        titulo: 'Manutenção Programada',
-        descricao: 'Sistema indisponível no domingo das 2h às 6h para manutenção.',
-        data_publicacao: new Date(Date.now() - 172800000),
-        status: 'inativo',
-        tipo: 'manutencao'
-      }
-    ];
-    setInformativos(mockInformativos);
-    setLoading(false);
+    loadInformativos();
   }, []);
+
+  const loadInformativos = async () => {
+    try {
+      const data = await getInformativos();
+      setInformativos(data);
+    } catch (error) {
+      console.error('Erro ao carregar informativos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, titulo: string) => {
+    const informativoParaExcluir = informativos.find(i => i.id === id);
+    if (informativoParaExcluir) {
+      setExcluirPendente(informativoParaExcluir);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const confirmarExcluir = async () => {
+    if (!excluirPendente) return;
+    
+    setDeletingId(excluirPendente.id);
+    try {
+      await deleteInformativo(excluirPendente.id);
+      setInformativos(prev => prev.filter(i => i.id !== excluirPendente.id));
+      setShowDeleteModal(false);
+      setExcluirPendente(null);
+    } catch (error) {
+      console.error('Erro ao excluir informativo:', error);
+      alert('Erro ao excluir informativo. Tente novamente.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const cancelarExcluir = () => {
+    setShowDeleteModal(false);
+    setExcluirPendente(null);
+  };
+
+  const handleAtivar = async (id: string) => {
+    try {
+      await ativarInformativo(id);
+      setInformativos(prev => prev.map(i => i.id === id ? { ...i, status: 'ativo' } : i));
+    } catch (error) {
+      console.error('Erro ao ativar informativo:', error);
+      alert('Erro ao ativar informativo. Tente novamente.');
+    }
+  };
+
+  const handleDesativar = async (id: string) => {
+    try {
+      await desativarInformativo(id);
+      setInformativos(prev => prev.map(i => i.id === id ? { ...i, status: 'inativo' } : i));
+    } catch (error) {
+      console.error('Erro ao desativar informativo:', error);
+      alert('Erro ao desativar informativo. Tente novamente.');
+    }
+  };
 
   const filteredInformativos = informativos.filter(informativo =>
     informativo.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -260,18 +297,21 @@ export default function InformativosPage() {
                         </Link>
                         {informativo.status === 'inativo' ? (
                           <button
+                            onClick={() => handleAtivar(informativo.id)}
                             className="text-green-600 hover:underline"
                           >
                             Ativar
                           </button>
                         ) : (
                           <button
+                            onClick={() => handleDesativar(informativo.id)}
                             className="text-yellow-600 hover:underline"
                           >
                             Desativar
                           </button>
                         )}
                         <button
+                          onClick={() => handleDelete(informativo.id, informativo.titulo)}
                           className="text-red-600 hover:underline"
                         >
                           Excluir
@@ -301,6 +341,41 @@ export default function InformativosPage() {
           <Link href="/admin/informativos/adicionar" className="btn-primary">
             Adicionar Primeiro Informativo
           </Link>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && excluirPendente && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-8 max-w-md mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Confirmar Exclusão</h3>
+              <p className="text-gray-600 mb-6">
+                Tem certeza que deseja excluir o informativo <strong>{excluirPendente.titulo}</strong>? Esta ação não pode ser desfeita.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={cancelarExcluir}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarExcluir()}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                >
+                  Sim, excluir
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
