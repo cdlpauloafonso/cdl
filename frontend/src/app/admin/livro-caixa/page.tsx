@@ -75,10 +75,29 @@ export default function LivroCaixaPage() {
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    if (field === 'valor') {
+      // Aplicar máscara monetária brasileira
+      const numeros = value.replace(/\D/g, '');
+      if (numeros === '') {
+        setFormData(prev => ({ ...prev, [field]: '' }));
+        return;
+      }
+      
+      // Converter para centavos e formatar
+      const centavos = parseInt(numeros);
+      const reais = centavos / 100;
+      const formatado = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(reais);
+      
+      setFormData(prev => ({ ...prev, [field]: formatado }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -377,12 +396,12 @@ export default function LivroCaixaPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
                 <input 
-                  type="number" 
-                  step="0.01" 
-                  placeholder="0,00" 
+                  type="text" 
+                  placeholder="R$ 0,00" 
                   value={formData.valor}
                   onChange={(e) => handleInputChange('valor', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                  style={{ MozAppearance: 'textfield' }}
                 />
               </div>
               <div>
