@@ -1,0 +1,149 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.admin == true;
+    }
+    
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    function isValidCNPJ(cnpj) {
+      return cnpj.matches('^\\d{14}$');
+    }
+    
+    function isValidPhone(phone) {
+      return phone.matches('^\\d{10,11}$');
+    }
+    
+    function isValidDate(date) {
+      return date.matches('^\\d{2}/\\d{2}/\\d{4}$');
+    }
+    
+    function isValidMoney(value) {
+      return value is number && value > 0;
+    }
+    
+    function isValidPaymentMethod(method) {
+      return method in ['pix', 'cartao', 'dinheiro'];
+    }
+    
+    function isValidTransactionType(type) {
+      return type in ['entrada', 'saida'];
+    }
+    
+    function isValidTransactionStatus(status) {
+      return status in ['confirmado', 'pendente'];
+    }
+    
+    // Regras para a coleção de associados
+    match /associados/{associadoId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && 
+        request.resource.data.keys().hasAll([
+          'razao_social', 'nome_fantasia', 'cnpj', 'email', 
+          'telefone', 'endereco', 'status', 'created_at', 'updated_at'
+        ]) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidCNPJ(request.resource.data.cnpj) &&
+        isValidPhone(request.resource.data.telefone) &&
+        request.resource.data.status in ['ativo', 'em_negociacao', 'desativado'];
+      
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
+        (!('email' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidEmail(request.resource.data.email)) &&
+        (!('telefone' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidPhone(request.resource.data.telefone)) &&
+        (!('status' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         request.resource.data.status in ['ativo', 'em_negociacao', 'desativado']);
+      
+      allow delete: if isAdmin();
+    }
+    
+    // Regras para a coleção de categorias do livro caixa
+    match /categorias_livro_caixa/{categoriaId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasAll(['nome', 'created_at', 'updated_at']) &&
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() > 0 &&
+        request.resource.data.nome.size() <= 50;
+      
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
+        (!('nome' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         (request.resource.data.nome is string &&
+          request.resource.data.nome.size() > 0 &&
+          request.resource.data.nome.size() <= 50));
+      
+      allow delete: if isAdmin();
+    }
+    
+    // Regras para a coleção de transações do livro caixa
+    match /transacoes_livro_caixa/{transacaoId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasAll([
+          'data', 'descricao', 'categoria', 'tipo', 'valor', 
+          'metodo_pagamento', 'status', 'created_at', 'updated_at'
+        ]) &&
+        isValidDate(request.resource.data.data) &&
+        request.resource.data.descricao is string &&
+        request.resource.data.descricao.size() > 0 &&
+        request.resource.data.descricao.size() <= 200 &&
+        request.resource.data.categoria is string &&
+        request.resource.data.categoria.size() > 0 &&
+        isValidTransactionType(request.resource.data.tipo) &&
+        isValidMoney(request.resource.data.valor) &&
+        isValidPaymentMethod(request.resource.data.metodo_pagamento) &&
+        isValidTransactionStatus(request.resource.data.status);
+      
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
+        (!('data' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidDate(request.resource.data.data)) &&
+        (!('descricao' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         (request.resource.data.descricao is string &&
+          request.resource.data.descricao.size() > 0 &&
+          request.resource.data.descricao.size() <= 200)) &&
+        (!('categoria' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         (request.resource.data.categoria is string &&
+          request.resource.data.categoria.size() > 0)) &&
+        (!('tipo' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidTransactionType(request.resource.data.tipo)) &&
+        (!('valor' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidMoney(request.resource.data.valor)) &&
+        (!('metodo_pagamento' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidPaymentMethod(request.resource.data.metodo_pagamento)) &&
+        (!('status' in request.resource.data.diff(resource.data).affectedKeys()) || 
+         isValidTransactionStatus(request.resource.data.status));
+      
+      allow delete: if isAdmin();
+    }
+    
+    // Índice de CNPJ para associados (para busca rápida)
+    match /associados_cnpj/{cnpj} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Regras para usuários (se existir coleção de usuários)
+    match /users/{userId} {
+      allow read, write: if isAdmin() || userId == request.auth.uid;
+    }
+    
+    // Negar acesso a qualquer outra coleção não especificada
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
