@@ -905,6 +905,125 @@ export async function deleteCategoriaLivroCaixa(id: string): Promise<void> {
   await deleteDoc(ref);
 }
 
+// Funções para transações do Livro Caixa
+export type TransacaoLivroCaixa = {
+  id: string;
+  data: string; // formato DD/MM/YYYY
+  descricao: string;
+  categoria: string;
+  tipo: 'entrada' | 'saida';
+  valor: number;
+  metodo_pagamento: 'pix' | 'cartao' | 'dinheiro';
+  status: 'confirmado' | 'pendente';
+  created_at: any;
+  updated_at: any;
+};
+
+export async function getTransacoesLivroCaixa(): Promise<TransacaoLivroCaixa[]> {
+  const db = getDb();
+  const col = collection(db, 'transacoes_livro_caixa');
+  const q = query(col, orderBy('created_at', 'desc'));
+  const snap = await getDocs(q);
+  const list = snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as TransacaoLivroCaixa));
+  return list;
+}
+
+export async function createTransacaoLivroCaixa(data: Omit<TransacaoLivroCaixa, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'transacoes_livro_caixa');
+  const newRef = doc(col);
+  const now = new Date();
+  
+  // Validações de segurança
+  if (!data.descricao?.trim()) {
+    throw new Error('Descrição é obrigatória');
+  }
+  if (!data.categoria?.trim()) {
+    throw new Error('Categoria é obrigatória');
+  }
+  if (typeof data.valor !== 'number' || data.valor <= 0) {
+    throw new Error('Valor deve ser um número positivo');
+  }
+  if (!['entrada', 'saida'].includes(data.tipo)) {
+    throw new Error('Tipo deve ser "entrada" ou "saida"');
+  }
+  if (!['pix', 'cartao', 'dinheiro'].includes(data.metodo_pagamento)) {
+    throw new Error('Método de pagamento inválido');
+  }
+  if (!['confirmado', 'pendente'].includes(data.status)) {
+    throw new Error('Status inválido');
+  }
+  if (!data.data?.trim() || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.data)) {
+    throw new Error('Data deve estar no formato DD/MM/YYYY');
+  }
+  
+  await setDoc(newRef, {
+    ...data,
+    created_at: now,
+    updated_at: now
+  });
+  
+  return newRef.id;
+}
+
+export async function updateTransacaoLivroCaixa(id: string, data: Partial<Omit<TransacaoLivroCaixa, 'id' | 'created_at'>>): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'transacoes_livro_caixa', id);
+  
+  // Validações de segurança para atualização
+  if (data.valor !== undefined && (typeof data.valor !== 'number' || data.valor <= 0)) {
+    throw new Error('Valor deve ser um número positivo');
+  }
+  if (data.tipo !== undefined && !['entrada', 'saida'].includes(data.tipo)) {
+    throw new Error('Tipo deve ser "entrada" ou "saida"');
+  }
+  if (data.metodo_pagamento !== undefined && !['pix', 'cartao', 'dinheiro'].includes(data.metodo_pagamento)) {
+    throw new Error('Método de pagamento inválido');
+  }
+  if (data.status !== undefined && !['confirmado', 'pendente'].includes(data.status)) {
+    throw new Error('Status inválido');
+  }
+  if (data.data !== undefined && (!data.data?.trim() || !/^\d{2}\/\d{2}\/\d{4}$/.test(data.data))) {
+    throw new Error('Data deve estar no formato DD/MM/YYYY');
+  }
+  
+  await updateDoc(ref, {
+    ...data,
+    updated_at: new Date()
+  });
+}
+
+export async function deleteTransacaoLivroCaixa(id: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'transacoes_livro_caixa', id);
+  
+  await deleteDoc(ref);
+}
+
+// Função auxiliar para converter valor monetário formatado para número
+export function converterValorMonetario(valorFormatado: string): number {
+  if (!valorFormatado || typeof valorFormatado !== 'string') {
+    throw new Error('Valor monetário inválido');
+  }
+  
+  // Remover R$, espaços e pontos, substituir vírgula por ponto
+  const numeros = valorFormatado
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+  
+  const valor = parseFloat(numeros);
+  
+  if (isNaN(valor) || valor <= 0) {
+    throw new Error('Valor deve ser um número positivo');
+  }
+  
+  return valor;
+}
+
 export async function getAssociados(): Promise<Associado[]> {
   const db = getDb();
   const col = collection(db, 'associados');

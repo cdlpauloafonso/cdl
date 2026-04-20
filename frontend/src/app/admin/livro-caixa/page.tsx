@@ -2,29 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getCategoriasLivroCaixa, type CategoriaLivroCaixa } from '@/lib/firestore';
-
-type Transacao = {
-  id: number;
-  data: string;
-  descricao: string;
-  tipo: 'entrada' | 'saida';
-  categoria: string;
-  valor: number;
-  status: 'confirmado' | 'pendente';
-};
+import { 
+  getCategoriasLivroCaixa, 
+  getTransacoesLivroCaixa, 
+  createTransacaoLivroCaixa, 
+  updateTransacaoLivroCaixa, 
+  deleteTransacaoLivroCaixa, 
+  converterValorMonetario,
+  type CategoriaLivroCaixa, 
+  type TransacaoLivroCaixa 
+} from '@/lib/firestore';
 
 export default function LivroCaixaPage() {
-  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [transacoes, setTransacoes] = useState<TransacaoLivroCaixa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [categorias, setCategorias] = useState<CategoriaLivroCaixa[]>([]);
   const [formData, setFormData] = useState({
-    data: new Date().toISOString().split('T')[0], // Data atual em formato YYYY-MM-DD
+    data: new Date().toLocaleDateString('pt-BR'), // Data atual em formato DD/MM/YYYY
     descricao: '',
-    categoria: 'Anuidades',
+    categoria: '',
     tipo: 'entrada' as 'entrada' | 'saida',
     valor: '',
     metodoPagamento: 'dinheiro' as 'pix' | 'cartao' | 'dinheiro',
@@ -34,48 +33,21 @@ export default function LivroCaixaPage() {
   const [ordenarPor, setOrdenarPor] = useState('data');
 
   useEffect(() => {
-    // Simular carregamento de dados
-    setTimeout(() => {
-      setTransacoes([
-        {
-          id: 1,
-          data: '20/04/2026',
-          descricao: 'Pagamento de anuidade - Tech Solutions',
-          tipo: 'entrada',
-          categoria: 'Anuidades',
-          valor: 850.00,
-          status: 'confirmado'
-        },
-        {
-          id: 2,
-          data: '19/04/2026',
-          descricao: 'Aluguel do auditório',
-          tipo: 'saida',
-          categoria: 'Aluguel',
-          valor: 500.00,
-          status: 'confirmado'
-        },
-        {
-          id: 3,
-          data: '18/04/2026',
-          descricao: 'Pagamento de anuidade - Comércio Local',
-          tipo: 'entrada',
-          categoria: 'Anuidades',
-          valor: 650.00,
-          status: 'pendente'
-        },
-        {
-          id: 4,
-          data: '17/04/2026',
-          descricao: 'Material de escritório',
-          tipo: 'saida',
-          categoria: 'Despesas',
-          valor: 120.50,
-          status: 'confirmado'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    const loadData = async () => {
+      try {
+        // Carregar transações reais do Firestore
+        const transacoesData = await getTransacoesLivroCaixa();
+        setTransacoes(transacoesData);
+      } catch (error) {
+        console.error('Erro ao carregar transações:', error);
+        // Em caso de erro, começar com array vazio
+        setTransacoes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -125,36 +97,97 @@ export default function LivroCaixaPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Lógica para salvar a transação
-    console.log('Nova transação:', formData);
-    // Resetar formulário
-    setFormData({
-      data: new Date().toISOString().split('T')[0],
-      descricao: '',
-      categoria: 'Anuidades',
-      tipo: 'entrada',
-      valor: '',
-      metodoPagamento: 'dinheiro',
-      status: 'confirmado',
-    });
-    setShowAddModal(false);
+    
+    try {
+      // Validar formulário
+      if (!formData.descricao?.trim()) {
+        alert('Descrição é obrigatória');
+        return;
+      }
+      if (!formData.categoria?.trim()) {
+        alert('Categoria é obrigatória');
+        return;
+      }
+      if (!formData.valor?.trim()) {
+        alert('Valor é obrigatório');
+        return;
+      }
+      
+      // Converter valor monetário para número
+      const valorNumerico = converterValorMonetario(formData.valor);
+      
+      // Preparar dados para salvar
+      const dadosTransacao = {
+        data: formData.data,
+        descricao: formData.descricao.trim(),
+        categoria: formData.categoria.trim(),
+        tipo: formData.tipo,
+        valor: valorNumerico,
+        metodo_pagamento: formData.metodoPagamento,
+        status: formData.status
+      };
+      
+      // Salvar no Firestore
+      await createTransacaoLivroCaixa(dadosTransacao);
+      
+      // Recarregar transações
+      const transacoesAtualizadas = await getTransacoesLivroCaixa();
+      setTransacoes(transacoesAtualizadas);
+      
+      // Resetar formulário
+      setFormData({
+        data: new Date().toLocaleDateString('pt-BR'),
+        descricao: '',
+        categoria: categorias.length > 0 ? categorias[0].nome : '',
+        tipo: 'entrada',
+        valor: '',
+        metodoPagamento: 'dinheiro',
+        status: 'confirmado',
+      });
+      setShowAddModal(false);
+      
+      alert('Transação cadastrada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar transação:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao salvar transação');
+    }
   };
 
-  const exportarPdf = async () => {
-    setExportingPdf(true);
+  const handleEditTransacao = async (transacao: TransacaoLivroCaixa) => {
     try {
-      // Simular exportação PDF
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Exportando PDF com filtro:', { categoria: filtroCategoria, ordenar: ordenarPor, dados: transacoesFiltradas });
-      // Aqui você implementaria a lógica real de exportação PDF
-      alert('PDF exportado com sucesso!');
+      // Abrir modal de edição com dados preenchidos
+      setFormData({
+        data: transacao.data,
+        descricao: transacao.descricao,
+        categoria: transacao.categoria,
+        tipo: transacao.tipo,
+        valor: transacao.valor.toFixed(2),
+        metodoPagamento: transacao.metodo_pagamento,
+        status: transacao.status,
+      });
+      setShowAddModal(true);
     } catch (error) {
-      console.error('Erro ao exportar PDF:', error);
-      alert('Erro ao exportar PDF');
-    } finally {
-      setExportingPdf(false);
+      console.error('Erro ao preparar edição:', error);
+      alert('Erro ao preparar edição');
+    }
+  };
+
+  const handleDeleteTransacao = async (transacao: TransacaoLivroCaixa) => {
+    try {
+      if (confirm(`Tem certeza que deseja excluir a transação "${transacao.descricao}"?`)) {
+        await deleteTransacaoLivroCaixa(transacao.id);
+        
+        // Recarregar transações
+        const transacoesAtualizadas = await getTransacoesLivroCaixa();
+        setTransacoes(transacoesAtualizadas);
+        
+        alert('Transação excluída com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir transação:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao excluir transação');
     }
   };
 
@@ -172,7 +205,7 @@ export default function LivroCaixaPage() {
           transacao.tipo,
           transacao.valor.toFixed(2),
           transacao.status,
-          transacao.metodoPagamento || 'N/A'
+          transacao.metodo_pagamento || 'N/A'
         ].join(','))
       ].join('\n');
 
@@ -453,12 +486,20 @@ export default function LivroCaixaPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <button className="text-cdl-blue hover:text-cdl-blue-dark mr-3 p-1" title="Editar">
+                    <button 
+                      onClick={() => handleEditTransacao(transacao)}
+                      className="text-cdl-blue hover:text-cdl-blue-dark mr-3 p-1" 
+                      title="Editar"
+                    >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button className="text-red-600 hover:text-red-800 p-1" title="Excluir">
+                    <button 
+                      onClick={() => handleDeleteTransacao(transacao)}
+                      className="text-red-600 hover:text-red-800 p-1" 
+                      title="Excluir"
+                    >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
