@@ -3,18 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiGet } from '@/lib/api';
-import { listNews, listCarouselSlides, listAgendamentos, getAssociados, type Agendamento } from '@/lib/firestore';
+import { listNews, listCarouselSlides, listAgendamentos, getAssociados, getProximosAniversariantes, type Agendamento } from '@/lib/firestore';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number } | null>(null);
   const [proximosAgendamentos, setProximosAgendamentos] = useState<Agendamento[]>([]);
-  
-  // Dados mock para próximos aniversários
-  const proximosAniversarios = [
-    { nome: 'João Silva', empresa: 'Tech Solutions', data: '15/03/2026' },
-    { nome: 'Maria Santos', empresa: 'Comércio Local', data: '18/03/2026' },
-    { nome: 'Pedro Costa', empresa: 'Serviços Gerais', data: '22/03/2026' },
-  ];
+  const [proximosAniversarios, setProximosAniversarios] = useState<{ nome: string; empresa: string; data: string }[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('cdl_admin_token');
@@ -46,6 +40,10 @@ export default function AdminDashboardPage() {
       })
       .catch(() => ({ ativos: 0, emNegociacao: 0 }));
 
+    // Próximos aniversariantes reais
+    const aniversariantesPromise = getProximosAniversariantes(10)
+      .catch(() => []);
+
     // API para diretoria, serviços, mensagens
     const apiPromise = Promise.all([
       apiGet<unknown[]>('/directors', token).catch(() => []),
@@ -57,8 +55,8 @@ export default function AdminDashboardPage() {
       messages: (messages as unknown[]).length,
     }));
 
-    Promise.all([apiPromise, pagesPromise, newsPromise, agendamentosPromise, associadosPromise])
-      .then(([apiStats, pagesCount, newsCount, agendamentos, associadosCount]) => {
+    Promise.all([apiPromise, pagesPromise, newsPromise, agendamentosPromise, associadosPromise, aniversariantesPromise])
+      .then(([apiStats, pagesCount, newsCount, agendamentos, associadosCount, aniversariantes]) => {
         setStats({
           ...apiStats,
           pages: pagesCount,
@@ -67,10 +65,12 @@ export default function AdminDashboardPage() {
           emNegociacao: associadosCount.emNegociacao,
         });
         setProximosAgendamentos(agendamentos);
+        setProximosAniversarios(aniversariantes);
       })
       .catch(() => {
         setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0 });
         setProximosAgendamentos([]);
+        setProximosAniversarios([]);
       });
   }, []);
 

@@ -784,6 +784,49 @@ export type SolicitacaoAssociacao = {
   observacoes: string;
 };
 
+export async function getProximosAniversariantes(limit = 10): Promise<{ nome: string; empresa: string; data: string }[]> {
+  const db = getDb();
+  const col = collection(db, 'associados');
+  const snap = await getDocs(col);
+  
+  const hoje = new Date();
+  const proximosAniversariantes: { nome: string; empresa: string; data: string }[] = [];
+  
+  snap.docs.forEach(doc => {
+    const associado = doc.data() as Associado;
+    if (associado.aniversariantes && associado.aniversariantes.length > 0) {
+      associado.aniversariantes.forEach(aniversariante => {
+        // Converter data de aniversário para o formato MM/DD
+        const [dia, mes] = aniversariante.data.split('/');
+        const dataAniversario = new Date(hoje.getFullYear(), parseInt(mes) - 1, parseInt(dia));
+        
+        // Se o aniversário já passou este ano, considerar para o próximo ano
+        if (dataAniversario < hoje) {
+          dataAniversario.setFullYear(hoje.getFullYear() + 1);
+        }
+        
+        // Calcular dias até o aniversário
+        const diasAte = Math.ceil((dataAniversario.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Incluir apenas aniversários dos próximos 90 dias
+        if (diasAte >= 0 && diasAte <= 90) {
+          proximosAniversariantes.push({
+            nome: aniversariante.nome,
+            empresa: associado.razao_social || associado.nome_fantasia || 'Empresa',
+            data: dataAniversario.toLocaleDateString('pt-BR'),
+            diasAte
+          });
+        }
+      });
+    }
+  });
+  
+  // Ordenar por proximidade do aniversário
+  proximosAniversariantes.sort((a, b) => (a as any).diasAte - (b as any).diasAte);
+  
+  return proximosAniversariantes.slice(0, limit);
+}
+
 export async function getAssociados(): Promise<Associado[]> {
   const db = getDb();
   const col = collection(db, 'associados');
