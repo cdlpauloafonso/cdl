@@ -2,18 +2,301 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
+
+    // Helper: admin via custom claim `admin` ou documento em /admins/{uid}
     function isAdmin() {
-      return isAuthenticated() && 
-             (request.auth.token.admin == true || 
-              exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      return request.auth != null &&
+        (request.auth.token.admin == true ||
+         request.auth.token.admin == 'true' ||
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
     }
-    
+
+    // Admins: o próprio usuário pode ler apenas o seu documento (checagem no login)
+    match /admins/{adminId} {
+      allow get: if request.auth != null && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
+    // na inscrição pública quando há limite (transação com criação em inscricoes/).
+    // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
+    function publicInscriptionWebCountIncrement() {
+      let oldCount = resource.data.get('inscriptionWebCount', 0);
+      let newCount = request.resource.data.inscriptionWebCount;
+      let lim = resource.data.registrationConfig.inscriptionLimit;
+      return request.auth == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
+        && (newCount is int || newCount is float)
+        && (oldCount is int || oldCount is float)
+        && newCount == oldCount + 1
+        && resource.data.registrationConfig is map
+        && resource.data.registrationConfig.type == 'form'
+        && (lim is int || lim is float)
+        && lim > 0
+        && newCount <= lim;
+    }
+
+    match /campaigns/{campaignId} {
+      allow get, list: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || publicInscriptionWebCountIncrement();
+
+      // Inscrições por evento: subcoleção inscricoes (formulário público); leitura/gestão só admin
+      match /inscricoes/{inscriptionId} {
+        allow create: if
+          request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
+          request.resource.data.createdAt is string &&
+          request.resource.data.createdAt.size() >= 10 &&
+          request.resource.data.fields is map &&
+          request.resource.data.fields.size() >= 1 &&
+          request.resource.data.fields.size() <= 20;
+
+        allow get, list, update, delete: if isAdmin();
+      }
+    }
+
+    // Notícias: leitura só publicadas (ou admin vê tudo)
+    match /news/{newsId} {
+      allow get, list: if resource.data.published == true || isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Carrossel / hero: leitura pública; escrita admin
+    match /carousel/{slideId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Informativos: leitura só ativos (ou admin vê tudo)
+    match /informativos/{informativoId} {
+      allow get, list: if resource.data.status == 'ativo' || isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /certificadoDigital/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /auditorium/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /about/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /beneficiosAssociados/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /agendamentos/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Contratos: leitura pública; escrita admin
+    match /contratos/{documentId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Associados (dados sensíveis): admin total; criação pública restrita via "me associar"
+    match /associados/{associadoId} {
+      allow get, list, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly([
+          'status',
+          'origem',
+          'nome',
+          'empresa',
+          'razao_social',
+          'cnpj',
+          'telefone',
+          'telefone_responsavel',
+          'data_nascimento_responsavel',
+          'email',
+          'quantidade_funcionarios',
+          'cep',
+          'endereco',
+          'cidade',
+          'estado',
+          'plano',
+          'codigo_spc',
+          'aniversariantes',
+          'observacoes',
+          'created_at',
+          'updated_at'
+        ]) &&
+        request.resource.data.status == 'em_negociacao' &&
+        request.resource.data.origem == 'site' &&
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() >= 2 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cnpj is string &&
+        request.resource.data.cnpj.size() >= 14 &&
+        request.resource.data.telefone is string &&
+        request.resource.data.telefone.size() >= 8 &&
+        request.resource.data.data_nascimento_responsavel is string &&
+        request.resource.data.email is string &&
+        request.resource.data.endereco is string &&
+        request.resource.data.endereco.size() >= 3 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.estado is string &&
+        request.resource.data.estado.size() >= 2 &&
+        request.resource.data.plano is string &&
+        request.resource.data.codigo_spc is string &&
+        request.resource.data.aniversariantes is list &&
+        request.resource.data.observacoes is string &&
+        request.resource.data.created_at is timestamp &&
+        request.resource.data.updated_at is timestamp
+      );
+    }
+
+    // Solicitações públicas de associação: criação sem login; leitura/gestão admin
+    match /solicitacoesAssociacao/{docId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'status',
+          'nome',
+          'empresa',
+          'razao_social',
+          'cnpj',
+          'telefone',
+          'telefone_responsavel',
+          'data_nascimento_responsavel',
+          'email',
+          'quantidade_funcionarios',
+          'cep',
+          'endereco',
+          'cidade',
+          'estado',
+          'plano',
+          'codigo_spc',
+          'aniversariantes',
+          'observacoes',
+          'created_at',
+          'updated_at',
+          'origem'
+        ]) &&
+        request.resource.data.status in ['em_negociacao', 'ativo', 'desativado'] &&
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() >= 2 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cnpj is string &&
+        request.resource.data.cnpj.size() >= 14 &&
+        request.resource.data.telefone is string &&
+        request.resource.data.telefone.size() >= 8 &&
+        request.resource.data.data_nascimento_responsavel is string &&
+        request.resource.data.email is string &&
+        request.resource.data.endereco is string &&
+        request.resource.data.endereco.size() >= 3 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.estado is string &&
+        request.resource.data.estado.size() >= 2 &&
+        request.resource.data.plano is string &&
+        request.resource.data.codigo_spc is string &&
+        request.resource.data.aniversariantes is list &&
+        request.resource.data.observacoes is string &&
+        request.resource.data.created_at is timestamp &&
+        request.resource.data.updated_at is timestamp &&
+        request.resource.data.origem == 'site';
+
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // Índice só com CNPJ (14 dígitos como id): leitura unitária pública para validar inscrição em eventos
+    match /associadosCnpjIndex/{cnpjDigits} {
+      allow get: if cnpjDigits.matches('^[0-9]{14}$');
+      allow list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Planos de associados (gestão interna): apenas admin
+    match /planos/{planoId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    // Currículos: criação pública sem login; leitura/gestão apenas admin
+    match /curriculos/{curriculoId} {
+      allow create: if true;
+
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // Vagas: criação pública sem login; leitura pública apenas aprovadas; gestão admin
+    match /vagas/{vagaId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'tituloVaga',
+          'empresa',
+          'cidade',
+          'tipoVaga',
+          'tipoContrato',
+          'quantidadeVagas',
+          'salario',
+          'salarioACombinar',
+          'descricaoVaga',
+          'requisitos',
+          'diferenciais',
+          'cargaHoraria',
+          'prazoCandidatura',
+          'recrutadorNome',
+          'recrutadorEmail',
+          'recrutadorTelefone',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.tituloVaga is string &&
+        request.resource.data.tituloVaga.size() >= 3 &&
+        request.resource.data.empresa is string &&
+        request.resource.data.empresa.size() >= 2 &&
+        request.resource.data.cidade is string &&
+        request.resource.data.cidade.size() >= 2 &&
+        request.resource.data.tipoVaga in ['presencial', 'hibrida', 'remota'] &&
+        request.resource.data.tipoContrato in ['clt', 'estagio', 'temporario', 'pj', 'jovem-aprendiz', 'outro'] &&
+        request.resource.data.quantidadeVagas is int &&
+        request.resource.data.quantidadeVagas >= 1 &&
+        request.resource.data.salario is string &&
+        request.resource.data.salarioACombinar is bool &&
+        request.resource.data.descricaoVaga is string &&
+        request.resource.data.descricaoVaga.size() >= 10 &&
+        request.resource.data.requisitos is string &&
+        request.resource.data.requisitos.size() >= 2 &&
+        request.resource.data.diferenciais is string &&
+        request.resource.data.cargaHoraria is string &&
+        request.resource.data.cargaHoraria.size() >= 2 &&
+        request.resource.data.prazoCandidatura is string &&
+        request.resource.data.recrutadorNome is string &&
+        request.resource.data.recrutadorNome.size() >= 2 &&
+        request.resource.data.recrutadorEmail is string &&
+        request.resource.data.recrutadorEmail.size() >= 5 &&
+        request.resource.data.recrutadorTelefone is string &&
+        request.resource.data.recrutadorTelefone.size() >= 8 &&
+        request.resource.data.status == 'pendente' &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.updatedAt is string;
+
+      allow get, list: if isAdmin() || resource.data.status == 'aprovada';
+      allow update, delete: if isAdmin();
+    }
+
+    // Helper functions para validação do Livro Caixa
     function isValidEmail(email) {
       return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
     }
@@ -45,40 +328,7 @@ service cloud.firestore {
     function isValidTransactionStatus(status) {
       return status in ['confirmado', 'pendente'];
     }
-    
-    // Regras para a coleção de admins
-    match /admins/{adminId} {
-      allow read: if isAuthenticated();
-      allow create: if false; // Não permitir criação via client
-      allow update: if false; // Não permitir atualização via client
-      allow delete: if false; // Não permitir exclusão via client
-    }
-    
-    // Regras para a coleção de associados
-    match /associados/{associadoId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && 
-        request.resource.data.keys().hasAll([
-          'razao_social', 'nome_fantasia', 'cnpj', 'email', 
-          'telefone', 'endereco', 'status', 'created_at', 'updated_at'
-        ]) &&
-        isValidEmail(request.resource.data.email) &&
-        isValidCNPJ(request.resource.data.cnpj) &&
-        isValidPhone(request.resource.data.telefone) &&
-        request.resource.data.status in ['ativo', 'em_negociacao', 'desativado'];
-      
-      allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
-        (!('email' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidEmail(request.resource.data.email)) &&
-        (!('telefone' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidPhone(request.resource.data.telefone)) &&
-        (!('status' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         request.resource.data.status in ['ativo', 'em_negociacao', 'desativado']);
-      
-      allow delete: if isAdmin();
-    }
-    
+
     // Regras para a coleção de categorias do livro caixa
     match /categorias_livro_caixa/{categoriaId} {
       allow read: if isAdmin();
@@ -97,7 +347,7 @@ service cloud.firestore {
       
       allow delete: if isAdmin();
     }
-    
+
     // Regras para a coleção de transações do livro caixa
     match /transacoes_livro_caixa/{transacaoId} {
       allow read: if isAdmin();
@@ -139,18 +389,18 @@ service cloud.firestore {
       
       allow delete: if isAdmin();
     }
-    
+
     // Índice de CNPJ para associados (para busca rápida)
     match /associados_cnpj/{cnpj} {
       allow read, write: if isAdmin();
     }
-    
+
     // Regras para usuários (se existir coleção de usuários)
     match /users/{userId} {
       allow read, write: if isAdmin() || userId == request.auth.uid;
     }
-    
-    // Negar acesso a qualquer outra coleção não especificada
+
+    // Negar o restante
     match /{document=**} {
       allow read, write: if false;
     }
