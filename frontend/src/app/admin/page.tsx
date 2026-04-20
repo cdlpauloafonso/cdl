@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
       .catch(() => ({ ativos: 0, emNegociacao: 0 }));
 
     // Próximos aniversariantes reais
-    const aniversariantesPromise = getProximosAniversariantes(10)
+    const aniversariantesPromise = getProximosAniversariantes(6)
       .catch(() => []);
 
     // API para diretoria, serviços, mensagens
