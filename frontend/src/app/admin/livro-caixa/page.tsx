@@ -261,6 +261,7 @@ export default function LivroCaixaPage() {
                 >
                   <option>Anuidades</option>
                   <option>Aluguel</option>
+                  <option>Consulta Balcão</option>
                   <option>Despesas</option>
                   <option>Eventos</option>
                   <option>Outros</option>
