@@ -251,26 +251,38 @@ export default function AdminDashboardPage() {
         
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="divide-y divide-gray-100">
-            {proximosAniversarios.map((aniversariante, index) => (
-              <div key={index} className="p-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
+            {proximosAniversarios.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-gray-500">Nenhum aniversário encontrado</p>
+                <p className="text-sm text-gray-400 mt-1">Os próximos aniversários aparecerão aqui</p>
+              </div>
+            ) : (
+              proximosAniversarios.map((aniversariante, index) => (
+                <div key={index} className="p-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{aniversariante.nome}</h3>
+                        <span className="text-xs text-gray-600">{aniversariante.empresa}</span>
+                      </div>
+                      <span className="px-2 py-1 text-xs font-medium bg-pink-100 text-pink-800 rounded-full flex-shrink-0">
+                        {aniversariante.data}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 truncate">{aniversariante.nome}</h3>
-                      <span className="text-xs text-gray-600">{aniversariante.empresa}</span>
-                    </div>
-                    <span className="px-2 py-1 text-xs font-medium bg-pink-100 text-pink-800 rounded-full flex-shrink-0">
-                      {aniversariante.data}
-                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
