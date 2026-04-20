@@ -65,6 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mounted, setMounted] = useState(false);
   const [firebaseSessionReady, setFirebaseSessionReady] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -155,12 +156,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-cdl-gray flex">
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 bottom-0 z-40">
+      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-56'} bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 bottom-0 z-40 transition-all duration-300`}>
         <div className="p-4 border-b border-gray-200 flex justify-start">
           <Link href="/" className="flex items-center">
-            <Image src="/logo.png" alt="CDL Paulo Afonso" width={85} height={31} className="h-7 w-auto object-contain" />
+            <Image 
+              src="/logo.png" 
+              alt="CDL Paulo Afonso" 
+              width={sidebarCollapsed ? 40 : 85} 
+              height={sidebarCollapsed ? 15 : 31} 
+              className="h-7 w-auto object-contain transition-all duration-300" 
+            />
           </Link>
         </div>
+        
+        {/* Botão de retrair/expandir */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute -right-3 top-8 bg-cdl-blue text-white rounded-full p-1.5 shadow-lg hover:bg-cdl-blue-dark transition-colors z-50"
+          aria-label={sidebarCollapsed ? 'Expandir menu' : 'Retrair menu'}
+        >
+          <svg 
+            className={`w-4 h-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {adminNav.map((item) =>
             'children' in item ? (
@@ -172,8 +195,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       ? 'bg-cdl-blue text-white border-cdl-blue'
                       : 'text-gray-800 border-gray-300 hover:bg-gray-100 hover:border-gray-400'
                   }`}
+                  title={sidebarCollapsed ? item.label : undefined}
                 >
-                  <span className="flex-1">{item.label}</span>
+                  <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>{item.label}</span>
                   <svg
                     className={`w-4 h-4 transition-transform flex-shrink-0 ${
                       expandedMenus.has(item.label) ? 'rotate-90' : ''
@@ -185,7 +209,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
-                {expandedMenus.has(item.label) && (
+                {expandedMenus.has(item.label) && !sidebarCollapsed && (
                   <div className="mt-1 space-y-0.5">
                     {(item.children ?? []).map((child) => (
                       <Link
@@ -212,8 +236,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     ? 'bg-cdl-blue text-white'
                     : 'text-gray-700 hover:bg-cdl-gray'
                 }`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                {item.label}
+                <span className={sidebarCollapsed ? 'hidden' : ''}>{item.label}</span>
               </Link>
             )
           )}
@@ -240,7 +265,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <div className="flex-1 pl-56">
+      <div className="flex-1" style={{ paddingLeft: sidebarCollapsed ? '4rem' : '14rem' }}>
         <div className="p-6 lg:p-8">{children}</div>
       </div>
     </div>
