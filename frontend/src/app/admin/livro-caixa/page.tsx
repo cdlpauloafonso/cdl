@@ -24,6 +24,7 @@ export default function LivroCaixaPage() {
     tipo: 'entrada' as 'entrada' | 'saida',
     valor: '',
     metodoPagamento: 'dinheiro' as 'pix' | 'cartao' | 'dinheiro',
+    status: 'confirmado' as 'confirmado' | 'pendente',
   });
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
   const [ordenarPor, setOrdenarPor] = useState('data');
@@ -92,6 +93,7 @@ export default function LivroCaixaPage() {
       tipo: 'entrada',
       valor: '',
       metodoPagamento: 'dinheiro',
+      status: 'confirmado',
     });
     setShowAddModal(false);
   };
@@ -418,6 +420,33 @@ export default function LivroCaixaPage() {
                       className="mr-2" 
                     />
                     Dinheiro
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="confirmado" 
+                      checked={formData.status === 'confirmado'}
+                      onChange={(e) => handleInputChange('status', e.target.value)}
+                      className="mr-2" 
+                    />
+                    Confirmado
+                  </label>
+                  <label className="flex items-center">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="pendente" 
+                      checked={formData.status === 'pendente'}
+                      onChange={(e) => handleInputChange('status', e.target.value)}
+                      className="mr-2" 
+                    />
+                    Pendente
                   </label>
                 </div>
               </div>
