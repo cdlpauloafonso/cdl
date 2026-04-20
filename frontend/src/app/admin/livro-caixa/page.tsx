@@ -7,6 +7,13 @@ export default function LivroCaixaPage() {
   const [transacoes, setTransacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    data: new Date().toISOString().split('T')[0], // Data atual em formato YYYY-MM-DD
+    descricao: '',
+    categoria: 'Anuidades',
+    tipo: 'entrada' as 'entrada' | 'saida',
+    valor: '',
+  });
 
   useEffect(() => {
     // Simular carregamento de dados
@@ -52,6 +59,28 @@ export default function LivroCaixaPage() {
       setLoading(false);
     }, 1000);
   }, []);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Lógica para salvar a transação
+    console.log('Nova transação:', formData);
+    // Resetar formulário
+    setFormData({
+      data: new Date().toISOString().split('T')[0],
+      descricao: '',
+      categoria: 'Anuidades',
+      tipo: 'entrada',
+      valor: '',
+    });
+    setShowAddModal(false);
+  };
 
   const totalEntradas = transacoes
     .filter(t => t.tipo === 'entrada' && t.status === 'confirmado')
@@ -203,18 +232,33 @@ export default function LivroCaixaPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Transação</h3>
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                <input 
+                  type="date" 
+                  value={formData.data}
+                  onChange={(e) => handleInputChange('data', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <input type="text" placeholder="Descrição da transação" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                <input 
+                  type="text" 
+                  placeholder="Descrição da transação" 
+                  value={formData.descricao}
+                  onChange={(e) => handleInputChange('descricao', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <select 
+                  value={formData.categoria}
+                  onChange={(e) => handleInputChange('categoria', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
                   <option>Anuidades</option>
                   <option>Aluguel</option>
                   <option>Despesas</option>
@@ -226,18 +270,39 @@ export default function LivroCaixaPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                 <div className="flex gap-4">
                   <label className="flex items-center">
-                    <input type="radio" name="tipo" value="entrada" className="mr-2" />
+                    <input 
+                      type="radio" 
+                      name="tipo" 
+                      value="entrada" 
+                      checked={formData.tipo === 'entrada'}
+                      onChange={(e) => handleInputChange('tipo', e.target.value)}
+                      className="mr-2" 
+                    />
                     Entrada
                   </label>
                   <label className="flex items-center">
-                    <input type="radio" name="tipo" value="saida" className="mr-2" />
+                    <input 
+                      type="radio" 
+                      name="tipo" 
+                      value="saida" 
+                      checked={formData.tipo === 'saida'}
+                      onChange={(e) => handleInputChange('tipo', e.target.value)}
+                      className="mr-2" 
+                    />
                     Saída
                   </label>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
-                <input type="number" step="0.01" placeholder="0,00" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="0,00" 
+                  value={formData.valor}
+                  onChange={(e) => handleInputChange('valor', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                />
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <button
