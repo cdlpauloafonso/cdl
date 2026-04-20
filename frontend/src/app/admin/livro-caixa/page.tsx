@@ -263,7 +263,7 @@ export default function LivroCaixaPage() {
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Total Entradas</p>
+              <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Receitas</p>
               <p className="text-2xl font-bold text-emerald-800 mt-2">
                 R$ {totalEntradas.toFixed(2)}
               </p>
@@ -280,7 +280,7 @@ export default function LivroCaixaPage() {
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-red-700 uppercase tracking-wide">Total Saídas</p>
+              <p className="text-sm font-semibold text-red-700 uppercase tracking-wide">Despesas</p>
               <p className="text-2xl font-bold text-red-800 mt-2">
                 R$ {totalSaidas.toFixed(2)}
               </p>
