@@ -24,11 +24,59 @@ firebase login
 firebase deploy --only firestore:rules
 ```
 
+## 🚨 SOLUÇÃO DE PROBLEMA DE PERMISSÕES
+
+### Problema: "Missing or insufficient permissions"
+Este erro ocorre quando as regras do Firebase estão bloqueando o acesso porque o usuário não tem a claim `admin: true` ou não está na coleção `/admins/{uid}`.
+
+### Soluções Rápidas:
+
+#### Opção 1: Configurar Claims de Admin (Recomendado)
+1. **Execute o script de configuração:**
+   ```bash
+   # Instale Firebase Admin SDK
+   npm install firebase-admin
+
+   # Baixe a chave de serviço do Firebase Console
+   # Firebase Console > Project Settings > Service accounts > Generate new private key
+
+   # Execute o script
+   node setup-admin.js
+   ```
+
+2. **Manualmente via Firebase Console:**
+   - Vá para Authentication > Users
+   - Selecione o usuário admin
+   - Adicione custom claim: `{"admin": true}`
+
+#### Opção 2: Criar Documento de Admin (Fallback)
+Crie manualmente um documento na coleção `admins`:
+```javascript
+// No Firebase Console ou via script
+{
+  admins: {
+    "USER_UID_DO_ADMIN": {
+      email: "admin@cdl.com.br",
+      createdAt: timestamp,
+      isActive: true
+    }
+  }
+}
+```
+
+#### Opção 3: Regras Temporárias (Apenas para Desenvolvimento)
+Se precisar acesso imediato para testes, modifique temporariamente a função `isAdmin()`:
+```javascript
+function isAdmin() {
+  return isAuthenticated(); // Temporário - permite qualquer usuário logado
+}
+```
+
 ## Estrutura das Regras
 
 ### Funções Helper
 - `isAuthenticated()`: Verifica se o usuário está autenticado
-- `isAdmin()`: Verifica se o usuário é administrador
+- `isAdmin()`: Verifica se o usuário é administrador (claim OU documento admins)
 - `isValidEmail()`: Valida formato de email
 - `isValidCNPJ()`: Valida CNPJ (14 dígitos)
 - `isValidPhone()`: Valida telefone (10-11 dígitos)
@@ -80,6 +128,10 @@ firebase deploy --only firestore:rules
 #### 5. Usuários (`/users/{userId}`)
 - **Read/Write**: Administradores ou próprio usuário
 
+#### 6. Admins (`/admins/{adminId}`)
+- **Read**: Usuários autenticados
+- **Create/Update/Delete**: Bloqueado (apenas via backend)
+
 ## Segurança Implementada
 
 ### Autenticação Obrigatória
@@ -106,13 +158,24 @@ firebase deploy --only firestore:rules
 
 ## Configuração de Admin
 
-Para que as regras funcionem corretamente, os usuários administradores precisam ter o claim `admin: true` no token de autenticação.
+Para que as regras funcionem corretamente, os usuários administradores precisam ter:
+1. **Claim `admin: true`** no token de autenticação, OU
+2. **Documento na coleção `/admins/{uid}`**
 
 ### Via Firebase Authentication
 ```javascript
 // No backend (Firebase Functions)
 const admin = require('firebase-admin');
 await admin.auth().setCustomUserClaims(uid, { admin: true });
+```
+
+### Via Script Automático
+```bash
+# Execute o script fornecido
+node setup-admin.js
+
+# Para verificar claims atuais
+node setup-admin.js --check
 ```
 
 ## Teste das Regras
@@ -157,7 +220,10 @@ await admin.auth().setCustomUserClaims(uid, { admin: true });
 ## Solução de Problemas
 
 ### Erros Comuns
-1. **Missing or insufficient permissions**: Verifique se usuário tem claim `admin: true`
+1. **Missing or insufficient permissions**: 
+   - Verifique se usuário tem claim `admin: true` OU documento em `/admins/{uid}`
+   - Execute o script `setup-admin.js`
+   
 2. **Invalid data format**: Verifique validações específicas do campo
 3. **Rules too complex**: Simplifique lógica quando possível
 
