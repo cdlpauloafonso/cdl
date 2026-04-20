@@ -127,6 +127,17 @@ export default function LivroCaixaPage() {
 
   const saldo = totalEntradas - totalSaidas;
 
+  // Calcular saldo do dia (transações de hoje)
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const transacoesHoje = transacoes.filter(t => t.data === hoje);
+  const entradasHoje = transacoesHoje
+    .filter(t => t.tipo === 'entrada' && t.status === 'confirmado')
+    .reduce((sum, t) => sum + t.valor, 0);
+  const saidasHoje = transacoesHoje
+    .filter(t => t.tipo === 'saida' && t.status === 'confirmado')
+    .reduce((sum, t) => sum + t.valor, 0);
+  const saldoHoje = entradasHoje - saidasHoje;
+
   // Filtrar e ordenar transações
   const transacoesFiltradas = transacoes
     .filter(transacao => {
@@ -178,7 +189,7 @@ export default function LivroCaixaPage() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -206,6 +217,24 @@ export default function LivroCaixaPage() {
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Saldo do Dia</p>
+              <p className={`text-2xl font-bold ${saldoHoje >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {saldoHoje.toFixed(2)}
+              </p>
+            </div>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+              saldoHoje >= 0 ? 'bg-green-100' : 'bg-red-100'
+            }`}>
+              <svg className={`w-6 h-6 ${saldoHoje >= 0 ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2z" />
               </svg>
             </div>
           </div>
