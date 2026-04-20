@@ -248,6 +248,17 @@ export default function LivroCaixaPage() {
     .reduce((sum, t) => sum + t.valor, 0);
   const saldoHoje = entradasHoje - saidasHoje;
 
+  // Debug para verificar valores reais
+  console.log('Valores reais calculados:', {
+    totalTransacoes: transacoes.length,
+    totalEntradas,
+    totalSaidas,
+    saldo,
+    saldoHoje,
+    hoje,
+    transacoesHoje: transacoesHoje.length
+  });
+
   // Filtrar e ordenar transações
   const transacoesFiltradas = transacoes
     .filter(transacao => {
