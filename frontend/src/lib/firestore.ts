@@ -790,15 +790,40 @@ export async function getProximosAniversariantes(limit = 10): Promise<{ nome: st
   const snap = await getDocs(col);
   
   const hoje = new Date();
-  const proximosAniversariantes: { nome: string; empresa: string; data: string }[] = [];
+  const proximosAniversariantes: { nome: string; empresa: string; data: string; diasAte: number }[] = [];
   
   snap.docs.forEach(doc => {
     const associado = doc.data() as Associado;
     if (associado.aniversariantes && associado.aniversariantes.length > 0) {
       associado.aniversariantes.forEach(aniversariante => {
-        // Converter data de aniversário para o formato MM/DD
-        const [dia, mes] = aniversariante.data.split('/');
-        const dataAniversario = new Date(hoje.getFullYear(), parseInt(mes) - 1, parseInt(dia));
+        if (!aniversariante.data?.trim()) return;
+        
+        let dataAniversario: Date;
+        const dataStr = aniversariante.data.trim();
+        
+        // Tentar diferentes formatos de data
+        if (dataStr.includes('/')) {
+          // Formato DD/MM ou DD/MM/YYYY
+          const partes = dataStr.split('/');
+          const dia = parseInt(partes[0]);
+          const mes = parseInt(partes[1]) - 1; // Mês em JavaScript é 0-11
+          const ano = partes[2] ? parseInt(partes[2]) : hoje.getFullYear();
+          dataAniversario = new Date(ano, mes, dia);
+        } else if (dataStr.includes('-')) {
+          // Formato ISO YYYY-MM-DD
+          dataAniversario = new Date(dataStr);
+        } else {
+          // Tentar parse direto
+          dataAniversario = new Date(dataStr);
+        }
+        
+        // Verificar se a data é válida
+        if (isNaN(dataAniversario.getTime())) return;
+        
+        // Ajustar para o ano atual se não especificado
+        if (dataStr.split('/').length === 2) {
+          dataAniversario.setFullYear(hoje.getFullYear());
+        }
         
         // Se o aniversário já passou este ano, considerar para o próximo ano
         if (dataAniversario < hoje) {
@@ -822,9 +847,9 @@ export async function getProximosAniversariantes(limit = 10): Promise<{ nome: st
   });
   
   // Ordenar por proximidade do aniversário
-  proximosAniversariantes.sort((a, b) => (a as any).diasAte - (b as any).diasAte);
+  proximosAniversariantes.sort((a, b) => a.diasAte - b.diasAte);
   
-  return proximosAniversariantes.slice(0, limit);
+  return proximosAniversariantes.slice(0, limit).map(({ diasAte, ...rest }) => rest);
 }
 
 export async function getAssociados(): Promise<Associado[]> {
