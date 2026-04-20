@@ -260,69 +260,81 @@ export default function LivroCaixaPage() {
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Entradas</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Total Entradas</p>
+              <p className="text-3xl font-bold text-emerald-800 mt-2">
                 R$ {totalEntradas.toFixed(2)}
               </p>
+              <p className="text-xs text-emerald-600 mt-1 font-medium">Receitas confirmadas</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Saídas</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-sm font-semibold text-red-700 uppercase tracking-wide">Total Saídas</p>
+              <p className="text-3xl font-bold text-red-800 mt-2">
                 R$ {totalSaidas.toFixed(2)}
               </p>
+              <p className="text-xs text-red-600 mt-1 font-medium">Despesas confirmadas</p>
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            <div className="w-14 h-14 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Saldo do Dia</p>
-              <p className={`text-2xl font-bold ${saldoHoje >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Saldo do Dia</p>
+              <p className={`text-3xl font-bold mt-2 ${saldoHoje >= 0 ? 'text-blue-800' : 'text-red-800'}`}>
                 R$ {saldoHoje.toFixed(2)}
               </p>
+              <p className={`text-xs mt-1 font-medium ${saldoHoje >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                {saldoHoje >= 0 ? 'Dia positivo' : 'Dia negativo'}
+              </p>
             </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              saldoHoje >= 0 ? 'bg-green-100' : 'bg-red-100'
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+              saldoHoje >= 0 
+                ? 'bg-gradient-to-br from-blue-400 to-indigo-600' 
+                : 'bg-gradient-to-br from-red-400 to-red-600'
             }`}>
-              <svg className={`w-6 h-6 ${saldoHoje >= 0 ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2z" />
+              <svg className={`w-8 h-8 text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2z" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Saldo Atual</p>
-              <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              <p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">Saldo Atual</p>
+              <p className={`text-3xl font-bold mt-2 ${saldo >= 0 ? 'text-purple-800' : 'text-red-800'}`}>
                 R$ {saldo.toFixed(2)}
               </p>
+              <p className={`text-xs mt-1 font-medium ${saldo >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                {saldo >= 0 ? 'Caixa positivo' : 'Caixa negativo'}
+              </p>
             </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              saldo >= 0 ? 'bg-blue-100' : 'bg-red-100'
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+              saldo >= 0 
+                ? 'bg-gradient-to-br from-purple-400 to-purple-600' 
+                : 'bg-gradient-to-br from-red-400 to-red-600'
             }`}>
-              <svg className={`w-6 h-6 ${saldo >= 0 ? 'text-blue-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              <svg className={`w-8 h-8 text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
               </svg>
             </div>
           </div>
