@@ -24,6 +24,7 @@ const adminNav = [
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
   { href: '/admin/informativos', label: 'Informativos' },
+  { href: '/admin/livro-caixa', label: 'Livro Caixa' },
     {
       label: 'Auditório',
       children: [
