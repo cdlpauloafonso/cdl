@@ -81,21 +81,8 @@ export default function LivroCaixaPage() {
   useEffect(() => {
     const loadCategorias = async () => {
       try {
-        // Se não houver categorias no Firestore, usar as padrão
-        let categoriasData = await getCategoriasLivroCaixa();
-        
-        if (categoriasData.length === 0) {
-          // Categorias padrão como fallback
-          categoriasData = [
-            { id: '1', nome: 'Anuidades', descricao: 'Pagamentos de anuidades de associados', created_at: new Date(), updated_at: new Date() },
-            { id: '2', nome: 'Aluguel', descricao: 'Aluguel de espaços e imóveis', created_at: new Date(), updated_at: new Date() },
-            { id: '3', nome: 'Consulta Balcão', descricao: 'Serviços de consulta no balcão', created_at: new Date(), updated_at: new Date() },
-            { id: '4', nome: 'Despesas', descricao: 'Despesas operacionais gerais', created_at: new Date(), updated_at: new Date() },
-            { id: '5', nome: 'Eventos', descricao: 'Receitas e despesas de eventos', created_at: new Date(), updated_at: new Date() },
-            { id: '6', nome: 'Outros', descricao: 'Outras categorias não especificadas', created_at: new Date(), updated_at: new Date() }
-          ];
-        }
-        
+        // Carregar apenas categorias reais do Firestore
+        const categoriasData = await getCategoriasLivroCaixa();
         setCategorias(categoriasData);
         
         // Atualizar categoria padrão se a atual não existir
@@ -104,16 +91,8 @@ export default function LivroCaixaPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar categorias:', error);
-        // Usar categorias padrão em caso de erro
-        const categoriasPadrao = [
-          { id: '1', nome: 'Anuidades', descricao: 'Pagamentos de anuidades de associados', created_at: new Date(), updated_at: new Date() },
-          { id: '2', nome: 'Aluguel', descricao: 'Aluguel de espaços e imóveis', created_at: new Date(), updated_at: new Date() },
-          { id: '3', nome: 'Consulta Balcão', descricao: 'Serviços de consulta no balcão', created_at: new Date(), updated_at: new Date() },
-          { id: '4', nome: 'Despesas', descricao: 'Despesas operacionais gerais', created_at: new Date(), updated_at: new Date() },
-          { id: '5', nome: 'Eventos', descricao: 'Receitas e despesas de eventos', created_at: new Date(), updated_at: new Date() },
-          { id: '6', nome: 'Outros', descricao: 'Outras categorias não especificadas', created_at: new Date(), updated_at: new Date() }
-        ];
-        setCategorias(categoriasPadrao);
+        // Em caso de erro, deixar array vazio para mostrar que não há categorias
+        setCategorias([]);
       }
     };
 
@@ -405,6 +384,13 @@ export default function LivroCaixaPage() {
                 </option>
               ))}
             </select>
+            {categorias.length === 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                <Link href="/admin/livro-caixa/categorias" className="text-cdl-blue hover:underline">
+                  Cadastre categorias para filtrar
+                </Link>
+              </p>
+            )}
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
@@ -516,13 +502,25 @@ export default function LivroCaixaPage() {
                   value={formData.categoria}
                   onChange={(e) => handleInputChange('categoria', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  disabled={categorias.length === 0}
                 >
-                  {categorias.map((categoria) => (
-                    <option key={categoria.id} value={categoria.nome}>
-                      {categoria.nome}
-                    </option>
-                  ))}
+                  {categorias.length === 0 ? (
+                    <option value="">Nenhuma categoria cadastrada</option>
+                  ) : (
+                    categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.nome}>
+                        {categoria.nome}
+                      </option>
+                    ))
+                  )}
                 </select>
+                {categorias.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    <Link href="/admin/livro-caixa/categorias" className="text-cdl-blue hover:underline">
+                      Cadastre categorias primeiro
+                    </Link>
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
