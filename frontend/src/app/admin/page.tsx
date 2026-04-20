@@ -6,7 +6,7 @@ import { apiGet } from '@/lib/api';
 import { listNews, listCarouselSlides, listAgendamentos, getAssociados, type Agendamento } from '@/lib/firestore';
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number } | null>(null);
+  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number } | null>(null);
   const [proximosAgendamentos, setProximosAgendamentos] = useState<Agendamento[]>([]);
   
   // Dados mock para próximos aniversários
@@ -39,8 +39,12 @@ export default function AdminDashboardPage() {
 
     // Total real de associados no Firestore
     const associadosPromise = getAssociados()
-      .then((associados) => associados.length)
-      .catch(() => 0);
+      .then((associados) => {
+        const ativos = associados.filter(a => a.status === 'ativo').length;
+        const emNegociacao = associados.filter(a => a.status === 'em_negociacao').length;
+        return { ativos, emNegociacao };
+      })
+      .catch(() => ({ ativos: 0, emNegociacao: 0 }));
 
     // API para diretoria, serviços, mensagens
     const apiPromise = Promise.all([
@@ -59,12 +63,13 @@ export default function AdminDashboardPage() {
           ...apiStats,
           pages: pagesCount,
           news: newsCount,
-          associates: associadosCount,
+          associates: associadosCount.ativos,
+          emNegociacao: associadosCount.emNegociacao,
         });
         setProximosAgendamentos(agendamentos);
       })
       .catch(() => {
-        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0 });
+        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0 });
         setProximosAgendamentos([]);
       });
   }, []);
@@ -103,7 +108,7 @@ export default function AdminDashboardPage() {
       <p className="mt-1 text-cdl-gray-text">Visão geral do conteúdo do site</p>
       
       {/* Card de Associados em Destaque */}
-      <div className="mt-8 mb-6">
+      <div className="mt-8 mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Link
           href="/admin/associados"
           className="block p-8 rounded-xl bg-gradient-to-r from-cdl-blue to-cdl-blue-dark text-white hover:shadow-lg transition-all border-2 border-transparent hover:border-white/20"
@@ -125,7 +130,35 @@ export default function AdminDashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/associados?status=em_negociacao"
+          className="block p-8 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:shadow-lg transition-all border-2 border-transparent hover:border-white/20"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-amber-100">Em Negociação</p>
+              <p className="mt-2 text-4xl font-bold">{stats?.emNegociacao ?? '—'}</p>
+              <p className="mt-1 text-sm text-amber-100">Processos em andamento</p>
+            </div>
+            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
             </div>
