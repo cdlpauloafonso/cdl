@@ -6,7 +6,7 @@ import { apiGet } from '@/lib/api';
 import { listNews, listCarouselSlides, listAgendamentos, getAssociados, getProximosAniversariantes, type Agendamento } from '@/lib/firestore';
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number } | null>(null);
+  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number; totalAssociados: number } | null>(null);
   const [proximosAgendamentos, setProximosAgendamentos] = useState<Agendamento[]>([]);
   const [proximosAniversarios, setProximosAniversarios] = useState<{ nome: string; empresa: string; data: string }[]>([]);
 
@@ -36,9 +36,10 @@ export default function AdminDashboardPage() {
       .then((associados) => {
         const ativos = associados.filter(a => a.status === 'ativo').length;
         const emNegociacao = associados.filter(a => a.status === 'em_negociacao').length;
-        return { ativos, emNegociacao };
+        const total = ativos + emNegociacao; // Total de todos os associados
+        return { ativos, emNegociacao, total };
       })
-      .catch(() => ({ ativos: 0, emNegociacao: 0 }));
+      .catch(() => ({ ativos: 0, emNegociacao: 0, total: 0 }));
 
     // Próximos aniversariantes reais
     const aniversariantesPromise = getProximosAniversariantes(6)
@@ -63,12 +64,13 @@ export default function AdminDashboardPage() {
           news: newsCount,
           associates: associadosCount.ativos,
           emNegociacao: associadosCount.emNegociacao,
+          totalAssociados: associadosCount.total,
         });
         setProximosAgendamentos(agendamentos);
         setProximosAniversarios(aniversariantes);
       })
       .catch(() => {
-        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0 });
+        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0, totalAssociados: 0 });
         setProximosAgendamentos([]);
         setProximosAniversarios([]);
       });
@@ -116,7 +118,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-blue-100">Associados</p>
-              <p className="mt-2 text-4xl font-bold">{stats?.associates ?? '—'}</p>
+              <p className="mt-2 text-4xl font-bold">{stats?.totalAssociados ?? '—'}</p>
               <p className="mt-1 text-sm text-blue-100">Empresas associadas</p>
             </div>
             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
