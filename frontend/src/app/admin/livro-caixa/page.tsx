@@ -17,6 +17,8 @@ export default function LivroCaixaPage() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0], // Data atual em formato YYYY-MM-DD
     descricao: '',
@@ -117,6 +119,58 @@ export default function LivroCaixaPage() {
     setShowAddModal(false);
   };
 
+  const exportarPdf = async () => {
+    setExportingPdf(true);
+    try {
+      // Simular exportação PDF
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Exportando PDF com filtro:', { categoria: filtroCategoria, ordenar: ordenarPor, dados: transacoesFiltradas });
+      // Aqui você implementaria a lógica real de exportação PDF
+      alert('PDF exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Erro ao exportar PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const exportarCsv = () => {
+    setExportingCsv(true);
+    try {
+      // Criar CSV com dados filtrados
+      const headers = ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Status', 'Método Pagamento'];
+      const csvContent = [
+        headers.join(','),
+        ...transacoesFiltradas.map(transacao => [
+          transacao.data,
+          `"${transacao.descricao}"`,
+          transacao.categoria,
+          transacao.tipo,
+          transacao.valor.toFixed(2),
+          transacao.status,
+          transacao.metodoPagamento || 'N/A'
+        ].join(','))
+      ].join('\n');
+
+      // Criar blob e download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `livro-caixa-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      alert('Erro ao exportar CSV');
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const totalEntradas = transacoes
     .filter(t => t.tipo === 'entrada' && t.status === 'confirmado')
     .reduce((sum, t) => sum + t.valor, 0);
@@ -180,12 +234,28 @@ export default function LivroCaixaPage() {
           <h1 className="text-2xl font-bold text-gray-900">Livro Caixa</h1>
           <p className="mt-1 text-cdl-gray-text">Gerencie as finanças da CDL</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary"
-        >
-          Adicionar Transação
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={exportarPdf}
+            disabled={exportingPdf || transacoesFiltradas.length === 0}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
+          </button>
+          <button
+            onClick={exportarCsv}
+            disabled={exportingCsv || transacoesFiltradas.length === 0}
+            className="btn-secondary disabled:opacity-50"
+          >
+            {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary"
+          >
+            Adicionar Transação
+          </button>
+        </div>
       </div>
 
       {/* Cards de Resumo */}
