@@ -3,8 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+type Transacao = {
+  id: number;
+  data: string;
+  descricao: string;
+  tipo: 'entrada' | 'saida';
+  categoria: string;
+  valor: number;
+  status: 'confirmado' | 'pendente';
+};
+
 export default function LivroCaixaPage() {
-  const [transacoes, setTransacoes] = useState([]);
+  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -15,6 +25,8 @@ export default function LivroCaixaPage() {
     valor: '',
     metodoPagamento: 'dinheiro' as 'pix' | 'cartao' | 'dinheiro',
   });
+  const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [ordenarPor, setOrdenarPor] = useState('data');
 
   useEffect(() => {
     // Simular carregamento de dados
@@ -93,6 +105,30 @@ export default function LivroCaixaPage() {
     .reduce((sum, t) => sum + t.valor, 0);
 
   const saldo = totalEntradas - totalSaidas;
+
+  // Filtrar e ordenar transações
+  const transacoesFiltradas = transacoes
+    .filter(transacao => {
+      if (filtroCategoria === 'todas') return true;
+      return transacao.categoria === filtroCategoria;
+    })
+    .sort((a, b) => {
+      switch (ordenarPor) {
+        case 'data':
+          // Ordenar por data (mais recente primeiro)
+          return new Date(b.data).getTime() - new Date(a.data).getTime();
+        case 'valor':
+          // Ordenar por valor (maior primeiro)
+          return b.valor - a.valor;
+        case 'descricao':
+          // Ordenar por descrição (alfabético)
+          return a.descricao.localeCompare(b.descricao);
+        default:
+          return 0;
+      }
+    });
+
+  const categoriasDisponiveis = ['todas', 'Anuidades', 'Aluguel', 'Consulta Balcão', 'Despesas', 'Eventos', 'Outros'];
 
   if (loading) {
     return (
@@ -173,6 +209,38 @@ export default function LivroCaixaPage() {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Categoria</label>
+            <select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              {categoriasDisponiveis.map(categoria => (
+                <option key={categoria} value={categoria}>
+                  {categoria === 'todas' ? 'Todas as categorias' : categoria}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+            <select
+              value={ordenarPor}
+              onChange={(e) => setOrdenarPor(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="data">Data (mais recente)</option>
+              <option value="valor">Valor (maior primeiro)</option>
+              <option value="descricao">Descrição (A-Z)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Tabela de Transações */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -192,7 +260,7 @@ export default function LivroCaixaPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {transacoes.map((transacao) => (
+              {transacoesFiltradas.map((transacao) => (
                 <tr key={transacao.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-900">{transacao.data}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{transacao.descricao}</td>
