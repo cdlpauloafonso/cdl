@@ -36,10 +36,11 @@ export default function AdminDashboardPage() {
       .then((associados) => {
         const ativos = associados.filter(a => a.status === 'ativo').length;
         const emNegociacao = associados.filter(a => a.status === 'em_negociacao').length;
-        const total = ativos + emNegociacao; // Total de todos os associados
-        return { ativos, emNegociacao, total };
+        const desativados = associados.filter(a => a.status === 'desativado').length;
+        const total = associados.length; // Total de todos os associados incluindo desativados
+        return { ativos, emNegociacao, desativados, total };
       })
-      .catch(() => ({ ativos: 0, emNegociacao: 0, total: 0 }));
+      .catch(() => ({ ativos: 0, emNegociacao: 0, desativados: 0, total: 0 }));
 
     // Próximos aniversariantes reais
     const aniversariantesPromise = getProximosAniversariantes(6)
