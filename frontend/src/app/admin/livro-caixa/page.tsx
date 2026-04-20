@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getCategoriasLivroCaixa, type CategoriaLivroCaixa } from '@/lib/firestore';
 
 type Transacao = {
   id: number;
@@ -19,6 +20,7 @@ export default function LivroCaixaPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [categorias, setCategorias] = useState<CategoriaLivroCaixa[]>([]);
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0], // Data atual em formato YYYY-MM-DD
     descricao: '',
@@ -75,6 +77,48 @@ export default function LivroCaixaPage() {
       setLoading(false);
     }, 1000);
   }, []);
+
+  useEffect(() => {
+    const loadCategorias = async () => {
+      try {
+        // Se não houver categorias no Firestore, usar as padrão
+        let categoriasData = await getCategoriasLivroCaixa();
+        
+        if (categoriasData.length === 0) {
+          // Categorias padrão como fallback
+          categoriasData = [
+            { id: '1', nome: 'Anuidades', descricao: 'Pagamentos de anuidades de associados', created_at: new Date(), updated_at: new Date() },
+            { id: '2', nome: 'Aluguel', descricao: 'Aluguel de espaços e imóveis', created_at: new Date(), updated_at: new Date() },
+            { id: '3', nome: 'Consulta Balcão', descricao: 'Serviços de consulta no balcão', created_at: new Date(), updated_at: new Date() },
+            { id: '4', nome: 'Despesas', descricao: 'Despesas operacionais gerais', created_at: new Date(), updated_at: new Date() },
+            { id: '5', nome: 'Eventos', descricao: 'Receitas e despesas de eventos', created_at: new Date(), updated_at: new Date() },
+            { id: '6', nome: 'Outros', descricao: 'Outras categorias não especificadas', created_at: new Date(), updated_at: new Date() }
+          ];
+        }
+        
+        setCategorias(categoriasData);
+        
+        // Atualizar categoria padrão se a atual não existir
+        if (categoriasData.length > 0 && !categoriasData.find(cat => cat.nome === formData.categoria)) {
+          setFormData(prev => ({ ...prev, categoria: categoriasData[0].nome }));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error);
+        // Usar categorias padrão em caso de erro
+        const categoriasPadrao = [
+          { id: '1', nome: 'Anuidades', descricao: 'Pagamentos de anuidades de associados', created_at: new Date(), updated_at: new Date() },
+          { id: '2', nome: 'Aluguel', descricao: 'Aluguel de espaços e imóveis', created_at: new Date(), updated_at: new Date() },
+          { id: '3', nome: 'Consulta Balcão', descricao: 'Serviços de consulta no balcão', created_at: new Date(), updated_at: new Date() },
+          { id: '4', nome: 'Despesas', descricao: 'Despesas operacionais gerais', created_at: new Date(), updated_at: new Date() },
+          { id: '5', nome: 'Eventos', descricao: 'Receitas e despesas de eventos', created_at: new Date(), updated_at: new Date() },
+          { id: '6', nome: 'Outros', descricao: 'Outras categorias não especificadas', created_at: new Date(), updated_at: new Date() }
+        ];
+        setCategorias(categoriasPadrao);
+      }
+    };
+
+    loadCategorias();
+  }, [formData.categoria]);
 
   const handleInputChange = (field: string, value: string) => {
     if (field === 'valor') {
@@ -235,6 +279,9 @@ export default function LivroCaixaPage() {
           <p className="mt-1 text-cdl-gray-text">Gerencie as finanças da CDL</p>
         </div>
         <div className="flex gap-3">
+          <Link href="/admin/livro-caixa/categorias" className="btn-secondary">
+            Gerenciar Categorias
+          </Link>
           <button
             onClick={exportarPdf}
             disabled={exportingPdf || transacoesFiltradas.length === 0}
@@ -351,9 +398,10 @@ export default function LivroCaixaPage() {
               onChange={(e) => setFiltroCategoria(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              {categoriasDisponiveis.map(categoria => (
-                <option key={categoria} value={categoria}>
-                  {categoria === 'todas' ? 'Todas as categorias' : categoria}
+              <option value="todas">Todas as categorias</option>
+              {categorias.map((categoria) => (
+                <option key={categoria.id} value={categoria.nome}>
+                  {categoria.nome}
                 </option>
               ))}
             </select>
@@ -469,12 +517,11 @@ export default function LivroCaixaPage() {
                   onChange={(e) => handleInputChange('categoria', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option>Anuidades</option>
-                  <option>Aluguel</option>
-                  <option>Consulta Balcão</option>
-                  <option>Despesas</option>
-                  <option>Eventos</option>
-                  <option>Outros</option>
+                  {categorias.map((categoria) => (
+                    <option key={categoria.id} value={categoria.nome}>
+                      {categoria.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

@@ -852,6 +852,59 @@ export async function getProximosAniversariantes(limit = 10): Promise<{ nome: st
   return proximosAniversariantes.slice(0, limit).map(({ diasAte, ...rest }) => rest);
 }
 
+// Funções para categorias do Livro Caixa
+export type CategoriaLivroCaixa = {
+  id: string;
+  nome: string;
+  descricao?: string;
+  created_at: any;
+  updated_at: any;
+};
+
+export async function getCategoriasLivroCaixa(): Promise<CategoriaLivroCaixa[]> {
+  const db = getDb();
+  const col = collection(db, 'categorias_livro_caixa');
+  const q = query(col, orderBy('nome', 'asc'));
+  const snap = await getDocs(q);
+  const list = snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as CategoriaLivroCaixa));
+  return list;
+}
+
+export async function createCategoriaLivroCaixa(data: Omit<CategoriaLivroCaixa, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'categorias_livro_caixa');
+  const newRef = doc(col);
+  const now = new Date();
+  
+  await setDoc(newRef, {
+    ...data,
+    created_at: now,
+    updated_at: now
+  });
+  
+  return newRef.id;
+}
+
+export async function updateCategoriaLivroCaixa(id: string, data: Partial<Omit<CategoriaLivroCaixa, 'id' | 'created_at'>>): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'categorias_livro_caixa', id);
+  
+  await updateDoc(ref, {
+    ...data,
+    updated_at: new Date()
+  });
+}
+
+export async function deleteCategoriaLivroCaixa(id: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'categorias_livro_caixa', id);
+  
+  await deleteDoc(ref);
+}
+
 export async function getAssociados(): Promise<Associado[]> {
   const db = getDb();
   const col = collection(db, 'associados');
