@@ -151,12 +151,12 @@ export default function AdminAuditorioPage() {
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
 
   return (
-    <div>
+    <div className="w-full max-w-full overflow-x-hidden">
       <h1 className="text-2xl font-bold text-gray-900">Auditório</h1>
       <p className="mt-2 text-sm text-cdl-gray-text">
         Edite o conteúdo da página do Auditório para Eventos
       </p>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6 max-w-3xl">
+      <form onSubmit={handleSubmit} className="mt-4 max-w-3xl space-y-4 sm:mt-6 sm:space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Título</label>
           <input
@@ -171,7 +171,7 @@ export default function AdminAuditorioPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Foto de destaque</label>
-          <div className="mt-1 flex items-center gap-3">
+          <div className="mt-1 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             <input
               type="file"
               accept="image/*"
@@ -187,7 +187,7 @@ export default function AdminAuditorioPage() {
           </div>
           {data.photo && (
             <div className="mt-4">
-              <img src={data.photo} alt="Preview" className="max-w-md h-auto rounded-lg border border-gray-300" />
+              <img src={data.photo} alt="Preview" className="h-auto w-full max-w-md rounded-lg border border-gray-300" />
               <button
                 type="button"
                 onClick={() => setData((d) => ({ ...d, photo: null }))}
@@ -223,19 +223,19 @@ export default function AdminAuditorioPage() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="block text-sm font-medium text-gray-700">Itens da infraestrutura</label>
             <button
               type="button"
               onClick={() => setData((d) => ({ ...d, infrastructureItems: [...d.infrastructureItems, ''] }))}
-              className="text-sm text-cdl-blue hover:underline font-medium"
+              className="text-left text-sm font-medium text-cdl-blue hover:underline sm:text-right"
             >
               + Adicionar item
             </button>
           </div>
           <div className="space-y-2">
             {data.infrastructureItems.map((item, index) => (
-              <div key={index} className="flex gap-2">
+              <div key={index} className="flex flex-col gap-1.5 sm:flex-row sm:gap-2">
                 <input
                   type="text"
                   value={item}
@@ -255,7 +255,7 @@ export default function AdminAuditorioPage() {
                       infrastructureItems: d.infrastructureItems.filter((_, i) => i !== index),
                     }))
                   }
-                  className="text-sm text-red-600 hover:underline px-2"
+                  className="self-start px-1 text-xs text-red-600 hover:underline sm:px-2 sm:text-sm"
                 >
                   Remover
                 </button>
@@ -270,7 +270,7 @@ export default function AdminAuditorioPage() {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={saving} className="btn-primary">
+        <button type="submit" disabled={saving} className="btn-primary w-full sm:w-auto">
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
       </form>

@@ -94,13 +94,13 @@ export default function AdminEventosPage() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="mb-5 flex flex-col gap-2.5 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Eventos</h1>
           <p className="text-gray-600 mt-1">Campanhas e eventos cadastrados no site.</p>
         </div>
-        <Link href="/admin/eventos/novo" className="btn-primary shrink-0 self-start">
+        <Link href="/admin/eventos/novo" className="btn-primary w-full shrink-0 self-start text-center sm:w-auto">
           Criar evento
         </Link>
       </div>
@@ -114,24 +114,85 @@ export default function AdminEventosPage() {
               Nenhum evento cadastrado. Use <strong className="text-gray-800">Criar evento</strong> para adicionar.
             </div>
           ) : (
-            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="w-full max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <div className="space-y-2 p-2.5 md:hidden">
+                {items.map((ev) => {
+                  const reg = getEffectiveRegistration(ev);
+                  const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
+                  return (
+                    <article key={ev.id} className="rounded-lg border border-gray-200 bg-white p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-gray-900">{ev.title}</h3>
+                          {ev.description && (
+                            <p className="mt-0.5 line-clamp-2 text-xs text-cdl-gray-text">{ev.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-gray-700">
+                        <p>
+                          <strong>Categoria:</strong> {ev.category || '—'}
+                        </p>
+                        <p>
+                          <strong>Data:</strong> {ev.date || '—'}
+                        </p>
+                        <p>
+                          <strong>Inscritos:</strong> {inscritos}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Link
+                          href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id ?? '')}`}
+                          target="_blank"
+                          className="rounded-md bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue"
+                        >
+                          Ver
+                        </Link>
+                        {reg.kind === 'form' && (
+                          <Link
+                            href={`/admin/eventos/inscritos?eventId=${ev.id}`}
+                            className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800"
+                          >
+                            Inscritos
+                          </Link>
+                        )}
+                        <Link
+                          href={`/admin/campanhas/edit?id=${ev.id}`}
+                          className="rounded-md bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue"
+                        >
+                          Editar
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => abrirConfirmacaoExclusao(ev)}
+                          disabled={deletingId === ev.id}
+                          className="rounded-md bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 disabled:opacity-50"
+                        >
+                          {deletingId === ev.id ? 'Excluindo...' : 'Excluir'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
                 <table className="min-w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
-                      <th scope="col" className="px-4 py-3 font-semibold text-gray-900">
+                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900">
                         Título
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
                         Categoria
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
                         Data / período
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
                         Inscritos
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold text-gray-900 text-right whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2.5 text-right font-semibold text-gray-900 whitespace-nowrap">
                         Ações
                       </th>
                     </tr>
@@ -142,16 +203,16 @@ export default function AdminEventosPage() {
                       const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50/80">
-                          <td className="px-4 py-3 align-top">
+                          <td className="px-3 py-2.5 align-top">
                             <span className="font-medium text-gray-900">{ev.title}</span>
                             {ev.description && (
                               <p className="text-cdl-gray-text text-xs mt-1 line-clamp-2 max-w-md">{ev.description}</p>
                             )}
                           </td>
-                          <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
-                          <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
-                          <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">{inscritos}</td>
-                          <td className="px-4 py-3 align-top text-right">
+                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
+                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
+                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{inscritos}</td>
+                          <td className="px-3 py-2.5 align-top text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
                               <Link
                                 href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id ?? '')}`}

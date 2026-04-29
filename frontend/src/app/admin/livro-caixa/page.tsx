@@ -356,31 +356,56 @@ export default function LivroCaixaPage() {
           <h1 className="text-2xl font-bold text-gray-900">Livro Caixa</h1>
           <p className="mt-1 text-cdl-gray-text">Gerencie as finanças da CDL</p>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:gap-3">
-          <Link href="/admin/livro-caixa/categorias" className="btn-secondary w-full">
+        <div className="hidden w-full flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2 md:flex lg:w-auto lg:gap-3">
+          <Link href="/admin/livro-caixa/categorias" className="btn-secondary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs sm:!px-4 sm:!py-2 sm:text-sm">
             Gerenciar Categorias
           </Link>
           <button
             onClick={exportarPdf}
             disabled={exportingPdf || transacoesFiltradas.length === 0}
-            className="btn-secondary w-full disabled:opacity-50"
+            className="btn-secondary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
           >
             {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
           </button>
           <button
             onClick={exportarCsv}
             disabled={exportingCsv || transacoesFiltradas.length === 0}
-            className="btn-secondary w-full disabled:opacity-50"
+            className="btn-secondary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
           >
             {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="btn-primary w-full"
+            className="btn-primary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs sm:!px-4 sm:!py-2 sm:text-sm"
           >
             Adicionar Transação
           </button>
         </div>
+      </div>
+      <div className="mb-3 grid grid-cols-2 gap-2 md:hidden">
+        <Link href="/admin/livro-caixa/categorias" className="btn-secondary !px-3 !py-2 text-xs">
+          Gerenciar Categorias
+        </Link>
+        <button
+          onClick={exportarPdf}
+          disabled={exportingPdf || transacoesFiltradas.length === 0}
+          className="btn-secondary !px-3 !py-2 text-xs disabled:opacity-50"
+        >
+          {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
+        </button>
+        <button
+          onClick={exportarCsv}
+          disabled={exportingCsv || transacoesFiltradas.length === 0}
+          className="btn-secondary !px-3 !py-2 text-xs disabled:opacity-50"
+        >
+          {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
+        </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="btn-primary !px-3 !py-2 text-xs"
+        >
+          Adicionar Transação
+        </button>
       </div>
 
       {/* Cards de Resumo */}
@@ -468,13 +493,13 @@ export default function LivroCaixaPage() {
 
       {/* Filtros */}
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-2.5 lg:mb-6 lg:p-4">
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:gap-3">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-2.5 lg:gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Filtrar por Categoria</label>
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm lg:h-10 lg:px-3 lg:py-2"
+              className="h-9 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs lg:h-10 lg:px-3 lg:py-2 lg:text-sm"
             >
               <option value="todas">Todas as categorias</option>
               {categorias.map((categoria) => (
@@ -496,7 +521,7 @@ export default function LivroCaixaPage() {
             <select
               value={ordenarPor}
               onChange={(e) => setOrdenarPor(e.target.value)}
-              className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm lg:h-10 lg:px-3 lg:py-2"
+              className="h-9 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs lg:h-10 lg:px-3 lg:py-2 lg:text-sm"
             >
               <option value="data">Data (mais recente)</option>
               <option value="valor">Valor (maior primeiro)</option>

@@ -80,11 +80,11 @@ export default function AniversariosPage() {
   }, [associados]);
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">
-      <div className="mb-5 flex items-center justify-between sm:mb-6">
+    <div className="w-full max-w-full overflow-x-hidden p-2.5 sm:p-4 lg:p-6">
+      <div className="mb-4 flex items-center justify-between sm:mb-6">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">Aniversários</h1>
-          <p className="text-gray-600 mt-1">Aniversariantes cadastrados nos associados</p>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Aniversários</h1>
+          <p className="mt-0.5 text-xs text-gray-600 sm:mt-1 sm:text-sm">Aniversariantes cadastrados nos associados</p>
         </div>
       </div>
 
@@ -97,19 +97,19 @@ export default function AniversariosPage() {
           </div>
         ) : (
           <>
-          <div className="space-y-2 p-2.5 md:hidden">
+          <div className="space-y-1.5 p-2 md:hidden">
             {rows.map((row, index) => (
-              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 p-3">
+              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 break-words">{row.aniversarianteNome}</p>
-                    <p className="text-xs text-gray-500">{formatBirthday(row.data)}</p>
-                    <p className="mt-1 text-xs text-gray-700 break-words">{row.associado.empresa || '—'}</p>
+                    <p className="text-[11px] text-gray-500">{formatBirthday(row.data)}</p>
+                    <p className="mt-0.5 text-[11px] text-gray-700 break-words">{row.associado.empresa || '—'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedAssociado(row.associado)}
-                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2.5 py-1.5 text-[11px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2 py-1 text-[10px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
                   >
                     Ver
                   </button>
@@ -154,17 +154,17 @@ export default function AniversariosPage() {
       {selectedAssociado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6">
+            <div className="flex items-center justify-between border-b border-gray-200 p-3 sm:p-6">
               <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Dados do Associado</h3>
-                <p className="mt-1 text-sm text-cdl-gray-text">
+                <h3 className="text-base sm:text-xl font-bold text-gray-900">Dados do Associado</h3>
+                <p className="mt-0.5 text-xs text-cdl-gray-text sm:mt-1 sm:text-sm">
                   {selectedAssociado.nome || '—'} · {selectedAssociado.empresa || '—'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedAssociado(null)}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50 sm:px-3 sm:py-1.5 sm:text-sm"
               >
                 Fechar
               </button>

@@ -16,6 +16,7 @@ interface CalendarAgendamentosProps {
 
 export function CalendarAgendamentos({ agendamentos, onEventClick, onDateClick }: CalendarAgendamentosProps) {
   const [events, setEvents] = useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const calendarEvents = agendamentos.map(agendamento => ({
@@ -29,6 +30,13 @@ export function CalendarAgendamentos({ agendamentos, onEventClick, onDateClick }
     }));
     setEvents(calendarEvents);
   }, [agendamentos]);
+
+  useEffect(() => {
+    const updateMobile = () => setIsMobile(window.innerWidth < 768);
+    updateMobile();
+    window.addEventListener('resize', updateMobile);
+    return () => window.removeEventListener('resize', updateMobile);
+  }, []);
 
   const handleEventClick = (clickInfo: any) => {
     if (onEventClick) {
@@ -51,21 +59,31 @@ export function CalendarAgendamentos({ agendamentos, onEventClick, onDateClick }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div className="admin-calendar rounded-lg border border-gray-200 bg-white p-2 shadow-sm sm:p-4">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-        }}
-        initialView="dayGridMonth"
+        headerToolbar={
+          isMobile
+            ? {
+                left: 'prev,next',
+                center: 'title',
+                right: 'dayGridMonth,listWeek',
+              }
+            : {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+              }
+        }
+        initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
         locale="pt-br"
         events={events}
         eventClick={handleEventClick}
         dateClick={handleDateClick}
         height="auto"
-        aspectRatio={1.35}
+        aspectRatio={isMobile ? 0.95 : 1.35}
+        dayMaxEventRows={isMobile ? 2 : 4}
+        eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         eventMouseEnter={(mouseEnterInfo) => {
           const el = mouseEnterInfo.el;
           el.style.cursor = 'pointer';
@@ -76,19 +94,20 @@ export function CalendarAgendamentos({ agendamentos, onEventClick, onDateClick }
         allDaySlot={false}
         slotMinTime="08:00:00"
         slotMaxTime="22:00:00"
-        dayHeaderFormat={{ weekday: 'short' }}
+        dayHeaderFormat={isMobile ? { weekday: 'narrow' } : { weekday: 'short' }}
         titleFormat={{ 
           month: 'long', 
           year: 'numeric',
           day: 'numeric'
         }}
         buttonText={{
-          today: 'Hoje',
-          month: 'Mês',
+          today: isMobile ? 'Hoje' : 'Hoje',
+          month: isMobile ? 'Mês' : 'Mês',
           week: 'Semana',
           day: 'Dia',
-          list: 'Lista'
+          list: isMobile ? 'Lista' : 'Lista'
         }}
+        moreLinkText={(n) => `+${n}`}
       />
     </div>
   );

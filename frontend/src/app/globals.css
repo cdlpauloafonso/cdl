@@ -79,3 +79,17 @@ body {
     width: 100%;
   }
 }
+
+/* Ajustes de legibilidade do calendário de agendamentos no mobile */
+@media (max-width: 767px) {
+  .admin-calendar .fc .fc-toolbar-title {
+    font-size: 0.95rem;
+    line-height: 1.2;
+  }
+
+  .admin-calendar .fc .fc-daygrid-day-number,
+  .admin-calendar .fc .fc-list-day-text,
+  .admin-calendar .fc .fc-list-day-side-text {
+    font-size: 0.85rem;
+  }
+}

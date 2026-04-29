@@ -548,16 +548,16 @@ ${contratoProcessado}
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">
+      <div className="mb-5 flex flex-col gap-2.5 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Agendamentos do Auditório</h1>
           <p className="text-gray-600 mt-1">Gerencie os agendamentos do auditório</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           <button
             onClick={handleCreate}
-            className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+            className="w-full rounded-lg bg-cdl-blue px-3 py-2 text-sm text-white transition-colors hover:bg-cdl-blue-dark sm:w-auto sm:px-4"
           >
             + Novo Agendamento
           </button>
@@ -565,8 +565,8 @@ ${contratoProcessado}
       </div>
 
       {/* Calendário Visual */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Calendário de Agendamentos</h2>
+      <div className="mb-4 sm:mb-6">
+        <h2 className="mb-2 text-sm font-semibold text-gray-900 sm:mb-4 sm:text-lg">Calendário de Agendamentos</h2>
         <CalendarAgendamentos
           agendamentos={agendamentos}
           onEventClick={handleEdit}
@@ -581,9 +581,9 @@ ${contratoProcessado}
       </div>
 
       {/* Lista de Agendamentos */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Agendamentos</h2>
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 p-2.5 sm:p-4">
+          <h2 className="text-sm font-semibold text-gray-900 sm:text-lg">Agendamentos</h2>
         </div>
         <div className="divide-y divide-gray-100">
           {agendamentos.length === 0 ? (
@@ -592,21 +592,21 @@ ${contratoProcessado}
             </div>
           ) : (
             agendamentos.map((agendamento) => (
-              <div key={agendamento.id} className="p-3 hover:bg-gray-50 transition-colors">
+              <div key={agendamento.id} className="p-2 transition-colors hover:bg-gray-50 sm:p-2.5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-gray-900 truncate">{agendamento.title}</h3>
+                    <div className="mb-0.5 flex items-center gap-1.5 sm:gap-2">
+                      <h3 className="truncate text-sm font-medium text-gray-900 sm:text-base">{agendamento.title}</h3>
                       <span
-                        className="px-2 py-0.5 text-xs font-medium rounded-full text-white flex-shrink-0"
+                        className="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-white sm:text-xs"
                         style={{ backgroundColor: agendamento.backgroundColor }}
                       >
                         {getStatusLabel(agendamento.extendedProps.status)}
                       </span>
                     </div>
-                    <div className="space-y-0.5 text-xs text-gray-600">
+                    <div className="space-y-0 text-xs text-gray-600 sm:text-sm">
                       <p><strong>Solicitante:</strong> {agendamento.extendedProps.solicitante || 'Não informado'}</p>
-                      <div className="flex gap-4">
+                      <div className="flex flex-col gap-0 sm:flex-row sm:gap-3">
                         {agendamento.extendedProps.solicitante && (
                           <p><strong>Telefone:</strong> {agendamento.extendedProps.contato || 'Não informado'}</p>
                         )}
@@ -614,7 +614,7 @@ ${contratoProcessado}
                           <p><strong>Email:</strong> {agendamento.extendedProps.email || 'Não informado'}</p>
                         )}
                       </div>
-                      <div className="flex gap-4">
+                      <div className="flex flex-col gap-0 sm:flex-row sm:gap-3">
                         <p><strong>Início:</strong> {formatDate(agendamento.start)}</p>
                         <p><strong>Término:</strong> {agendamento.end ? formatDate(agendamento.end) : 'Não informado'}</p>
                       </div>
@@ -623,22 +623,22 @@ ${contratoProcessado}
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-1.5 ml-3 flex-shrink-0">
+                  <div className="ml-2 flex shrink-0 flex-col gap-0.5 sm:ml-3 sm:flex-row sm:gap-1">
                     <button
                       onClick={() => handleEdit(agendamento)}
-                      className="px-2 py-1.5 bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark transition-colors text-xs"
+                      className="rounded bg-cdl-blue px-2 py-0.5 text-[10px] text-white transition-colors hover:bg-cdl-blue-dark sm:px-2 sm:py-1 sm:text-xs"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => handleContrato(agendamento)}
-                      className="px-2 py-1.5 bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark transition-colors text-xs"
+                      className="rounded bg-cdl-blue px-2 py-0.5 text-[10px] text-white transition-colors hover:bg-cdl-blue-dark sm:px-2 sm:py-1 sm:text-xs"
                     >
                       Contrato
                     </button>
                     <button
                       onClick={() => handleDelete(agendamento.id!)}
-                      className="px-2 py-1.5 bg-gray-100 text-red-600 rounded hover:bg-gray-200 transition-colors text-xs"
+                      className="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-red-600 transition-colors hover:bg-gray-200 sm:px-2 sm:py-1 sm:text-xs"
                     >
                       Excluir
                     </button>
@@ -652,15 +652,15 @@ ${contratoProcessado}
 
       {/* Modal de Formulário */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-2.5 shadow-lg sm:p-6">
+            <h2 className="mb-3 text-base font-semibold text-gray-900 sm:mb-4 sm:text-lg">
               {selectedAgendamento ? 'Editar Agendamento' : 'Novo Agendamento'}
             </h2>
             
             {/* Mensagem de Sucesso */}
             {showModalSuccess && (
-              <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mx-2 mt-2 rounded-lg border border-green-200 bg-green-50 p-2 sm:mx-6 sm:mt-4 sm:p-3">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -675,8 +675,8 @@ ${contratoProcessado}
                 </div>
               </div>
             )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Título do Evento
@@ -685,7 +685,7 @@ ${contratoProcessado}
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                     required
                   />
                 </div>
@@ -696,7 +696,7 @@ ${contratoProcessado}
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as Agendamento['extendedProps']['status'] })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                   >
                     <option value="pendente">Pendente</option>
                     <option value="confirmado">Confirmado</option>
@@ -705,7 +705,7 @@ ${contratoProcessado}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Data e Hora Início
@@ -714,7 +714,7 @@ ${contratoProcessado}
                     type="datetime-local"
                     value={formData.start}
                     onChange={handleStartDateChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                     required
                   />
                 </div>
@@ -726,12 +726,12 @@ ${contratoProcessado}
                     type="datetime-local"
                     value={formData.end}
                     onChange={(e) => setFormData({ ...formData, end: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Solicitante
@@ -740,7 +740,7 @@ ${contratoProcessado}
                     type="text"
                     value={formData.solicitante}
                     onChange={(e) => setFormData({ ...formData, solicitante: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                   />
                 </div>
                 <div>
@@ -752,7 +752,7 @@ ${contratoProcessado}
                     value={formData.telefone}
                     onChange={handlePhoneChange}
                     placeholder="(00) 00000-0000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                   />
                 </div>
               </div>
@@ -765,7 +765,7 @@ ${contratoProcessado}
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 />
               </div>
 
@@ -777,15 +777,15 @@ ${contratoProcessado}
                   value={formData.observacoes}
                   onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-1.5 sm:flex sm:gap-2">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors disabled:opacity-50"
+                  className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark disabled:opacity-50 sm:px-4 sm:text-sm"
                 >
                   {isSubmitting ? 'Salvando...' : (selectedAgendamento ? 'Atualizar' : 'Criar')}
                 </button>
@@ -797,7 +797,7 @@ ${contratoProcessado}
                         setShowModal(false);
                         handleContrato(selectedAgendamento);
                       }}
-                      className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                      className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                     >
                       Contrato
                     </button>
@@ -809,7 +809,7 @@ ${contratoProcessado}
                           setShowModal(false);
                         }
                       }}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      className="rounded-lg bg-red-600 px-3 py-2 text-xs text-white transition-colors hover:bg-red-700 sm:px-4 sm:text-sm"
                     >
                       Excluir
                     </button>
@@ -818,7 +818,7 @@ ${contratoProcessado}
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-200 sm:px-4 sm:text-sm"
                 >
                   Cancelar
                 </button>
@@ -830,16 +830,16 @@ ${contratoProcessado}
 
       {/* Modal de Contrato */}
       {showContratoModal && selectedContrato && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-2.5 shadow-lg sm:p-6">
+            <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                 Contrato - {selectedAgendamento?.title}
               </h2>
               
               {/* Mensagem de Sucesso */}
               {showContratoSuccess && (
-                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="mx-1 mt-1 rounded-lg border border-green-200 bg-green-50 p-2 sm:mx-6 sm:mt-4 sm:p-3">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -855,24 +855,24 @@ ${contratoProcessado}
                 </div>
               )}
               
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-1.5 sm:flex sm:gap-2">
                 {viewMode === 'view' && (
                   <>
                     <button
                       onClick={handleExportarPDF}
-                      className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                      className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                     >
                       Exportar PDF
                     </button>
                     <button
                       onClick={handleImprimir}
-                      className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                      className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                     >
                       Imprimir
                     </button>
                     <button
                       onClick={handleEditarContrato}
-                      className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                      className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                     >
                       Editar
                     </button>
@@ -880,7 +880,7 @@ ${contratoProcessado}
                 )}
                 <button
                   onClick={viewMode === 'view' ? handleEditarContrato : () => setShowContratoModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-200 sm:px-4 sm:text-sm"
                 >
                   Fechar
                 </button>
@@ -889,11 +889,11 @@ ${contratoProcessado}
 
             {viewMode === 'edit' ? (
               // Modo de Edição - Campos Editáveis do Contrato
-              <form onSubmit={handleSalvarContrato} className="space-y-4">
-                <div className="text-sm text-gray-600 mb-4">
+              <form onSubmit={handleSalvarContrato} className="space-y-3 sm:space-y-4">
+                <div className="mb-3 text-xs text-gray-600 sm:mb-4 sm:text-sm">
                   Campos definidos no modelo: {selectedContrato?.campos?.join(', ') || 'Nenhum campo definido'}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
                   {selectedContrato?.campos?.map((campo: string) => (
                     <div key={campo}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -903,7 +903,7 @@ ${contratoProcessado}
                         type="text"
                         value={contratoData[campo] || ''}
                         onChange={(e) => setContratoData({ ...contratoData, [campo]: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                        className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                         placeholder={`Digite o valor para {${campo}}`}
                       />
                     </div>
@@ -921,17 +921,17 @@ ${contratoProcessado}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:flex sm:gap-2">
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                    className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                   >
                     Salvar
                   </button>
                   <button
                     type="button"
                     onClick={handleVerContrato}
-                    className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
+                    className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
                   >
                     Ver Contrato
                   </button>
