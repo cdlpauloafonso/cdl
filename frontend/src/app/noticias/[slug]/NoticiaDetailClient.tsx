@@ -5,9 +5,13 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getNewsBySlug, type NewsItemFirestore, type NewsLink } from '@/lib/firestore';
+import { shareNewsArticle } from '@/lib/share-news';
+import { formatNewsPublishedDate } from '@/lib/news-date';
+import { isProbablyHtml } from '@/lib/news-content-format';
 
 export function NoticiaDetailClient({ slug }: { slug: string }) {
   const [news, setNews] = useState<NewsItemFirestore | null | undefined>(undefined);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     // Se for fallback, não tenta buscar no Firestore
@@ -58,6 +62,29 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
     notFound();
   }
 
+  async function handleShare() {
+    const n = news;
+    if (n === undefined || n === null) return;
+    const s = (n.slug ?? slug ?? '').trim();
+    if (!s) return;
+    setSharing(true);
+    try {
+      const result = await shareNewsArticle({
+        title: n.title,
+        excerpt: n.excerpt,
+        slug: s,
+      });
+      if (result.ok && result.method === 'clipboard') {
+        alert('Link da notícia copiado para a área de transferência.');
+      }
+      if (!result.ok && result.reason === 'error') {
+        alert('Não foi possível compartilhar agora. Tente novamente.');
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <article className="py-12 sm:py-16">
       <div className="container-cdl max-w-3xl">
@@ -81,17 +108,41 @@ export function NoticiaDetailClient({ slug }: { slug: string }) {
         <div className="mb-6">
           {news.publishedAt && (
             <time className="text-sm font-medium text-cdl-blue mb-3 block" dateTime={news.publishedAt}>
-              {new Date(news.publishedAt).toLocaleDateString('pt-BR', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
+              {formatNewsPublishedDate(news.publishedAt, 'long')}
             </time>
           )}
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">{news.title}</h1>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              disabled={sharing || !(news.slug ?? slug ?? '').trim()}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-cdl-blue bg-white px-4 py-2.5 text-sm font-semibold text-cdl-blue transition-colors hover:bg-cdl-blue hover:text-white disabled:opacity-50"
+              aria-label="Compartilhar esta notícia"
+            >
+              <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+              {sharing ? 'Compartilhando...' : 'Compartilhar notícia'}
+            </button>
+          </div>
         </div>
 
-        <div className="mt-8 prose prose-cdl max-w-none" dangerouslySetInnerHTML={{ __html: news.content }} />
+        {isProbablyHtml(news.content) ? (
+          <div
+            className="news-article-body mt-8 max-w-none text-gray-700 prose prose-neutral prose-lg sm:prose-xl prose-p:leading-relaxed prose-headings:scroll-mt-24 prose-headings:font-semibold prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:font-medium prose-a:text-cdl-blue prose-a:no-underline hover:prose-a:underline prose-strong:font-semibold prose-strong:text-gray-900 prose-ul:my-4 prose-ol:my-4 prose-li:my-1.5 prose-blockquote:border-cdl-blue prose-blockquote:text-gray-600 prose-img:rounded-xl prose-hr:border-gray-200"
+            dangerouslySetInnerHTML={{ __html: news.content }}
+          />
+        ) : (
+          <div className="news-article-body mt-8 whitespace-pre-wrap text-base leading-relaxed text-gray-700 sm:text-lg">
+            {news.content}
+          </div>
+        )}
 
         {news.links && Array.isArray(news.links) && news.links.length > 0 && (
           <div className="mt-12 pt-8 border-t border-gray-200">

@@ -16,6 +16,7 @@ import {
   pickNomeResponsavel,
   tituloMunicipio,
 } from '@/lib/brasil-api-cnpj';
+import { AniversariantesFormSection } from '@/components/admin/AniversariantesFormSection';
 
 function EditarAssociadoContent() {
   const router = useRouter();
@@ -535,70 +536,13 @@ function EditarAssociadoContent() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Aniversariantes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Aniversariantes
-            </label>
-            <div className="space-y-2 mb-4">
-              {(associado.aniversariantes ?? []).map((aniversariante, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={aniversariante.nome}
-                    onChange={(e) => {
-                      const novosAniversariantes = [...(associado.aniversariantes ?? [])];
-                      novosAniversariantes[index] = { ...aniversariante, nome: e.target.value };
-                      setAssociado(prev => prev ? ({
-                        ...prev,
-                        aniversariantes: novosAniversariantes
-                      }) : null);
-                    }}
-                    placeholder="Nome do aniversariante"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                  />
-                  <input
-                    type="date"
-                    value={aniversariante.data}
-                    onChange={(e) => {
-                      const novosAniversariantes = [...(associado.aniversariantes ?? [])];
-                      novosAniversariantes[index] = { ...aniversariante, data: e.target.value };
-                      setAssociado(prev => prev ? ({
-                        ...prev,
-                        aniversariantes: novosAniversariantes
-                      }) : null);
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const novosAniversariantes = (associado.aniversariantes ?? []).filter((_, i) => i !== index);
-                      setAssociado(prev => prev ? ({
-                        ...prev,
-                        aniversariantes: novosAniversariantes
-                      }) : null);
-                    }}
-                    className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Remover
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setAssociado(prev => prev ? ({
-                    ...prev,
-                    aniversariantes: [...(prev.aniversariantes ?? []), { nome: '', data: '' }]
-                  }) : null);
-                }}
-                className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
-              >
-                + Adicionar Aniversariante
-              </button>
-            </div>
-          </div>
+          <AniversariantesFormSection
+            idPrefix="edit-associado-aniv"
+            value={associado.aniversariantes ?? []}
+            onChange={(next) =>
+              setAssociado((prev) => (prev ? { ...prev, aniversariantes: next } : null))
+            }
+          />
 
           {/* Observações */}
           <div className="md:col-span-2">

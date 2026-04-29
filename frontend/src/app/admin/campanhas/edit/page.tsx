@@ -57,7 +57,7 @@ export default function AdminCampanhaEditByQueryPage() {
 
   useEffect(() => {
     if (!campanha?.id) return;
-    const eff = getEffectiveRegistration(campanha);
+    const eff = getEffectiveRegistration(campanha, { ignoreRegistrationClosed: true });
     const formCfg = campanha.registrationConfig?.type === 'form' ? campanha.registrationConfig : null;
     setAssociadosOnly(Boolean(formCfg?.associadosOnly));
     if (eff.kind === 'none') {

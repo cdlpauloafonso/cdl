@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { listNews, type NewsItemFirestore } from '@/lib/firestore';
+import { formatNewsPublishedDate } from '@/lib/news-date';
 
 export function NoticiasListClient() {
   const [items, setItems] = useState<NewsItemFirestore[]>([]);
@@ -71,11 +72,7 @@ export function NoticiasListClient() {
           <div className="flex-1 p-6 flex flex-col">
             {n.publishedAt && (
               <time className="text-xs font-medium text-cdl-blue mb-3 block" dateTime={n.publishedAt}>
-                {new Date(n.publishedAt).toLocaleDateString('pt-BR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                {formatNewsPublishedDate(n.publishedAt, 'long')}
               </time>
             )}
             <h2 className="text-lg font-bold text-gray-900 group-hover:text-cdl-blue transition-colors line-clamp-2 mb-3">

@@ -43,12 +43,12 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
           <p className="text-center text-cdl-gray-text">{loadingLabel}</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12 [direction:rtl]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
               {items.map((event) => (
                 <Link
                   key={event.id}
                   href={`/institucional/campanhas/ver?slug=${encodeURIComponent(event.id ?? '')}`}
-                  className="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg hover:border-cdl-blue/30 transition-all block [direction:ltr]"
+                  className="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg hover:border-cdl-blue/30 transition-all block"
                 >
                   <div className="relative h-48 overflow-hidden">
                     {event.image ? (

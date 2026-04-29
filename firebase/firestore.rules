@@ -50,6 +50,10 @@ service cloud.firestore {
       return snap.exists && campaignDocAllowsAnotherInscription(snap.data);
     }
 
+    function campaignPublicInscriptionNotClosed(campaignId) {
+      return get(/databases/$(database)/documents/campaigns/$(campaignId)).data.get('registrationClosed', false) != true;
+    }
+
     match /campaigns/{campaignId} {
       allow get, list: if true;
       allow create, delete: if isAdmin();
@@ -59,6 +63,7 @@ service cloud.firestore {
       match /inscricoes/{inscriptionId} {
         allow create: if
           campaignAllowsAnotherPublicInscription(campaignId) &&
+          campaignPublicInscriptionNotClosed(campaignId) &&
           request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
           request.resource.data.createdAt is string &&
           request.resource.data.createdAt.size() >= 10 &&

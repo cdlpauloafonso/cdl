@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { listNews, deleteNews, updateNews, type NewsItemFirestore } from '@/lib/firestore';
+import { formatNewsPublishedDate } from '@/lib/news-date';
 
 export default function AdminNoticiasPage() {
   const [list, setList] = useState<NewsItemFirestore[]>([]);
@@ -64,7 +65,7 @@ export default function AdminNoticiasPage() {
                   {n.published ? 'Publicado' : 'Rascunho'}
                 </span>
                 <span className="text-xs text-cdl-gray-text">
-                  {n.publishedAt ? new Date(n.publishedAt).toLocaleDateString('pt-BR') : '—'}
+                  {n.publishedAt ? formatNewsPublishedDate(n.publishedAt, 'short') : '—'}
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -119,7 +120,7 @@ export default function AdminNoticiasPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-cdl-gray-text">
-                  {n.publishedAt ? new Date(n.publishedAt).toLocaleDateString('pt-BR') : '—'}
+                  {n.publishedAt ? formatNewsPublishedDate(n.publishedAt, 'short') : '—'}
                 </td>
                 <td className="px-4 py-3 text-right text-sm">
                   <button

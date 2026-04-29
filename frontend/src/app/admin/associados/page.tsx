@@ -109,6 +109,14 @@ export default function AdminAssociadosPage() {
     loadAssociados();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const s = new URLSearchParams(window.location.search).get('status');
+    if (s === 'ativo' || s === 'desativado' || s === 'em_negociacao') {
+      setSelectedStatus(s);
+    }
+  }, []);
+
   const loadAssociados = async () => {
     try {
       const data = await getAssociados();

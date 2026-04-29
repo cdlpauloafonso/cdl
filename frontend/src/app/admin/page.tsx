@@ -6,7 +6,7 @@ import { apiGet } from '@/lib/api';
 import { listNews, listCarouselSlides, listAgendamentos, getAssociados, getProximosAniversariantes, type Agendamento } from '@/lib/firestore';
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number; totalAssociados: number } | null>(null);
+  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number } | null>(null);
   const [proximosAgendamentos, setProximosAgendamentos] = useState<Agendamento[]>([]);
   const [proximosAniversarios, setProximosAniversarios] = useState<{ nome: string; empresa: string; data: string }[]>([]);
 
@@ -31,14 +31,19 @@ export default function AdminDashboardPage() {
       })
       .catch(() => []);
 
-    // Total real de associados no Firestore
+    // Mesma regra da lista de associados (statusResumo): sem campo status conta como ativo
     const associadosPromise = getAssociados()
       .then((associados) => {
-        const ativos = associados.filter(a => a.status === 'ativo').length;
-        const emNegociacao = associados.filter(a => a.status === 'em_negociacao').length;
-        const desativados = associados.filter(a => a.status === 'desativado').length;
-        const total = associados.length; // Total de todos os associados incluindo desativados
-        return { ativos, emNegociacao, desativados, total };
+        let ativos = 0;
+        let emNegociacao = 0;
+        let desativados = 0;
+        associados.forEach((a) => {
+          const status = a.status ?? 'ativo';
+          if (status === 'desativado') desativados += 1;
+          else if (status === 'em_negociacao') emNegociacao += 1;
+          else ativos += 1;
+        });
+        return { ativos, emNegociacao, desativados, total: associados.length };
       })
       .catch(() => ({ ativos: 0, emNegociacao: 0, desativados: 0, total: 0 }));
 
@@ -65,13 +70,12 @@ export default function AdminDashboardPage() {
           news: newsCount,
           associates: associadosCount.ativos,
           emNegociacao: associadosCount.emNegociacao,
-          totalAssociados: associadosCount.total,
         });
         setProximosAgendamentos(agendamentos);
         setProximosAniversarios(aniversariantes);
       })
       .catch(() => {
-        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0, totalAssociados: 0 });
+        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0 });
         setProximosAgendamentos([]);
         setProximosAniversarios([]);
       });
@@ -113,14 +117,14 @@ export default function AdminDashboardPage() {
       {/* Card de Associados em Destaque */}
       <div className="mb-4 mt-4 grid grid-cols-2 gap-2.5 sm:mb-6 sm:mt-8 sm:gap-4">
         <Link
-          href="/admin/associados"
+          href="/admin/associados?status=ativo"
           className="block rounded-xl border-2 border-transparent bg-gradient-to-r from-cdl-blue to-cdl-blue-dark p-4 text-white transition-all hover:border-white/20 hover:shadow-lg sm:p-8"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-blue-100 sm:text-sm">Associados</p>
-              <p className="mt-1 text-3xl font-bold sm:mt-2 sm:text-4xl">{stats?.totalAssociados ?? '—'}</p>
-              <p className="mt-0.5 text-xs text-blue-100 sm:mt-1 sm:text-sm">Empresas associadas</p>
+              <p className="text-xs font-medium text-blue-100 sm:text-sm">Associados ativos</p>
+              <p className="mt-1 text-3xl font-bold sm:mt-2 sm:text-4xl">{stats?.associates ?? '—'}</p>
+              <p className="mt-0.5 text-xs text-blue-100 sm:mt-1 sm:text-sm">Somente cadastro com status ativo</p>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 sm:h-16 sm:w-16">
               <svg

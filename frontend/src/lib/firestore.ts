@@ -168,11 +168,10 @@ export async function listCampaignsByCreatedAtDesc(): Promise<Campaign[]> {
   return snap.docs
     .map((d) => ({ ...(d.data() as any), id: d.id }))
     .sort((a, b) => {
-      const ta = Date.parse(a.createdAt ?? '');
-      const tb = Date.parse(b.createdAt ?? '');
-      const sa = Number.isNaN(ta) ? Number.NEGATIVE_INFINITY : ta;
-      const sb = Number.isNaN(tb) ? Number.NEGATIVE_INFINITY : tb;
-      if (sa !== sb) return sb - sa;
+      // Mais recentes primeiro (mesma ideia da lista de notícias por publishedAt).
+      const ma = millisFromFirestore(a.createdAt);
+      const mb = millisFromFirestore(b.createdAt);
+      if (ma !== mb) return mb - ma;
       return (a.title || '').localeCompare(b.title || '', 'pt-BR');
     });
 }
@@ -216,11 +215,21 @@ export type EventInscriptionRecord = {
 /** Limite atingido (UI e transação). */
 export const INSCRIPTION_LIMIT_REACHED_ERROR = 'INSCRIPTION_LIMIT_REACHED';
 
+/** Inscrição encerrada pelo admin (`registrationClosed`). */
+export const REGISTRATION_CLOSED_ERROR = 'REGISTRATION_CLOSED';
+
 /** Erro de transação / permissão ao incrementar contador (mensagem pode vir encapsulada pelo SDK). */
 export function isInscriptionLimitReachedError(err: unknown): boolean {
   if (err instanceof Error && err.message === INSCRIPTION_LIMIT_REACHED_ERROR) return true;
   const s = err instanceof Error ? err.message : String(err);
   if (s.includes(INSCRIPTION_LIMIT_REACHED_ERROR)) return true;
+  return false;
+}
+
+export function isRegistrationClosedError(err: unknown): boolean {
+  if (err instanceof Error && err.message === REGISTRATION_CLOSED_ERROR) return true;
+  const s = err instanceof Error ? err.message : String(err);
+  if (s.includes(REGISTRATION_CLOSED_ERROR)) return true;
   return false;
 }
 
@@ -235,6 +244,9 @@ export async function createEventInscription(campaignId: string, fields: Record<
       throw new Error('CAMPAIGN_NOT_FOUND');
     }
     const camp = campSnap.data() as Campaign;
+    if (camp.registrationClosed === true) {
+      throw new Error(REGISTRATION_CLOSED_ERROR);
+    }
     const cfg = camp.registrationConfig;
     const limit =
       cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;

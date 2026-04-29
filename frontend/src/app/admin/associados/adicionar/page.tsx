@@ -20,6 +20,7 @@ import {
   CSV_TEMPLATE_HEADER,
   associadoFormCsvTemplateExampleRow,
 } from '@/lib/associados-csv-import';
+import { AniversariantesFormSection } from '@/components/admin/AniversariantesFormSection';
 
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
@@ -729,58 +730,11 @@ export default function AdicionarAssociadoPage() {
             </div>
           </div>
 
-          {/* Aniversariantes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Aniversariantes
-            </label>
-            <div className="space-y-2 mb-4">
-              {formData.aniversariantes.map((aniversariante, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={aniversariante.nome}
-                    onChange={(e) => {
-                      const novosAniversariantes = [...formData.aniversariantes];
-                      novosAniversariantes[index] = { ...aniversariante, nome: e.target.value };
-                      setFormData({ ...formData, aniversariantes: novosAniversariantes });
-                    }}
-                    placeholder="Nome do aniversariante"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                  />
-                  <input
-                    type="date"
-                    value={aniversariante.data}
-                    onChange={(e) => {
-                      const novosAniversariantes = [...formData.aniversariantes];
-                      novosAniversariantes[index] = { ...aniversariante, data: e.target.value };
-                      setFormData({ ...formData, aniversariantes: novosAniversariantes });
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const novosAniversariantes = formData.aniversariantes.filter((_, i) => i !== index);
-                      setFormData({ ...formData, aniversariantes: novosAniversariantes });
-                    }}
-                    className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Remover
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, aniversariantes: [...formData.aniversariantes, { nome: '', data: '' }] });
-                }}
-                className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
-              >
-                + Adicionar Aniversariante
-              </button>
-            </div>
-          </div>
+          <AniversariantesFormSection
+            idPrefix="novo-associado-aniv"
+            value={formData.aniversariantes}
+            onChange={(next) => setFormData({ ...formData, aniversariantes: next })}
+          />
 
           {/* Observações */}
           <div>

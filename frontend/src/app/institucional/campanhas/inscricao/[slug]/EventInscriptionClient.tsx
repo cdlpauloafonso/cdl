@@ -7,6 +7,7 @@ import {
   getCampaign,
   getSettings,
   isInscriptionLimitReachedError,
+  isRegistrationClosedError,
   isCnpjCadastradoComoAssociado,
   type Campaign,
 } from '@/lib/firestore';
@@ -285,6 +286,42 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     );
   }
 
+  if (campanha.registrationClosed) {
+    return (
+      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+        <div className="container-cdl max-w-2xl">
+          <nav className="mb-8">
+            <Link
+              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
+            >
+              <span aria-hidden>←</span> Voltar ao evento
+            </Link>
+          </nav>
+          {campanha.image && (
+            <div className="mb-8 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+              <img src={campanha.image} alt={campanha.title} className="w-full h-48 sm:h-56 object-cover" />
+            </div>
+          )}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 sm:p-10 text-center shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wide text-amber-900 mb-2">Inscrição no evento</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">{campanha.title}</h1>
+            <p className="text-xl font-semibold text-gray-900">Inscrição encerrada</p>
+            <p className="mt-3 text-amber-950/90 max-w-md mx-auto">
+              As inscrições para este evento foram encerradas pela organização. Não é mais possível enviar novos cadastros pelo site.
+            </p>
+            <Link
+              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              className="btn-primary inline-block mt-8"
+            >
+              Voltar ao evento
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const reg = getEffectiveRegistration(campanha);
   if (reg.kind !== 'form' || reg.keys.length === 0) {
     return (
@@ -488,6 +525,10 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         setCampanha(fresh);
         return;
       }
+      if (fresh?.registrationClosed) {
+        setCampanha(fresh);
+        return;
+      }
       await createEventInscription(slug, fields);
       setDone(true);
     } catch (err) {
@@ -499,6 +540,13 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
           /* ignore */
         }
         setError('Ingressos esgotados. O limite de inscrições para este evento foi atingido.');
+      } else if (isRegistrationClosedError(err)) {
+        try {
+          const again = await getCampaign(slug);
+          if (again) setCampanha(again);
+        } catch {
+          /* ignore */
+        }
       } else {
         setError('Não foi possível enviar. Tente novamente.');
       }
@@ -510,6 +558,15 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   async function handleCnpjStepSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    try {
+      const latest = await getCampaign(slug);
+      if (latest?.registrationClosed) {
+        setCampanha(latest);
+        return;
+      }
+    } catch {
+      /* continua; lookup abaixo pode falhar de outra forma */
+    }
     const ok = await lookupCnpjAndPrefill(cnpjStepValue, { setFormErrorOnInvalid: true });
     if (!ok) return;
     setCnpjStepDone(true);

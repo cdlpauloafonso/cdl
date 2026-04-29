@@ -18,6 +18,8 @@ export function CampaignPageClient({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [soldOutNotification, setSoldOutNotification] = useState(false);
   const soldOutToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [registrationClosedNotification, setRegistrationClosedNotification] = useState(false);
+  const closedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSoldOutToast = () => {
     setSoldOutNotification(true);
@@ -28,9 +30,19 @@ export function CampaignPageClient({ slug }: { slug: string }) {
     }, SOLD_OUT_TOAST_MS);
   };
 
+  const showRegistrationClosedToast = () => {
+    setRegistrationClosedNotification(true);
+    if (closedToastTimerRef.current) clearTimeout(closedToastTimerRef.current);
+    closedToastTimerRef.current = setTimeout(() => {
+      setRegistrationClosedNotification(false);
+      closedToastTimerRef.current = null;
+    }, SOLD_OUT_TOAST_MS);
+  };
+
   useEffect(() => {
     return () => {
       if (soldOutToastTimerRef.current) clearTimeout(soldOutToastTimerRef.current);
+      if (closedToastTimerRef.current) clearTimeout(closedToastTimerRef.current);
     };
   }, []);
 
@@ -66,6 +78,10 @@ export function CampaignPageClient({ slug }: { slug: string }) {
       const fresh = await getCampaign(slug);
       if (fresh) setCampanha(fresh);
       const c = fresh ?? base;
+      if (c.registrationClosed) {
+        showRegistrationClosedToast();
+        return;
+      }
       const regFresh = getEffectiveRegistration(c);
       if (regFresh.kind === 'form' && isInscriptionSoldOut(c)) {
         showSoldOutToast();
@@ -88,6 +104,18 @@ export function CampaignPageClient({ slug }: { slug: string }) {
           <p className="text-base font-semibold text-amber-950">Ingressos esgotados</p>
           <p className="text-sm text-amber-900/90">
             O limite de inscrições para este evento foi atingido. Não é possível novas inscrições pelo site.
+          </p>
+        </div>
+      )}
+      {registrationClosedNotification && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-base font-semibold text-amber-950">Inscrição encerrada</p>
+          <p className="text-sm text-amber-900/90">
+            As inscrições para este evento foram encerradas. Não é possível novas inscrições pelo site.
           </p>
         </div>
       )}

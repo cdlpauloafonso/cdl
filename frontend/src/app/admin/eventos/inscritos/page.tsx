@@ -107,7 +107,7 @@ export default function AdminEventoInscritosPage() {
         setRows([]);
         return;
       }
-      const reg = getEffectiveRegistration(c);
+      const reg = getEffectiveRegistration(c, { ignoreRegistrationClosed: true });
       if (reg.kind !== 'form') {
         setError('Este evento não utiliza inscrição pelo formulário do site.');
         setRows([]);
@@ -127,7 +127,9 @@ export default function AdminEventoInscritosPage() {
     void load();
   }, [load]);
 
-  const reg = campanha ? getEffectiveRegistration(campanha) : { kind: 'none' as const };
+  const reg = campanha
+    ? getEffectiveRegistration(campanha, { ignoreRegistrationClosed: true })
+    : { kind: 'none' as const };
   const eventHasConfiguredPayment = useMemo(
     () => (campanha ? getEffectivePayment(campanha).kind !== 'none' : false),
     [campanha]
@@ -149,7 +151,7 @@ export default function AdminEventoInscritosPage() {
 
   const columnKeys = useMemo(() => {
     if (!campanha) return [];
-    const r = getEffectiveRegistration(campanha);
+    const r = getEffectiveRegistration(campanha, { ignoreRegistrationClosed: true });
     if (r.kind !== 'form') return [];
     return collectColumnKeys(r, rows).filter((k) => k !== 'observacoes');
   }, [campanha, rows]);

@@ -100,9 +100,10 @@ export function isInscriptionSoldOut(
 }
 
 export function getEffectiveRegistration(
-  c: Pick<Campaign, 'registrationConfig' | 'registrationUrl' | 'registrationClosed'>
+  c: Pick<Campaign, 'registrationConfig' | 'registrationUrl' | 'registrationClosed'>,
+  options?: { ignoreRegistrationClosed?: boolean }
 ): EffectiveRegistration {
-  if (c.registrationClosed) return { kind: 'none' };
+  if (c.registrationClosed && !options?.ignoreRegistrationClosed) return { kind: 'none' };
   const cfg = c.registrationConfig;
   if (cfg?.type === 'external' && cfg.url?.trim()) return { kind: 'external', url: cfg.url.trim() };
   if (cfg?.type === 'form' && cfg.fieldKeys?.length) {

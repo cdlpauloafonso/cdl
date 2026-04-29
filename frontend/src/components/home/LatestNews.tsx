@@ -5,12 +5,15 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { listNews, getInformativos } from '@/lib/firestore';
 import type { NewsItemFirestore, Informativo } from '@/lib/firestore';
+import { shareNewsArticle } from '@/lib/share-news';
+import { formatNewsPublishedDate } from '@/lib/news-date';
 
 export function LatestNews() {
   const [news, setNews] = useState<NewsItemFirestore[]>([]);
   const [informativos, setInformativos] = useState<Informativo[]>([]);
   const [loading, setLoading] = useState(true);
   const [informativoIndex, setInformativoIndex] = useState(0);
+  const [sharingSlug, setSharingSlug] = useState<string | null>(null);
   const carouselTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +40,27 @@ export function LatestNews() {
     if (!track || informativos.length === 0) return;
     track.style.transform = `translateX(-${informativoIndex * 100}%)`;
   }, [informativoIndex, informativos.length]);
+
+  async function handleShareNews(item: NewsItemFirestore) {
+    const slug = (item.slug ?? '').trim();
+    if (!slug) return;
+    setSharingSlug(slug);
+    try {
+      const result = await shareNewsArticle({
+        title: item.title,
+        excerpt: item.excerpt,
+        slug,
+      });
+      if (result.ok && result.method === 'clipboard') {
+        alert('Link da notícia copiado para a área de transferência.');
+      }
+      if (!result.ok && result.reason === 'error') {
+        alert('Não foi possível compartilhar agora. Tente novamente.');
+      }
+    } finally {
+      setSharingSlug(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -185,11 +209,7 @@ export function LatestNews() {
                   <div className="p-6">
                     <div className="mb-3 flex items-center gap-2">
                       <time className="text-sm text-gray-500">
-                        {new Date(item.publishedAt).toLocaleDateString('pt-BR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
+                        {formatNewsPublishedDate(item.publishedAt, 'long')}
                       </time>
                     </div>
                     <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
@@ -201,15 +221,34 @@ export function LatestNews() {
                       </Link>
                     </h3>
                     <p className="mb-4 line-clamp-3 text-sm text-gray-600">{item.excerpt}</p>
-                    <Link
-                      href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
-                      className="flex items-center gap-1 text-sm font-medium text-cdl-blue hover:text-cdl-blue-dark"
-                    >
-                      Ler mais
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Link
+                        href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-cdl-blue hover:text-cdl-blue-dark"
+                      >
+                        Ler mais
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void handleShareNews(item)}
+                        disabled={sharingSlug === item.slug || !(item.slug ?? '').trim()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-cdl-blue hover:text-cdl-blue disabled:opacity-50"
+                        aria-label={`Compartilhar notícia: ${item.title}`}
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                          />
+                        </svg>
+                        {sharingSlug === item.slug ? 'Compartilhando...' : 'Compartilhar'}
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}

@@ -135,7 +135,7 @@ export default function AdminEventosPage() {
             </div>
           ) : (
             <div className="w-full max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
-              <div className="space-y-2 p-2.5 md:hidden">
+              <div className="space-y-2 p-2 md:hidden">
                 {items.map((ev) => {
                   const hasRegistrationConfigured =
                     (ev.registrationConfig?.type === 'form' && (ev.registrationConfig.fieldKeys?.length ?? 0) > 0) ||
@@ -145,16 +145,14 @@ export default function AdminEventosPage() {
                   const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
                   const inscricaoEncerrada = Boolean(ev.registrationClosed);
                   return (
-                    <article key={ev.id} className="rounded-lg border border-gray-200 bg-white p-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-semibold text-gray-900">{ev.title}</h3>
-                          {ev.description && (
-                            <p className="mt-0.5 line-clamp-2 text-xs text-cdl-gray-text">{ev.description}</p>
-                          )}
-                        </div>
+                    <article key={ev.id} className="rounded-lg border border-gray-200 bg-white p-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-gray-900">{ev.title}</h3>
+                        {ev.description && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-cdl-gray-text">{ev.description}</p>
+                        )}
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-gray-700">
+                      <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] leading-snug text-gray-700">
                         <p>
                           <strong>Categoria:</strong> {ev.category || '—'}
                         </p>
@@ -164,22 +162,17 @@ export default function AdminEventosPage() {
                         <p>
                           <strong>Inscritos:</strong> {inscritos}
                         </p>
-                        <p>
-                          <strong>Inscrição:</strong> {inscricaoEncerrada ? 'Encerrada' : 'Aberta'}
-                        </p>
+                        {hasRegistrationConfigured && (
+                          <p>
+                            <strong>Inscrição:</strong> {inscricaoEncerrada ? 'encerrada' : 'aberta'}
+                          </p>
+                        )}
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Link
-                          href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id ?? '')}`}
-                          target="_blank"
-                          className="rounded-md bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue"
-                        >
-                          Ver
-                        </Link>
+                      <div className="mt-2.5 flex flex-wrap gap-1">
                         {hasFormRegistration && (
                           <Link
                             href={`/admin/eventos/inscritos?eventId=${ev.id}`}
-                            className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800"
+                            className="inline-flex h-8 items-center rounded-md bg-emerald-50 px-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100/80"
                           >
                             Inscritos
                           </Link>
@@ -188,23 +181,32 @@ export default function AdminEventosPage() {
                           type="button"
                           onClick={() => void toggleRegistrationClosed(ev)}
                           disabled={togglingRegistrationId === ev.id || !hasRegistrationConfigured}
-                          className={`rounded-md px-2 py-1 text-[11px] font-medium disabled:opacity-50 ${
-                            inscricaoEncerrada
-                              ? 'bg-emerald-50 text-emerald-800'
-                              : 'bg-amber-50 text-amber-800'
+                          title={
+                            !hasRegistrationConfigured
+                              ? 'Sem inscrição configurada neste evento'
+                              : inscricaoEncerrada
+                                ? 'Reabrir inscrição ao público'
+                                : 'Encerrar inscrição ao público'
+                          }
+                          className={`inline-flex h-8 items-center rounded-md px-2 text-xs font-medium ring-1 disabled:opacity-50 ${
+                            !hasRegistrationConfigured
+                              ? 'cursor-not-allowed bg-gray-50 text-gray-400 ring-gray-100'
+                              : inscricaoEncerrada
+                                ? 'bg-emerald-50 text-emerald-900 ring-emerald-100'
+                                : 'bg-amber-50 text-amber-900 ring-amber-100'
                           }`}
                         >
                           {!hasRegistrationConfigured
-                            ? 'Sem inscrição'
+                            ? '—'
                             : togglingRegistrationId === ev.id
-                            ? 'Salvando...'
-                            : inscricaoEncerrada
-                              ? 'Reabrir inscrição'
-                              : 'Encerrar inscrição'}
+                              ? '…'
+                              : inscricaoEncerrada
+                                ? 'Reabrir'
+                                : 'Encerrar'}
                         </button>
                         <Link
                           href={`/admin/campanhas/edit?id=${ev.id}`}
-                          className="rounded-md bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue"
+                          className="inline-flex h-8 items-center rounded-md bg-cdl-blue/10 px-2 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15"
                         >
                           Editar
                         </Link>
@@ -212,9 +214,9 @@ export default function AdminEventosPage() {
                           type="button"
                           onClick={() => abrirConfirmacaoExclusao(ev)}
                           disabled={deletingId === ev.id}
-                          className="rounded-md bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 disabled:opacity-50"
+                          className="inline-flex h-8 items-center rounded-md bg-red-50 px-2 text-xs font-medium text-red-700 ring-1 ring-red-100 disabled:opacity-50"
                         >
-                          {deletingId === ev.id ? 'Excluindo...' : 'Excluir'}
+                          {deletingId === ev.id ? '…' : 'Excluir'}
                         </button>
                       </div>
                     </article>
@@ -226,19 +228,22 @@ export default function AdminEventosPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
-                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900">
+                      <th scope="col" className="px-3 py-2 font-semibold text-gray-900">
                         Título
                       </th>
-                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
                         Categoria
                       </th>
-                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
                         Data / período
                       </th>
-                      <th scope="col" className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <th scope="col" className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
                         Inscritos
                       </th>
-                      <th scope="col" className="px-3 py-2.5 text-right font-semibold text-gray-900 whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="w-[1%] min-w-[12rem] px-2 py-2 text-right font-semibold text-gray-900 whitespace-nowrap lg:min-w-[14rem]"
+                      >
                         Ações
                       </th>
                     </tr>
@@ -254,88 +259,76 @@ export default function AdminEventosPage() {
                       const inscricaoEncerrada = Boolean(ev.registrationClosed);
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50/80">
-                          <td className="px-3 py-2.5 align-top">
+                          <td className="px-3 py-2 align-middle">
                             <span className="font-medium text-gray-900">{ev.title}</span>
                             {ev.description && (
-                              <p className="text-cdl-gray-text text-xs mt-1 line-clamp-2 max-w-md">{ev.description}</p>
+                              <p className="text-cdl-gray-text mt-0.5 line-clamp-2 max-w-md text-xs">{ev.description}</p>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
-                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
-                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">
+                          <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
+                          <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
+                          <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">
                             {inscritos}
-                            <span
-                              className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                inscricaoEncerrada ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            >
-                              {inscricaoEncerrada ? 'Inscrição encerrada' : 'Inscrição aberta'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-right">
-                            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
-                              <Link
-                                href={`/institucional/campanhas/ver?slug=${encodeURIComponent(ev.id ?? '')}`}
-                                target="_blank"
-                                className="inline-block px-2 py-1.5 text-cdl-blue hover:bg-cdl-blue/10 rounded-md text-xs sm:text-sm"
+                            {hasRegistrationConfigured && (
+                              <span
+                                className={`ml-2 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                  inscricaoEncerrada ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                }`}
                               >
-                                Ver
-                              </Link>
+                                {inscricaoEncerrada ? 'encerrada' : 'aberta'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 align-middle">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
                               {hasFormRegistration && (
                                 <Link
                                   href={`/admin/eventos/inscritos?eventId=${ev.id}`}
-                                  className="inline-block px-2 py-1.5 text-emerald-800 hover:bg-emerald-50 rounded-md text-xs sm:text-sm font-medium"
+                                  className="inline-flex h-8 shrink-0 items-center rounded-md bg-emerald-50 px-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100/80 transition-colors hover:bg-emerald-100"
                                 >
-                                  Ver inscritos
+                                  Inscritos
                                 </Link>
                               )}
                               <button
                                 type="button"
                                 onClick={() => void toggleRegistrationClosed(ev)}
                                 disabled={togglingRegistrationId === ev.id || !hasRegistrationConfigured}
-                                className={`inline-block rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 sm:text-sm ${
-                                  inscricaoEncerrada
-                                    ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                title={
+                                  !hasRegistrationConfigured
+                                    ? 'Sem inscrição configurada neste evento'
+                                    : inscricaoEncerrada
+                                      ? 'Reabrir inscrição ao público'
+                                      : 'Encerrar inscrição ao público'
+                                }
+                                className={`inline-flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium ring-1 transition-colors disabled:pointer-events-none disabled:opacity-50 ${
+                                  !hasRegistrationConfigured
+                                    ? 'cursor-not-allowed bg-gray-50 text-gray-400 ring-gray-100'
+                                    : inscricaoEncerrada
+                                      ? 'bg-emerald-50 text-emerald-900 ring-emerald-100 hover:bg-emerald-100'
+                                      : 'bg-amber-50 text-amber-900 ring-amber-100 hover:bg-amber-100'
                                 }`}
                               >
                                 {!hasRegistrationConfigured
-                                  ? 'Sem inscrição'
+                                  ? '—'
                                   : togglingRegistrationId === ev.id
-                                  ? 'Salvando...'
-                                  : inscricaoEncerrada
-                                    ? 'Reabrir inscrição'
-                                    : 'Encerrar inscrição'}
+                                    ? '…'
+                                    : inscricaoEncerrada
+                                      ? 'Reabrir'
+                                      : 'Encerrar'}
                               </button>
                               <Link
                                 href={`/admin/campanhas/edit?id=${ev.id}`}
-                                aria-label="Editar evento"
-                                title="Editar"
-                                className="inline-flex items-center justify-center rounded-md p-1.5 text-cdl-blue hover:bg-cdl-blue/10"
+                                className="inline-flex h-8 shrink-0 items-center rounded-md bg-cdl-blue/10 px-2 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15 transition-colors hover:bg-cdl-blue/15"
                               >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
+                                Editar
                               </Link>
                               <button
                                 type="button"
                                 onClick={() => abrirConfirmacaoExclusao(ev)}
                                 disabled={deletingId === ev.id}
-                                aria-label="Excluir evento"
-                                title="Excluir"
-                                className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                className="inline-flex h-8 shrink-0 items-center rounded-md bg-red-50 px-2 text-xs font-medium text-red-700 ring-1 ring-red-100 transition-colors hover:bg-red-100 disabled:opacity-50"
                               >
-                                {deletingId === ev.id ? (
-                                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden>
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-25" />
-                                    <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="3" fill="none" className="opacity-75" />
-                                  </svg>
-                                ) : (
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
-                                  </svg>
-                                )}
+                                {deletingId === ev.id ? '…' : 'Excluir'}
                               </button>
                             </div>
                           </td>

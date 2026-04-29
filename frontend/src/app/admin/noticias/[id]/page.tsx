@@ -8,6 +8,7 @@ import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { slugifyUnique } from '@/lib/slug';
+import { todayLocalIsoDate, isoFromDateInput } from '@/lib/news-date';
 
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
 
@@ -24,7 +25,7 @@ export default function AdminNoticiaEditPage() {
     image: '',
     links: [],
     published: true,
-    publishedAt: new Date().toISOString().slice(0, 10),
+    publishedAt: todayLocalIsoDate(),
   });
   const [existingSlugs, setExistingSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(!isNew);
@@ -64,7 +65,15 @@ export default function AdminNoticiaEditPage() {
       ? news.links.filter((link: NewsLink) => link.label && link.url)
       : null;
     const published = (news as { published?: boolean }).published ?? true;
-    const publishedAt = news.publishedAt ? new Date(news.publishedAt).toISOString() : new Date().toISOString();
+    const rawDate = (news.publishedAt ?? '').trim();
+    const publishedAt = rawDate
+      ? /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+        ? isoFromDateInput(rawDate)
+        : (() => {
+            const d = new Date(rawDate);
+            return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+          })()
+      : new Date().toISOString();
     const payload: NewsItemFirestore = {
       title: news.title!,
       slug: news.slug!,

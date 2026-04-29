@@ -20,7 +20,6 @@ const adminNav = [
   },
   { href: '/admin/aniversarios', label: 'Aniversários' },
   { href: '/admin/eventos', label: 'Eventos' },
-  { href: '/admin/paginas', label: 'Páginas' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
   { href: '/admin/informativos', label: 'Informativos' },
@@ -264,9 +263,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
         </nav>
         <div className="p-3 border-t border-gray-200">
-          <Link href="/" className="block px-3 py-2 text-sm text-cdl-gray-text hover:text-cdl-blue">
-            Ver site
-          </Link>
           <button
             type="button"
             onClick={async () => {
