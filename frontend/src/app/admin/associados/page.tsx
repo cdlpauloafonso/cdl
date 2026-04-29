@@ -194,15 +194,17 @@ export default function AdminAssociadosPage() {
     const draft = quickEditDrafts[associado.id]?.[key];
     if (draft !== undefined) return draft;
     if (key === 'status') return ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
-    return (associado[key] ?? '').toString();
+    const value = (associado[key] ?? '').toString();
+    return key === 'email' ? value.toLowerCase() : value;
   };
 
   const updateQuickField = (associadoId: string, key: VisibleFieldKey, value: string) => {
+    const normalizedValue = key === 'email' ? value.toLowerCase() : value;
     setQuickEditDrafts((prev) => ({
       ...prev,
       [associadoId]: {
         ...(prev[associadoId] ?? {}),
-        [key]: value,
+        [key]: normalizedValue,
       },
     }));
   };
@@ -496,17 +498,17 @@ export default function AdminAssociadosPage() {
 
   return (
     <div className="w-full max-w-full overflow-x-hidden">
-      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="mb-5 flex flex-col gap-2.5 xl:mb-6 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Lista de Associados</h1>
           <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap xl:w-auto xl:justify-end">
+        <div className="flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2 xl:w-auto xl:justify-end">
           {!quickEditMode ? (
             <button
               type="button"
               onClick={startQuickEditMode}
-              className="btn-secondary w-full sm:w-auto"
+              className="btn-secondary shrink-0 !px-3 !py-2 text-xs sm:!px-4 sm:!py-2 sm:text-sm"
             >
               Modo de edição rápida
             </button>
@@ -516,7 +518,7 @@ export default function AdminAssociadosPage() {
                 type="button"
                 onClick={() => void concluirQuickEdit()}
                 disabled={savingQuickEdit}
-                className="btn-primary w-full disabled:opacity-50 sm:w-auto"
+                className="btn-primary shrink-0 !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
               >
                 {savingQuickEdit ? 'Salvando...' : 'Concluir'}
               </button>
@@ -524,7 +526,7 @@ export default function AdminAssociadosPage() {
                 type="button"
                 onClick={cancelQuickEditMode}
                 disabled={savingQuickEdit}
-                className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
+                className="btn-secondary shrink-0 !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
               >
                 Cancelar
               </button>
@@ -534,7 +536,7 @@ export default function AdminAssociadosPage() {
             type="button"
             onClick={() => void exportarPdf()}
             disabled={exportingPdf || filteredAssociados.length === 0}
-            className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
+            className="btn-secondary shrink-0 !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
           >
             {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
           </button>
@@ -542,7 +544,7 @@ export default function AdminAssociadosPage() {
             type="button"
             onClick={exportarCsv}
             disabled={exportingCsv || filteredAssociados.length === 0}
-            className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
+            className="btn-secondary shrink-0 !px-3 !py-2 text-xs disabled:opacity-50 sm:!px-4 sm:!py-2 sm:text-sm"
           >
             {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
           </button>
@@ -551,34 +553,34 @@ export default function AdminAssociadosPage() {
               type="button"
               onClick={() => setShowBulkDeleteModal(true)}
               disabled={deletingBulk}
-              className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 sm:w-auto"
+              className="shrink-0 rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 sm:px-4 sm:text-sm"
             >
               {deletingBulk ? 'Excluindo...' : 'Excluir'}
             </button>
           )}
-          <Link href="/admin/associados/adicionar" className="btn-primary w-full text-center sm:w-auto">
+          <Link href="/admin/associados/adicionar" className="btn-primary shrink-0 !px-3 !py-2 text-center text-xs sm:!px-4 sm:!py-2 sm:text-sm">
             Adicionar Associado
           </Link>
         </div>
       </div>
 
-      <div className="mb-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <div className="mb-5 space-y-3 sm:mb-6 sm:space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                 <p className="text-xs text-cdl-gray-text uppercase tracking-wide">Total cadastrados</p>
-                <p className="text-xl font-semibold text-gray-900">{statusResumo.total}</p>
+                <p className="text-lg font-semibold text-gray-900 sm:text-xl">{statusResumo.total}</p>
               </div>
-              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 sm:px-4 sm:py-3">
                 <p className="text-xs text-green-700 uppercase tracking-wide">Ativo</p>
-                <p className="text-xl font-semibold text-green-900">{statusResumo.ativo}</p>
+                <p className="text-lg font-semibold text-green-900 sm:text-xl">{statusResumo.ativo}</p>
               </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:px-4 sm:py-3">
                 <p className="text-xs text-amber-700 uppercase tracking-wide">Em negociação</p>
-                <p className="text-xl font-semibold text-amber-900">{statusResumo.emNegociacao}</p>
+                <p className="text-lg font-semibold text-amber-900 sm:text-xl">{statusResumo.emNegociacao}</p>
               </div>
-              <div className="rounded-lg border border-gray-300 bg-gray-50 px-4 py-3">
+              <div className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 sm:px-4 sm:py-3">
                 <p className="text-xs text-gray-700 uppercase tracking-wide">Desativado</p>
-                <p className="text-xl font-semibold text-gray-900">{statusResumo.desativado}</p>
+                <p className="text-lg font-semibold text-gray-900 sm:text-xl">{statusResumo.desativado}</p>
               </div>
             </div>
             <div className="relative">
@@ -587,19 +589,19 @@ export default function AdminAssociadosPage() {
                 placeholder="Buscar por nome, empresa, razão social, CNPJ ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue sm:h-11 sm:px-4 sm:py-3 sm:pl-10"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 lg:gap-3">
               <select
                 value={selectedPlano}
                 onChange={(e) => setSelectedPlano(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
               >
                 <option value="todos">Todos os planos</option>
                 {planos.map((plano) => (
@@ -609,7 +611,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={selectedCidade}
                 onChange={(e) => setSelectedCidade(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
               >
                 <option value="todas">Todas as cidades</option>
                 {cidades.map((cidade) => (
@@ -623,7 +625,7 @@ export default function AdminAssociadosPage() {
                     e.target.value as 'todos' | 'ativo' | 'desativado' | 'em_negociacao'
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
               >
                 <option value="todos">Todos os status</option>
                 <option value="ativo">Ativo</option>
@@ -633,7 +635,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'nome' | 'empresa' | 'plano' | 'cidade')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
               >
                 <option value="nome">Ordenar por Nome</option>
                 <option value="empresa">Ordenar por Empresa</option>
@@ -643,7 +645,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={sortDirection}
                 onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue text-sm"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
               >
                 <option value="asc">Ordem: A-Z</option>
                 <option value="desc">Ordem: Z-A</option>
@@ -659,12 +661,12 @@ export default function AdminAssociadosPage() {
                   setSortDirection('asc');
                   setOnlyPendingRequired(false);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50 lg:h-10 lg:px-3 lg:py-2"
               >
                 Limpar filtros
               </button>
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-xs text-gray-700 sm:text-sm">
               <input
                 type="checkbox"
                 checked={onlyPendingRequired}
@@ -676,34 +678,34 @@ export default function AdminAssociadosPage() {
               <button
                 type="button"
                 onClick={() => setSelectedStatus('em_negociacao')}
-                className="flex w-fit text-left rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 hover:bg-amber-100"
+                className="flex w-full text-left rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 hover:bg-amber-100 sm:w-fit sm:px-3 sm:text-sm"
               >
                 Existem associados em negociação ({associadosEmNegociacaoCount}). Clique para visualizar.
               </button>
             )}
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
+            <div className="rounded-lg border border-gray-200 bg-white p-2.5 sm:p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-gray-900">Campos visíveis na tabela</p>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setVisibleFieldKeys([...allFieldKeys])}
-                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="rounded-md border border-gray-300 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 sm:px-2.5 sm:py-1.5 sm:text-xs"
                   >
                     Marcar todos
                   </button>
                   <button
                     type="button"
                     onClick={() => setVisibleFieldKeys([])}
-                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="rounded-md border border-gray-300 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 sm:px-2.5 sm:py-1.5 sm:text-xs"
                   >
                     Limpar
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 sm:gap-x-4 sm:gap-y-2">
                 {allFieldKeys.map((k) => (
-                  <label key={k} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <label key={k} className="inline-flex items-center gap-1.5 text-xs text-gray-700 sm:gap-2 sm:text-sm">
                     <input
                       type="checkbox"
                       checked={visibleFieldKeys.includes(k)}
@@ -723,7 +725,7 @@ export default function AdminAssociadosPage() {
           </div>
 
       <div className="w-full max-w-full overflow-hidden rounded-lg bg-white shadow-lg">
-            <div className="space-y-3 p-3 lg:hidden">
+            <div className="space-y-2 p-2.5 lg:hidden">
               {filteredAssociados.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-cdl-gray-text">
                   {searchTerm ? 'Nenhum associado encontrado para esta busca.' : 'Nenhum associado cadastrado.'}
@@ -732,14 +734,14 @@ export default function AdminAssociadosPage() {
                 filteredAssociados.map((associado) => (
                   <article
                     key={associado.id}
-                    className={`rounded-lg border p-3 ${
+                    className={`rounded-lg border p-2.5 ${
                       (associado.status ?? 'ativo') === 'em_negociacao'
                         ? 'border-amber-200 bg-amber-50/70'
                         : 'border-gray-200 bg-white'
                     }`}
                   >
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-700">
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(associado.id)}
@@ -789,17 +791,17 @@ export default function AdminAssociadosPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {displayedFieldKeys.map((k) => {
                         if (quickEditMode && k !== 'cnpj' && k !== 'status') {
                           return (
-                            <div key={k} className="rounded-md bg-gray-50 p-2">
+                            <div key={k} className="rounded-md bg-gray-50 p-1.5">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
                               <input
                                 type={k === 'email' ? 'email' : 'text'}
                                 value={getQuickFieldValue(associado, k)}
                                 onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
-                                className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
                               />
                             </div>
                           );
@@ -807,13 +809,13 @@ export default function AdminAssociadosPage() {
                         if (k === 'status') {
                           const statusValue = ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
                           return (
-                            <div key={k} className="rounded-md bg-gray-50 p-2">
+                            <div key={k} className="rounded-md bg-gray-50 p-1.5">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
                               {quickEditMode ? (
                                 <select
                                   value={getQuickFieldValue(associado, k) || 'ativo'}
                                   onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                  className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
                                 >
                                   <option value="ativo">Ativo</option>
                                   <option value="desativado">Desativado</option>
@@ -824,7 +826,7 @@ export default function AdminAssociadosPage() {
                                   value={statusValue}
                                   disabled={updatingStatusId === associado.id}
                                   onChange={(e) => solicitarAlteracaoStatus(associado, e.target.value as AssociadoStatus)}
-                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-60"
+                                  className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 py-1 text-xs disabled:opacity-60"
                                 >
                                   <option value="ativo">Ativo</option>
                                   <option value="desativado">Desativado</option>
@@ -834,11 +836,12 @@ export default function AdminAssociadosPage() {
                             </div>
                           );
                         }
-                        const value = (associado[k] ?? '').toString().trim();
+                        const rawValue = (associado[k] ?? '').toString().trim();
+                        const value = k === 'email' ? rawValue.toLowerCase() : rawValue;
                         return (
-                          <div key={k} className="rounded-md bg-gray-50 p-2">
+                          <div key={k} className="rounded-md bg-gray-50 p-1.5">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
-                            <p className="mt-1 break-words text-sm text-gray-800">{value || '—'}</p>
+                            <p className="mt-0.5 break-words text-xs text-gray-800">{value || '—'}</p>
                           </div>
                         );
                       })}
@@ -848,11 +851,11 @@ export default function AdminAssociadosPage() {
               )}
             </div>
 
-            <div className="hidden w-full max-w-full overflow-x-auto lg:block">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="hidden w-full max-w-full overflow-hidden lg:block">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 <thead className="bg-cdl-gray">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                    <th className="w-10 px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
                       <input
                         type="checkbox"
                         checked={allFilteredSelected}
@@ -868,17 +871,17 @@ export default function AdminAssociadosPage() {
                       />
                     </th>
                     {displayedFieldKeys.map((k) => (
-                      <th key={k} className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
-                        {fieldLabel[k]}
+                      <th key={k} className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        <span className="block break-words">{fieldLabel[k]}</span>
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
+                    <th className="w-24 px-2 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredAssociados.length === 0 ? (
                     <tr>
-                      <td colSpan={displayedFieldKeys.length + 2} className="px-4 py-8 text-center text-cdl-gray-text">
+                      <td colSpan={displayedFieldKeys.length + 2} className="px-2 py-8 text-center text-cdl-gray-text">
                         {searchTerm ? 'Nenhum associado encontrado para esta busca.' : 'Nenhum associado cadastrado.'}
                       </td>
                     </tr>
@@ -892,7 +895,7 @@ export default function AdminAssociadosPage() {
                             : ''
                         }`}
                       >
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className="px-2 py-3 text-sm text-gray-900 align-top">
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(associado.id)}
@@ -910,7 +913,7 @@ export default function AdminAssociadosPage() {
                             const value = getQuickFieldValue(associado, k);
                             if (k === 'cnpj') {
                               return (
-                                <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                <td key={k} className="px-2 py-3 text-sm text-gray-900 align-top">
                                   <span title="CNPJ não pode ser alterado na edição rápida">
                                     {(associado.cnpj ?? '').toString().trim() || '—'}
                                   </span>
@@ -919,11 +922,11 @@ export default function AdminAssociadosPage() {
                             }
                             if (k === 'status') {
                               return (
-                                <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                                <td key={k} className="px-2 py-3 text-sm text-gray-900 align-top">
                                   <select
                                     value={value || 'ativo'}
                                     onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
-                                    className="w-full min-w-[130px] max-w-[145px] px-1 py-1 border border-gray-300 rounded-md text-xs leading-tight bg-white"
+                                    className="w-full rounded-md border border-gray-300 px-1 py-1 text-xs leading-tight bg-white"
                                   >
                                     <option value="ativo">Ativo</option>
                                     <option value="desativado">Desativado</option>
@@ -933,12 +936,12 @@ export default function AdminAssociadosPage() {
                               );
                             }
                             return (
-                              <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                              <td key={k} className="px-2 py-3 text-sm text-gray-900 align-top">
                                 <input
                                   type={k === 'email' ? 'email' : 'text'}
                                   value={value}
                                   onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
-                                  className="w-full min-w-[140px] rounded-md border border-gray-300 px-2 py-1 text-xs"
+                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
                                 />
                               </td>
                             );
@@ -947,7 +950,7 @@ export default function AdminAssociadosPage() {
                             const statusValue = ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
                             const disabled = updatingStatusId === associado.id;
                             return (
-                              <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
+                              <td key={k} className="px-2 py-3 text-sm text-gray-900 align-top">
                                 <select
                                   value={statusValue}
                                   disabled={disabled}
@@ -957,7 +960,7 @@ export default function AdminAssociadosPage() {
                                       e.target.value as AssociadoStatus
                                     )
                                   }
-                                  className="w-full min-w-[130px] max-w-[145px] px-1 py-1 border border-gray-300 rounded-md text-xs leading-tight bg-white disabled:opacity-60"
+                                  className="w-full rounded-md border border-gray-300 px-1 py-1 text-xs leading-tight bg-white disabled:opacity-60"
                                   title="Alterar status do associado"
                                 >
                                   <option value="ativo">Ativo</option>
@@ -967,14 +970,15 @@ export default function AdminAssociadosPage() {
                               </td>
                             );
                           }
-                          const value = (associado[k] ?? '').toString().trim();
+                          const rawValue = (associado[k] ?? '').toString().trim();
+                          const value = k === 'email' ? rawValue.toLowerCase() : rawValue;
                           return (
-                            <td key={k} className="px-4 py-3 text-sm text-gray-900 max-w-xs break-words">
-                              {value || '—'}
+                            <td key={k} className="px-2 py-3 text-sm text-gray-900 align-top">
+                              <span className="block break-words">{value || '—'}</span>
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-sm text-right">
+                        <td className="px-2 py-3 text-sm text-right align-top">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"

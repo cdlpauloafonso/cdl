@@ -350,33 +350,33 @@ export default function LivroCaixaPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="mb-6 flex flex-col gap-3 lg:mb-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Livro Caixa</h1>
           <p className="mt-1 text-cdl-gray-text">Gerencie as finanças da CDL</p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/admin/livro-caixa/categorias" className="btn-secondary">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:gap-3">
+          <Link href="/admin/livro-caixa/categorias" className="btn-secondary w-full">
             Gerenciar Categorias
           </Link>
           <button
             onClick={exportarPdf}
             disabled={exportingPdf || transacoesFiltradas.length === 0}
-            className="btn-secondary disabled:opacity-50"
+            className="btn-secondary w-full disabled:opacity-50"
           >
             {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
           </button>
           <button
             onClick={exportarCsv}
             disabled={exportingCsv || transacoesFiltradas.length === 0}
-            className="btn-secondary disabled:opacity-50"
+            className="btn-secondary w-full disabled:opacity-50"
           >
             {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="btn-primary"
+            className="btn-primary w-full"
           >
             Adicionar Transação
           </button>
@@ -384,81 +384,81 @@ export default function LivroCaixaPage() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div className="mb-5 grid grid-cols-2 gap-2.5 lg:mb-8 lg:grid-cols-4 lg:gap-6">
+        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 p-3 shadow-sm transition-all duration-300 hover:shadow-lg lg:p-6 lg:hover:shadow-xl lg:hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Receitas</p>
-              <p className="text-2xl font-bold text-emerald-800 mt-2">
+              <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide lg:text-sm">Receitas</p>
+              <p className="mt-1 text-lg font-bold text-emerald-800 lg:mt-2 lg:text-2xl">
                 R$ {totalEntradas.toFixed(2)}
               </p>
-              <p className="text-xs text-emerald-600 mt-1 font-medium">Receitas confirmadas</p>
+              <p className="mt-0.5 text-[10px] font-medium text-emerald-600 lg:mt-1 lg:text-xs">Receitas confirmadas</p>
             </div>
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow lg:h-12 lg:w-12 lg:shadow-lg">
+              <svg className="h-4 w-4 text-white lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div className="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-red-100 p-3 shadow-sm transition-all duration-300 hover:shadow-lg lg:p-6 lg:hover:shadow-xl lg:hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-red-700 uppercase tracking-wide">Despesas</p>
-              <p className="text-2xl font-bold text-red-800 mt-2">
+              <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide lg:text-sm">Despesas</p>
+              <p className="mt-1 text-lg font-bold text-red-800 lg:mt-2 lg:text-2xl">
                 R$ {totalSaidas.toFixed(2)}
               </p>
-              <p className="text-xs text-red-600 mt-1 font-medium">Despesas confirmadas</p>
+              <p className="mt-0.5 text-[10px] font-medium text-red-600 lg:mt-1 lg:text-xs">Despesas confirmadas</p>
             </div>
-            <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-600 shadow lg:h-12 lg:w-12 lg:shadow-lg">
+              <svg className="h-4 w-4 text-white lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-100 p-3 shadow-sm transition-all duration-300 hover:shadow-lg lg:p-6 lg:hover:shadow-xl lg:hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Saldo do Dia</p>
-              <p className={`text-2xl font-bold mt-2 ${saldoHoje >= 0 ? 'text-blue-800' : 'text-red-800'}`}>
+              <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-wide lg:text-sm">Saldo do Dia</p>
+              <p className={`mt-1 text-lg font-bold lg:mt-2 lg:text-2xl ${saldoHoje >= 0 ? 'text-blue-800' : 'text-red-800'}`}>
                 R$ {saldoHoje.toFixed(2)}
               </p>
-              <p className={`text-xs mt-1 font-medium ${saldoHoje >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              <p className={`mt-0.5 text-[10px] font-medium lg:mt-1 lg:text-xs ${saldoHoje >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                 {saldoHoje >= 0 ? 'Dia positivo' : 'Dia negativo'}
               </p>
             </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full shadow lg:h-12 lg:w-12 lg:shadow-lg ${
               saldoHoje >= 0 
                 ? 'bg-gradient-to-br from-blue-400 to-indigo-600' 
                 : 'bg-gradient-to-br from-red-400 to-red-600'
             }`}>
-              <svg className={`w-6 h-6 text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-white lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2z" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 p-3 shadow-sm transition-all duration-300 hover:shadow-lg lg:p-6 lg:hover:shadow-xl lg:hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">Saldo Atual</p>
-              <p className={`text-2xl font-bold mt-2 ${saldo >= 0 ? 'text-purple-800' : 'text-red-800'}`}>
+              <p className="text-[11px] font-semibold text-purple-700 uppercase tracking-wide lg:text-sm">Saldo Atual</p>
+              <p className={`mt-1 text-lg font-bold lg:mt-2 lg:text-2xl ${saldo >= 0 ? 'text-purple-800' : 'text-red-800'}`}>
                 R$ {saldo.toFixed(2)}
               </p>
-              <p className={`text-xs mt-1 font-medium ${saldo >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+              <p className={`mt-0.5 text-[10px] font-medium lg:mt-1 lg:text-xs ${saldo >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
                 {saldo >= 0 ? 'Caixa positivo' : 'Caixa negativo'}
               </p>
             </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full shadow lg:h-12 lg:w-12 lg:shadow-lg ${
               saldo >= 0 
                 ? 'bg-gradient-to-br from-purple-400 to-purple-600' 
                 : 'bg-gradient-to-br from-red-400 to-red-600'
             }`}>
-              <svg className={`w-6 h-6 text-white`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-white lg:h-6 lg:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
               </svg>
             </div>
@@ -467,14 +467,14 @@ export default function LivroCaixaPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="mb-4 rounded-lg border border-gray-200 bg-white p-2.5 lg:mb-6 lg:p-4">
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:gap-3">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Categoria</label>
+            <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Filtrar por Categoria</label>
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm lg:h-10 lg:px-3 lg:py-2"
             >
               <option value="todas">Todas as categorias</option>
               {categorias.map((categoria) => (
@@ -492,11 +492,11 @@ export default function LivroCaixaPage() {
             )}
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+            <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Ordenar por</label>
             <select
               value={ordenarPor}
               onChange={(e) => setOrdenarPor(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm lg:h-10 lg:px-3 lg:py-2"
             >
               <option value="data">Data (mais recente)</option>
               <option value="valor">Valor (maior primeiro)</option>
@@ -507,11 +507,64 @@ export default function LivroCaixaPage() {
       </div>
 
       {/* Tabela de Transações */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-4 py-3 lg:px-6 lg:py-4">
           <h2 className="text-lg font-semibold text-gray-900">Transações</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-2.5 md:hidden">
+          {transacoesFiltradas.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-cdl-gray-text">
+              Nenhuma transação encontrada.
+            </p>
+          ) : (
+            transacoesFiltradas.map((transacao) => (
+              <article key={transacao.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{transacao.descricao}</p>
+                    <p className="text-xs text-gray-500">{transacao.data} · {transacao.categoria}</p>
+                  </div>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    transacao.tipo === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {transacao.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">
+                    {transacao.tipo === 'entrada' ? '+' : '-'}R$ {transacao.valor.toFixed(2)}
+                  </p>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    transacao.status === 'confirmado' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {transacao.status === 'confirmado' ? 'Confirmado' : 'Pendente'}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center gap-1">
+                  <button
+                    onClick={() => handleEditTransacao(transacao)}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-cdl-blue hover:bg-cdl-blue/10"
+                    title="Editar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTransacao(transacao)}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                    title="Excluir"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>

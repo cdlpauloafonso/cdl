@@ -151,29 +151,29 @@ export default function InformativosPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Informativos</h1>
           <p className="mt-1 text-cdl-gray-text">Gestão de comunicados e avisos</p>
         </div>
-        <Link href="/admin/informativos/adicionar" className="btn-primary">
+        <Link href="/admin/informativos/adicionar" className="btn-primary w-full sm:w-auto">
           Adicionar Informativo
         </Link>
       </div>
 
       {/* Busca */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar por título, descrição ou tipo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+            className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue sm:h-11 sm:px-4 sm:py-3 sm:pl-10"
           />
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -181,62 +181,62 @@ export default function InformativosPage() {
       </div>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
+      <div className="mb-5 grid grid-cols-2 gap-2.5 sm:mb-6 sm:gap-4 md:grid-cols-4">
+        <div className="rounded-lg bg-white p-3 shadow sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-full">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-full bg-green-100 p-2 sm:p-3">
+              <svg className="h-4 w-4 text-green-600 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Ativos</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2.5 sm:ml-4">
+              <p className="text-xs font-medium text-gray-600 sm:text-sm">Ativos</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-2xl">
                 {informativos.filter(i => i.status === 'ativo').length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-3 shadow sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 bg-gray-100 rounded-full">
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-full bg-gray-100 p-2 sm:p-3">
+              <svg className="h-4 w-4 text-gray-600 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Inativos</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2.5 sm:ml-4">
+              <p className="text-xs font-medium text-gray-600 sm:text-sm">Inativos</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-2xl">
                 {informativos.filter(i => i.status === 'inativo').length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-3 shadow sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-full bg-blue-100 p-2 sm:p-3">
+              <svg className="h-4 w-4 text-blue-600 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Sistema</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2.5 sm:ml-4">
+              <p className="text-xs font-medium text-gray-600 sm:text-sm">Sistema</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-2xl">
                 {informativos.filter(i => i.tipo === 'sistema').length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="rounded-lg bg-white p-3 shadow sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 bg-orange-100 rounded-full">
-              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-full bg-orange-100 p-2 sm:p-3">
+              <svg className="h-4 w-4 text-orange-600 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avisos</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2.5 sm:ml-4">
+              <p className="text-xs font-medium text-gray-600 sm:text-sm">Avisos</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-2xl">
                 {informativos.filter(i => i.tipo === 'aviso').length}
               </p>
             </div>
@@ -245,7 +245,63 @@ export default function InformativosPage() {
       </div>
 
       {/* Tabela de Informativos */}
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {filteredInformativos.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-300 bg-white p-5 text-center text-cdl-gray-text">
+            {searchTerm ? 'Nenhum informativo encontrado para esta busca.' : 'Nenhum informativo cadastrado.'}
+          </p>
+        ) : (
+          filteredInformativos.map((informativo) => (
+            <article key={informativo.id} className="rounded-lg border border-gray-200 bg-white p-3">
+              <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">{informativo.titulo}</h3>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-600">{informativo.descricao}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${getTipoBadge(informativo.tipo)}`}>
+                  {getTipoText(informativo.tipo)}
+                </span>
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${getStatusBadge(informativo.status)}`}>
+                  {getStatusText(informativo.status)}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-gray-500">
+                Publicação: {informativo.data_publicacao ? new Date(informativo.data_publicacao).toLocaleDateString('pt-BR') : '—'} ·
+                Expiração: {informativo.data_expiracao ? new Date(informativo.data_expiracao).toLocaleDateString('pt-BR') : '—'}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={`/admin/informativos/editar/${informativo.id}`}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                >
+                  Editar
+                </Link>
+                {informativo.status === 'inativo' ? (
+                  <button
+                    onClick={() => handleAtivar(informativo.id)}
+                    className="rounded-md px-2.5 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50"
+                  >
+                    Ativar
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleDesativar(informativo.id)}
+                    className="rounded-md px-2.5 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-50"
+                  >
+                    Desativar
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(informativo.id, informativo.titulo)}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-lg bg-white shadow-lg md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-cdl-gray">

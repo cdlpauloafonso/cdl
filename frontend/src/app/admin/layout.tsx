@@ -67,6 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [firebaseSessionReady, setFirebaseSessionReady] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -130,6 +131,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setExpandedMenus(activeMenus);
   }, [pathname]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   if (!mounted) return null;
 
   const isLogin = pathname === '/admin' && !pathname.startsWith('/admin/');
@@ -156,8 +161,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-cdl-gray flex">
-      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-56'} bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 bottom-0 z-40 transition-all duration-300`}>
+    <div className="min-h-screen bg-cdl-gray lg:flex">
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          aria-label="Fechar menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+      <aside
+        className={`${
+          sidebarCollapsed ? 'lg:w-16' : 'lg:w-56'
+        } fixed left-0 top-0 bottom-0 z-50 w-72 max-w-[85vw] -translate-x-full bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 lg:z-40 lg:w-auto lg:max-w-none lg:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : ''
+        }`}
+      >
         <div className="p-4 border-b border-gray-200 flex justify-start">
           <Link href="/" className="flex items-center">
             <Image 
@@ -173,13 +192,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Botão de retrair/expandir */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute -right-3 top-8 bg-cdl-blue text-white rounded-full p-1.5 shadow-lg hover:bg-cdl-blue-dark transition-colors z-50"
+          className="absolute -right-3 top-8 hidden rounded-full bg-cdl-blue p-1.5 text-white shadow-lg transition-colors hover:bg-cdl-blue-dark lg:block"
           aria-label={sidebarCollapsed ? 'Expandir menu' : 'Retrair menu'}
         >
-          <svg 
-            className={`w-4 h-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} 
-            fill="none" 
-            stroke="currentColor" 
+          <svg
+            className={`h-4 w-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -266,8 +285,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <div className="flex-1" style={{ paddingLeft: sidebarCollapsed ? '4rem' : '14rem' }}>
-        <div className="p-6 lg:p-8">{children}</div>
+      <div className={`flex-1 lg:min-w-0 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'}`}>
+        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700"
+          >
+            Menu
+          </button>
+          <span className="text-sm font-semibold text-gray-800">Painel Administrativo</span>
+          <div className="w-12" />
+        </div>
+        <div className="admin-page w-full max-w-full overflow-x-hidden p-4 sm:p-5 lg:p-8">{children}</div>
       </div>
     </div>
   );

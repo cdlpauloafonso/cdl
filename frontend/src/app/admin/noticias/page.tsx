@@ -38,14 +38,64 @@ export default function AdminNoticiasPage() {
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Notícias</h1>
-        <Link href="/admin/noticias/nova" className="btn-primary">
+        <Link href="/admin/noticias/nova" className="btn-primary w-full sm:w-auto">
           Nova notícia
         </Link>
       </div>
-      <div className="mt-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
+
+      <div className="mt-6 space-y-2 md:hidden">
+        {list.length === 0 ? (
+          <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-cdl-gray-text">
+            Nenhuma notícia publicada.
+          </p>
+        ) : (
+          list.map((n) => (
+            <article key={n.id!} className="rounded-xl border border-gray-200 bg-white p-3">
+              <h2 className="line-clamp-2 text-sm font-semibold text-gray-900">{n.title}</h2>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    n.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {n.published ? 'Publicado' : 'Rascunho'}
+                </span>
+                <span className="text-xs text-cdl-gray-text">
+                  {n.publishedAt ? new Date(n.publishedAt).toLocaleDateString('pt-BR') : '—'}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => togglePublished(n.id!, n.published || false)}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    n.published
+                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                >
+                  {n.published ? 'Despublicar' : 'Publicar'}
+                </button>
+                <Link href={`/admin/noticias/${n.id!}`} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-cdl-blue hover:bg-cdl-blue/10">
+                  Editar
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => remove(n.id!)}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-hidden rounded-xl border border-gray-200 bg-white md:block">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-cdl-gray">
             <tr>

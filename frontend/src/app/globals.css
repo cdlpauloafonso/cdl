@@ -45,3 +45,37 @@ body {
 .prose-cdl a.btn-secondary { @apply hover:text-white; }
 .prose-cdl strong { @apply font-semibold text-gray-900; }
 .prose-cdl blockquote { @apply border-l-4 border-cdl-blue pl-4 my-4 text-gray-600 italic; }
+
+/* Responsividade global do painel admin em mobile */
+@media (max-width: 1023px) {
+  .admin-page {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .admin-page * {
+    max-width: 100%;
+  }
+
+  .admin-page table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  .admin-page th,
+  .admin-page td {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-page input,
+  .admin-page select,
+  .admin-page textarea {
+    min-width: 0;
+  }
+
+  .admin-page .btn-primary,
+  .admin-page .btn-secondary {
+    width: 100%;
+  }
+}

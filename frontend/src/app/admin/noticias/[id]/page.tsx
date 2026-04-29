@@ -32,6 +32,7 @@ export default function AdminNoticiaEditPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [sharing, setSharing] = useState(false);
   const slugManuallyEdited = useRef(false);
 
   useEffect(() => {
@@ -190,6 +191,43 @@ export default function AdminNoticiaEditPage() {
       setImageError('Erro ao enviar imagem');
     } finally {
       setImageUploading(false);
+    }
+  }
+
+  async function shareNews() {
+    const slug = (news.slug ?? '').trim();
+    if (!slug) {
+      alert('Defina o slug da notícia para compartilhar.');
+      return;
+    }
+    setSharing(true);
+    try {
+      const shareUrl = `${window.location.origin}/noticias/ver?slug=${encodeURIComponent(slug)}`;
+      const shareText = `${news.title ?? 'Notícia CDL'}\n${shareUrl}`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: news.title ?? 'Notícia CDL',
+          text: news.excerpt ?? undefined,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        alert('Link da notícia copiado para a área de transferência.');
+        return;
+      }
+
+      const ok = window.prompt('Copie o link da notícia:', shareUrl);
+      if (ok !== null) {
+        // sem-op: prompt já mostra o link para cópia manual
+      }
+    } catch {
+      alert('Não foi possível compartilhar a notícia agora.');
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -408,6 +446,14 @@ export default function AdminNoticiaEditPage() {
         )}
         <button type="submit" disabled={saving} className="btn-primary">
           {saving ? 'Salvando...' : 'Salvar'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void shareNews()}
+          disabled={sharing || !(news.slug ?? '').trim()}
+          className="ml-2 rounded-lg border border-cdl-blue px-4 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/5 disabled:opacity-50"
+        >
+          {sharing ? 'Compartilhando...' : 'Compartilhar'}
         </button>
       </form>
     </div>

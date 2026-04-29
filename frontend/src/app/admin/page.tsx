@@ -106,25 +106,25 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div>
+    <div className="w-full max-w-full overflow-x-hidden">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
       <p className="mt-1 text-cdl-gray-text">Visão geral do conteúdo do site</p>
       
       {/* Card de Associados em Destaque */}
-      <div className="mt-8 mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="mb-4 mt-4 grid grid-cols-2 gap-2.5 sm:mb-6 sm:mt-8 sm:gap-4">
         <Link
           href="/admin/associados"
-          className="block p-8 rounded-xl bg-gradient-to-r from-cdl-blue to-cdl-blue-dark text-white hover:shadow-lg transition-all border-2 border-transparent hover:border-white/20"
+          className="block rounded-xl border-2 border-transparent bg-gradient-to-r from-cdl-blue to-cdl-blue-dark p-4 text-white transition-all hover:border-white/20 hover:shadow-lg sm:p-8"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-100">Associados</p>
-              <p className="mt-2 text-4xl font-bold">{stats?.totalAssociados ?? '—'}</p>
-              <p className="mt-1 text-sm text-blue-100">Empresas associadas</p>
+              <p className="text-xs font-medium text-blue-100 sm:text-sm">Associados</p>
+              <p className="mt-1 text-3xl font-bold sm:mt-2 sm:text-4xl">{stats?.totalAssociados ?? '—'}</p>
+              <p className="mt-0.5 text-xs text-blue-100 sm:mt-1 sm:text-sm">Empresas associadas</p>
             </div>
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 sm:h-16 sm:w-16">
               <svg
-                className="w-8 h-8 text-white"
+                className="h-5 w-5 text-white sm:h-8 sm:w-8"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -142,17 +142,17 @@ export default function AdminDashboardPage() {
 
         <Link
           href="/admin/associados?status=em_negociacao"
-          className="block p-8 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:shadow-lg transition-all border-2 border-transparent hover:border-white/20"
+          className="block rounded-xl border-2 border-transparent bg-gradient-to-r from-amber-500 to-orange-600 p-4 text-white transition-all hover:border-white/20 hover:shadow-lg sm:p-8"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-amber-100">Em Negociação</p>
-              <p className="mt-2 text-4xl font-bold">{stats?.emNegociacao ?? '—'}</p>
-              <p className="mt-1 text-sm text-amber-100">Processos em andamento</p>
+              <p className="text-xs font-medium text-amber-100 sm:text-sm">Em Negociação</p>
+              <p className="mt-1 text-3xl font-bold sm:mt-2 sm:text-4xl">{stats?.emNegociacao ?? '—'}</p>
+              <p className="mt-0.5 text-xs text-amber-100 sm:mt-1 sm:text-sm">Processos em andamento</p>
             </div>
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 sm:h-16 sm:w-16">
               <svg
-                className="w-8 h-8 text-white"
+                className="h-5 w-5 text-white sm:h-8 sm:w-8"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -170,35 +170,35 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Outros Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         {cards.map((c) => (
           <Link
             key={c.href}
             href={c.href}
-            className="block p-6 rounded-xl bg-white border border-gray-200 hover:border-cdl-blue/30 hover:shadow-md transition-all"
+            className="block rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-cdl-blue/30 hover:shadow-md sm:p-6"
           >
-            <p className="text-sm font-medium text-cdl-gray-text">{c.label}</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">{c.value}</p>
+            <p className="text-xs font-medium text-cdl-gray-text sm:text-sm">{c.label}</p>
+            <p className="mt-1 text-xl font-bold text-gray-900 sm:mt-2 sm:text-2xl">{c.value}</p>
           </Link>
         ))}
       </div>
 
       {/* Próximos Agendamentos do Auditório */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Próximos Agendamentos do Auditório</h2>
+      <div className="mt-5 sm:mt-8">
+        <div className="mb-3 flex items-center justify-between sm:mb-4">
+          <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Próximos Agendamentos do Auditório</h2>
           <Link
             href="/admin/agendamentos"
-            className="text-sm text-cdl-blue hover:text-cdl-blue-dark font-medium"
+            className="text-xs font-medium text-cdl-blue hover:text-cdl-blue-dark sm:text-sm"
           >
             Ver todos
           </Link>
         </div>
         
         {proximosAgendamentos.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 text-center sm:p-8">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 sm:mb-4 sm:h-12 sm:w-12">
+              <svg className="h-5 w-5 text-gray-400 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
@@ -209,24 +209,24 @@ export default function AdminDashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="divide-y divide-gray-100">
               {proximosAgendamentos.map((agendamento) => (
-                <div key={agendamento.id} className="p-3 hover:bg-gray-50 transition-colors">
+                <div key={agendamento.id} className="p-2.5 transition-colors hover:bg-gray-50 sm:p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span
-                        className="px-2 py-0.5 text-xs font-medium rounded-full text-white flex-shrink-0"
+                        className="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-white sm:text-xs"
                         style={{ backgroundColor: agendamento.backgroundColor }}
                       >
                         {getStatusLabel(agendamento.extendedProps.status)}
                       </span>
-                      <h3 className="font-medium text-gray-900 truncate">{agendamento.title}</h3>
-                      <span className="text-xs text-gray-600 flex-shrink-0">{formatDate(agendamento.start)}</span>
+                      <h3 className="truncate text-sm font-medium text-gray-900">{agendamento.title}</h3>
+                      <span className="flex-shrink-0 text-[11px] text-gray-600 sm:text-xs">{formatDate(agendamento.start)}</span>
                       {agendamento.extendedProps.solicitante && (
-                        <span className="text-xs text-gray-600 truncate">{agendamento.extendedProps.solicitante}</span>
+                        <span className="truncate text-[11px] text-gray-600 sm:text-xs">{agendamento.extendedProps.solicitante}</span>
                       )}
                     </div>
                     <Link
                       href={`/admin/agendamentos?id=${agendamento.id}`}
-                      className="ml-3 px-2 py-1 text-xs bg-cdl-blue text-white rounded hover:bg-cdl-blue-dark transition-colors flex-shrink-0"
+                      className="ml-2 flex-shrink-0 rounded bg-cdl-blue px-2 py-1 text-[11px] text-white transition-colors hover:bg-cdl-blue-dark sm:ml-3 sm:text-xs"
                     >
                       Ver
                     </Link>
@@ -239,12 +239,12 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Próximos Aniversários */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Próximos Aniversários</h2>
+      <div className="mt-5 sm:mt-8">
+        <div className="mb-3 flex items-center justify-between sm:mb-4">
+          <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Próximos Aniversários</h2>
           <Link
             href="/admin/aniversarios"
-            className="text-sm text-cdl-blue hover:text-cdl-blue-dark font-medium"
+            className="text-xs font-medium text-cdl-blue hover:text-cdl-blue-dark sm:text-sm"
           >
             Ver todos
           </Link>
@@ -253,9 +253,9 @@ export default function AdminDashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="divide-y divide-gray-100">
             {proximosAniversarios.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-5 text-center sm:p-8">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-pink-100 sm:mb-4 sm:h-12 sm:w-12">
+                  <svg className="h-5 w-5 text-pink-400 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -264,19 +264,19 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               proximosAniversarios.map((aniversariante, index) => (
-                <div key={index} className="p-3 hover:bg-gray-50 transition-colors">
+                <div key={index} className="p-2.5 transition-colors hover:bg-gray-50 sm:p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-pink-400 to-purple-400 sm:h-8 sm:w-8">
+                        <svg className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{aniversariante.nome}</h3>
-                        <span className="text-xs text-gray-600">{aniversariante.empresa}</span>
+                        <h3 className="truncate text-sm font-medium text-gray-900">{aniversariante.nome}</h3>
+                        <span className="text-[11px] text-gray-600 sm:text-xs">{aniversariante.empresa}</span>
                       </div>
-                      <span className="px-2 py-1 text-xs font-medium bg-pink-100 text-pink-800 rounded-full flex-shrink-0">
+                      <span className="flex-shrink-0 rounded-full bg-pink-100 px-2 py-1 text-[11px] font-medium text-pink-800 sm:text-xs">
                         {aniversariante.data}
                       </span>
                     </div>

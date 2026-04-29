@@ -80,9 +80,9 @@ export default function AniversariosPage() {
   }, [associados]);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">
+      <div className="mb-5 flex items-center justify-between sm:mb-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Aniversários</h1>
           <p className="text-gray-600 mt-1">Aniversariantes cadastrados nos associados</p>
         </div>
@@ -96,7 +96,28 @@ export default function AniversariosPage() {
             Nenhum aniversariante cadastrado nos associados.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-2 p-2.5 md:hidden">
+            {rows.map((row, index) => (
+              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 break-words">{row.aniversarianteNome}</p>
+                    <p className="text-xs text-gray-500">{formatBirthday(row.data)}</p>
+                    <p className="mt-1 text-xs text-gray-700 break-words">{row.associado.empresa || '—'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAssociado(row.associado)}
+                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2.5 py-1.5 text-[11px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                  >
+                    Ver
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-cdl-gray">
                 <tr>
@@ -126,15 +147,16 @@ export default function AniversariosPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
       {selectedAssociado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 p-6">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Dados do Associado</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Dados do Associado</h3>
                 <p className="mt-1 text-sm text-cdl-gray-text">
                   {selectedAssociado.nome || '—'} · {selectedAssociado.empresa || '—'}
                 </p>
@@ -148,7 +170,7 @@ export default function AniversariosPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 p-6 text-sm md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 p-4 text-sm sm:gap-4 sm:p-6 md:grid-cols-2">
               {[
                 ['Nome', selectedAssociado.nome],
                 ['Empresa', selectedAssociado.empresa],

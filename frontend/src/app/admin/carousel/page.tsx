@@ -171,26 +171,26 @@ export default function CarouselPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Carrossel</h1>
           <p className="text-gray-600 mt-1">Gerencie os slides do carrossel da página inicial</p>
         </div>
         <Link
           href="/admin"
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          className="w-full rounded-lg bg-gray-100 px-4 py-2 text-center text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto"
         >
           ← Voltar
         </Link>
       </div>
 
       {/* Formulário de Edição */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="mb-5 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4 lg:p-6">
+        <h2 className="mb-3 text-base font-semibold text-gray-900 sm:mb-4 sm:text-lg">
           {editingSlide ? 'Editar Slide' : 'Novo Slide'}
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           {/*
             Quando só houver foto (sem título/descrição/botões), permitimos opcionalmente
             um link para tornar a imagem clicável no carrossel do site.
@@ -203,7 +203,7 @@ export default function CarouselPage() {
                 Slide apenas com foto detectado. Você pode informar um link para a foto.
               </div>
             )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Título
@@ -212,7 +212,7 @@ export default function CarouselPage() {
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 required={!formData.photo}
               />
             </div>
@@ -224,7 +224,7 @@ export default function CarouselPage() {
                 type="number"
                 value={formData.order}
                 onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 required
               />
             </div>
@@ -238,7 +238,7 @@ export default function CarouselPage() {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 required={!formData.photo}
             />
           </div>
@@ -251,7 +251,7 @@ export default function CarouselPage() {
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
             />
             {formData.photo && (
               <div className="mt-2">
@@ -280,7 +280,7 @@ export default function CarouselPage() {
                   value={formData.photoLink}
                   onChange={(e) => setFormData({ ...formData, photoLink: e.target.value })}
                   placeholder="/servicos ou https://exemplo.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   No site, ao clicar nesta foto, o usuário será direcionado para este link.
@@ -289,7 +289,7 @@ export default function CarouselPage() {
             )}
 
           <div>
-            <div className="flex justify-between items-center mb-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <label className="block text-sm font-medium text-gray-700">
                 Botões
               </label>
@@ -302,26 +302,26 @@ export default function CarouselPage() {
               </button>
             </div>
             {formData.buttons.map((button, index) => (
-              <div key={index} className="flex gap-2 mb-2">
+              <div key={index} className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                 <input
                   type="text"
                   placeholder="Texto do botão"
                   value={button.text}
                   onChange={(e) => handleButtonChange(index, 'text', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 />
                 <input
                   type="url"
                   placeholder="URL do botão"
                   value={button.href}
                   onChange={(e) => handleButtonChange(index, 'href', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
                 />
                 {formData.buttons.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveButton(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="h-10 rounded-lg px-3 py-2 text-red-600 transition-colors hover:bg-red-50"
                   >
                     ×
                   </button>
@@ -330,11 +330,11 @@ export default function CarouselPage() {
             ))}
           </div>
 
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:flex">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors disabled:opacity-50"
+              className="rounded-lg bg-cdl-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cdl-blue-dark disabled:opacity-50"
             >
               {isSubmitting ? 'Salvando...' : (editingSlide ? 'Atualizar' : 'Criar')}
             </button>
@@ -342,7 +342,7 @@ export default function CarouselPage() {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
               >
                 Cancelar
               </button>
@@ -352,8 +352,8 @@ export default function CarouselPage() {
       </div>
 
       {/* Lista de Slides */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 p-3 sm:p-4 lg:p-6">
           <h2 className="text-lg font-semibold text-gray-900">Slides Existentes</h2>
         </div>
         <div className="divide-y divide-gray-200">
@@ -363,18 +363,18 @@ export default function CarouselPage() {
             </div>
           ) : (
             slides.map((slide) => (
-              <div key={slide.id} className="p-6 flex items-center justify-between">
-                <div className="flex-1">
+              <div key={slide.id} className="p-3 sm:p-4 lg:p-6">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-medium text-gray-900">{slide.title}</h3>
-                    <span className="text-sm text-gray-500">Ordem: {slide.order}</span>
+                    <h3 className="font-medium text-gray-900 break-words">{slide.title}</h3>
+                    <span className="text-xs sm:text-sm text-gray-500">Ordem: {slide.order}</span>
                   </div>
-                  <p className="text-gray-600 text-sm mb-2">{slide.description}</p>
+                  <p className="mb-2 text-sm text-gray-600 break-words">{slide.description}</p>
                   {slide.photo && (
                     <img
                       src={slide.photo}
                       alt={slide.title}
-                      className="h-20 w-32 object-cover rounded"
+                      className="h-16 w-24 rounded object-cover sm:h-20 sm:w-32"
                     />
                   )}
                   {slide.buttons && slide.buttons.length > 0 && (
@@ -390,16 +390,16 @@ export default function CarouselPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2 ml-4">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleEdit(slide)}
-                    className="px-3 py-1 text-cdl-blue hover:bg-cdl-blue/10 rounded-lg transition-colors"
+                    className="rounded-lg px-3 py-1.5 text-sm text-cdl-blue transition-colors hover:bg-cdl-blue/10"
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => handleDelete(slide.id!)}
-                    className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="rounded-lg px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50"
                   >
                     Excluir
                   </button>
