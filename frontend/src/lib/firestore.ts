@@ -277,6 +277,16 @@ export async function updateEventInscriptionPaymentStatus(
   await updateDoc(ref, { paymentStatus: status });
 }
 
+export async function updateEventInscriptionFields(
+  campaignId: string,
+  inscriptionId: string,
+  fields: Record<string, string>
+): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  await updateDoc(ref, { fields });
+}
+
 export async function deleteEventInscription(campaignId: string, inscriptionId: string): Promise<void> {
   const db = getDb();
   const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
@@ -742,6 +752,8 @@ export type Associado = {
   empresa: string;
   /** Razão social (cadastro Receita); opcional em documentos antigos. */
   razao_social?: string;
+  /** Nome fantasia (compatibilidade com registros antigos). */
+  nome_fantasia?: string;
   cnpj: string;
   telefone: string;
   /** Opcional: telefone direto do responsável. */

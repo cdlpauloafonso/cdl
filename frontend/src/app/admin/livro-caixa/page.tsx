@@ -191,6 +191,61 @@ export default function LivroCaixaPage() {
     }
   };
 
+  const exportarPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      const dataGeracao = new Date();
+
+      doc.setFontSize(16);
+      doc.text('Livro Caixa - CDL', 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${dataGeracao.toLocaleDateString('pt-BR')} ${dataGeracao.toLocaleTimeString('pt-BR')}`, 14, 22);
+
+      const resumo = [
+        `Entradas: R$ ${totalEntradas.toFixed(2)}`,
+        `Saidas: R$ ${totalSaidas.toFixed(2)}`,
+        `Saldo: R$ ${saldo.toFixed(2)}`,
+      ];
+      doc.text(resumo.join(' | '), 14, 30);
+
+      let y = 40;
+      doc.setFontSize(11);
+      doc.text('Data', 14, y);
+      doc.text('Descricao', 42, y);
+      doc.text('Categoria', 106, y);
+      doc.text('Valor', 158, y);
+      doc.text('Status', 184, y);
+      y += 4;
+      doc.line(14, y, 196, y);
+      y += 6;
+
+      doc.setFontSize(9);
+      for (const transacao of transacoesFiltradas) {
+        if (y > 280) {
+          doc.addPage();
+          y = 16;
+        }
+
+        const valorFormatado = `${transacao.tipo === 'entrada' ? '+' : '-'}R$ ${transacao.valor.toFixed(2)}`;
+        doc.text(transacao.data || '-', 14, y);
+        doc.text((transacao.descricao || '-').slice(0, 34), 42, y);
+        doc.text((transacao.categoria || '-').slice(0, 22), 106, y);
+        doc.text(valorFormatado, 158, y);
+        doc.text(transacao.status || '-', 184, y);
+        y += 6;
+      }
+
+      doc.save(`livro-caixa-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Erro ao exportar PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const exportarCsv = () => {
     setExportingCsv(true);
     try {

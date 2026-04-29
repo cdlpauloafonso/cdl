@@ -495,18 +495,18 @@ export default function AdminAssociadosPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Lista de Associados</h1>
           <p className="mt-1 text-cdl-gray-text">Gestão de empresas associadas</p>
         </div>
-        <div className="flex flex-wrap gap-2 justify-end">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap xl:w-auto xl:justify-end">
           {!quickEditMode ? (
             <button
               type="button"
               onClick={startQuickEditMode}
-              className="btn-secondary"
+              className="btn-secondary w-full sm:w-auto"
             >
               Modo de edição rápida
             </button>
@@ -516,7 +516,7 @@ export default function AdminAssociadosPage() {
                 type="button"
                 onClick={() => void concluirQuickEdit()}
                 disabled={savingQuickEdit}
-                className="btn-primary disabled:opacity-50"
+                className="btn-primary w-full disabled:opacity-50 sm:w-auto"
               >
                 {savingQuickEdit ? 'Salvando...' : 'Concluir'}
               </button>
@@ -524,7 +524,7 @@ export default function AdminAssociadosPage() {
                 type="button"
                 onClick={cancelQuickEditMode}
                 disabled={savingQuickEdit}
-                className="btn-secondary disabled:opacity-50"
+                className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
               >
                 Cancelar
               </button>
@@ -534,7 +534,7 @@ export default function AdminAssociadosPage() {
             type="button"
             onClick={() => void exportarPdf()}
             disabled={exportingPdf || filteredAssociados.length === 0}
-            className="btn-secondary disabled:opacity-50"
+            className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
           >
             {exportingPdf ? 'Exportando PDF...' : 'Exportar PDF'}
           </button>
@@ -542,7 +542,7 @@ export default function AdminAssociadosPage() {
             type="button"
             onClick={exportarCsv}
             disabled={exportingCsv || filteredAssociados.length === 0}
-            className="btn-secondary disabled:opacity-50"
+            className="btn-secondary w-full disabled:opacity-50 sm:w-auto"
           >
             {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
           </button>
@@ -551,12 +551,12 @@ export default function AdminAssociadosPage() {
               type="button"
               onClick={() => setShowBulkDeleteModal(true)}
               disabled={deletingBulk}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 sm:w-auto"
             >
               {deletingBulk ? 'Excluindo...' : 'Excluir'}
             </button>
           )}
-          <Link href="/admin/associados/adicionar" className="btn-primary">
+          <Link href="/admin/associados/adicionar" className="btn-primary w-full text-center sm:w-auto">
             Adicionar Associado
           </Link>
         </div>
@@ -595,7 +595,7 @@ export default function AdminAssociadosPage() {
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               <select
                 value={selectedPlano}
                 onChange={(e) => setSelectedPlano(e.target.value)}
@@ -722,8 +722,133 @@ export default function AdminAssociadosPage() {
             </div>
           </div>
 
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
+      <div className="w-full max-w-full overflow-hidden rounded-lg bg-white shadow-lg">
+            <div className="space-y-3 p-3 lg:hidden">
+              {filteredAssociados.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-cdl-gray-text">
+                  {searchTerm ? 'Nenhum associado encontrado para esta busca.' : 'Nenhum associado cadastrado.'}
+                </div>
+              ) : (
+                filteredAssociados.map((associado) => (
+                  <article
+                    key={associado.id}
+                    className={`rounded-lg border p-3 ${
+                      (associado.status ?? 'ativo') === 'em_negociacao'
+                        ? 'border-amber-200 bg-amber-50/70'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(associado.id)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) =>
+                              e.target.checked ? [...prev, associado.id] : prev.filter((id) => id !== associado.id)
+                            );
+                          }}
+                        />
+                        Selecionar
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleView(associado.id)}
+                          aria-label="Ver associado"
+                          title="Ver"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 text-gray-700 hover:bg-gray-100"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <Link
+                          href={`/admin/associados/editar?id=${encodeURIComponent(associado.id)}`}
+                          aria-label="Editar associado"
+                          title="Editar"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 text-cdl-blue hover:bg-cdl-blue/10"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(associado.id)}
+                          disabled={deletingId === associado.id}
+                          aria-label="Excluir associado"
+                          title="Excluir"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {displayedFieldKeys.map((k) => {
+                        if (quickEditMode && k !== 'cnpj' && k !== 'status') {
+                          return (
+                            <div key={k} className="rounded-md bg-gray-50 p-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
+                              <input
+                                type={k === 'email' ? 'email' : 'text'}
+                                value={getQuickFieldValue(associado, k)}
+                                onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
+                                className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              />
+                            </div>
+                          );
+                        }
+                        if (k === 'status') {
+                          const statusValue = ((associado.status as AssociadoStatus | undefined) ?? 'ativo');
+                          return (
+                            <div key={k} className="rounded-md bg-gray-50 p-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
+                              {quickEditMode ? (
+                                <select
+                                  value={getQuickFieldValue(associado, k) || 'ativo'}
+                                  onChange={(e) => updateQuickField(associado.id, k, e.target.value)}
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                >
+                                  <option value="ativo">Ativo</option>
+                                  <option value="desativado">Desativado</option>
+                                  <option value="em_negociacao">Em negociação</option>
+                                </select>
+                              ) : (
+                                <select
+                                  value={statusValue}
+                                  disabled={updatingStatusId === associado.id}
+                                  onChange={(e) => solicitarAlteracaoStatus(associado, e.target.value as AssociadoStatus)}
+                                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-60"
+                                >
+                                  <option value="ativo">Ativo</option>
+                                  <option value="desativado">Desativado</option>
+                                  <option value="em_negociacao">Em negociação</option>
+                                </select>
+                              )}
+                            </div>
+                          );
+                        }
+                        const value = (associado[k] ?? '').toString().trim();
+                        return (
+                          <div key={k} className="rounded-md bg-gray-50 p-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{fieldLabel[k]}</p>
+                            <p className="mt-1 break-words text-sm text-gray-800">{value || '—'}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+
+            <div className="hidden w-full max-w-full overflow-x-auto lg:block">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-cdl-gray">
                   <tr>

@@ -42,7 +42,7 @@ export function NoticiasListClient() {
       {items.map((n) => (
         <Link
           key={n.id!}
-          href={`/noticias/${n.slug}`}
+          href={`/noticias/ver?slug=${encodeURIComponent(n.slug)}`}
           className="group flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-cdl-blue/30 hover:shadow-lg transition-all duration-300"
         >
           <div className="relative aspect-video bg-gradient-to-br from-cdl-blue/10 via-cdl-blue/5 to-transparent overflow-hidden">

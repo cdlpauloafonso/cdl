@@ -194,7 +194,7 @@ export function LatestNews() {
                     </div>
                     <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
                       <Link
-                        href={`/noticias/${item.slug}`}
+                        href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
                         className="transition-colors hover:text-cdl-blue"
                       >
                         {item.title}
@@ -202,7 +202,7 @@ export function LatestNews() {
                     </h3>
                     <p className="mb-4 line-clamp-3 text-sm text-gray-600">{item.excerpt}</p>
                     <Link
-                      href={`/noticias/${item.slug}`}
+                      href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
                       className="flex items-center gap-1 text-sm font-medium text-cdl-blue hover:text-cdl-blue-dark"
                     >
                       Ler mais

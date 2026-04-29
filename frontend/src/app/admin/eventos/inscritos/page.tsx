@@ -7,6 +7,7 @@ import {
   deleteEventInscription,
   getCampaign,
   listEventInscriptions,
+  updateEventInscriptionFields,
   updateEventInscriptionPaymentStatus,
   type Campaign,
   type EventInscriptionRecord,
@@ -75,7 +76,12 @@ export default function AdminEventoInscritosPage() {
   const [filterPayment, setFilterPayment] = useState<'all' | EventInscriptionPaymentStatus>('all');
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>([]);
   const [showPaymentColumn, setShowPaymentColumn] = useState(true);
+  const [showDateColumn, setShowDateColumn] = useState(true);
+  const [showSignatureColumn, setShowSignatureColumn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [quickEditMode, setQuickEditMode] = useState(false);
+  const [savingQuickEdit, setSavingQuickEdit] = useState(false);
+  const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, Record<string, string>>>({});
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
@@ -288,6 +294,73 @@ export default function AdminEventoInscritosPage() {
     }
   }
 
+  function startQuickEditMode() {
+    setQuickEditDrafts({});
+    setQuickEditMode(true);
+  }
+
+  function cancelQuickEditMode() {
+    setQuickEditDrafts({});
+    setQuickEditMode(false);
+  }
+
+  function getQuickFieldValue(row: EventInscriptionRecord & { id: string }, key: string): string {
+    return quickEditDrafts[row.id]?.[key] ?? (row.fields?.[key] ?? '').toString();
+  }
+
+  function updateQuickField(inscriptionId: string, key: string, value: string) {
+    setQuickEditDrafts((prev) => ({
+      ...prev,
+      [inscriptionId]: {
+        ...(prev[inscriptionId] ?? {}),
+        [key]: value,
+      },
+    }));
+  }
+
+  async function concludeQuickEditMode() {
+    if (!eventId) return;
+    setSavingQuickEdit(true);
+    setError('');
+    try {
+      const updates: Array<{ id: string; fields: Record<string, string> }> = [];
+      Object.entries(quickEditDrafts).forEach(([id, draft]) => {
+        const current = rows.find((r) => r.id === id);
+        if (!current) return;
+        const nextFields: Record<string, string> = { ...(current.fields ?? {}) };
+        let changed = false;
+        Object.entries(draft).forEach(([k, v]) => {
+          const normalized = v ?? '';
+          if ((nextFields[k] ?? '') !== normalized) {
+            nextFields[k] = normalized;
+            changed = true;
+          }
+        });
+        if (changed) updates.push({ id, fields: nextFields });
+      });
+
+      for (const item of updates) {
+        await updateEventInscriptionFields(eventId, item.id, item.fields);
+      }
+
+      if (updates.length > 0) {
+        setRows((prev) =>
+          prev.map((row) => {
+            const changed = updates.find((u) => u.id === row.id);
+            return changed ? { ...row, fields: changed.fields } : row;
+          })
+        );
+      }
+
+      setQuickEditDrafts({});
+      setQuickEditMode(false);
+    } catch {
+      setError('Não foi possível salvar a edição rápida.');
+    } finally {
+      setSavingQuickEdit(false);
+    }
+  }
+
   async function exportarPdf() {
     if (!campanha || filteredRows.length === 0) return;
     setExportingPdf(true);
@@ -301,8 +374,9 @@ export default function AdminEventoInscritosPage() {
       let y = margin;
       const headers = [
         ...displayedColumnKeys.map((k) => labelForInscriptionField(k)),
-        'Data',
+        ...(showDateColumn ? ['Data'] : []),
         ...(displayPaymentColumn ? ['Pagamento'] : []),
+        ...(showSignatureColumn ? ['Assinatura'] : []),
       ];
       const colCount = Math.max(headers.length, 1);
       const tableW = pageW - margin * 2;
@@ -347,8 +421,9 @@ export default function AdminEventoInscritosPage() {
       filteredRows.forEach((row) => {
         const rowValues = [
           ...displayedColumnKeys.map((k) => (row.fields?.[k] ?? '').toString().trim() || '—'),
-          formatDateBr(row.createdAt),
+          ...(showDateColumn ? [formatDateBr(row.createdAt)] : []),
           ...(displayPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
+          ...(showSignatureColumn ? [''] : []),
         ];
         const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
         const maxLines = Math.max(1, ...wrapped.map((lines) => lines.length));
@@ -398,14 +473,14 @@ export default function AdminEventoInscritosPage() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
-        <div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-2 inline-block">
             ← Eventos
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Inscritos no evento</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="break-words text-2xl font-bold text-gray-900">Inscritos no evento</h1>
+          <p className="mt-1 break-words text-gray-600">
             {campanha ? (
               <span className="font-medium text-gray-800">{campanha.title}</span>
             ) : (
@@ -413,12 +488,40 @@ export default function AdminEventoInscritosPage() {
             )}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-auto lg:shrink-0">
+          {!quickEditMode ? (
+            <button
+              type="button"
+              onClick={startQuickEditMode}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
+            >
+              Modo de edição rápida
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void concludeQuickEditMode()}
+                disabled={savingQuickEdit}
+                className="w-full rounded-lg bg-cdl-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+              >
+                {savingQuickEdit ? 'Salvando...' : 'Concluir'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelQuickEditMode}
+                disabled={savingQuickEdit}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
           {selectedCount > 0 && (
             <button
               type="button"
               onClick={() => setShowDeleteSelectedModal(true)}
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+              className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto"
             >
               Excluir selecionados ({selectedCount})
             </button>
@@ -427,7 +530,7 @@ export default function AdminEventoInscritosPage() {
             type="button"
             disabled={exportingPdf || filteredRows.length === 0 || !campanha}
             onClick={() => void exportarPdf()}
-            className="btn-primary disabled:opacity-50"
+            className="btn-primary w-full disabled:opacity-50 sm:w-auto"
           >
             {exportingPdf ? 'Gerando PDF...' : 'Exportar PDF'}
           </button>
@@ -462,12 +565,12 @@ export default function AdminEventoInscritosPage() {
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {hasCidade && (
                 <select
                   value={filterCidade}
                   onChange={(e) => setFilterCidade(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
                 >
                   <option value="todas">Todas as cidades</option>
                   {cidadesUnicas.map((c) => (
@@ -481,7 +584,7 @@ export default function AdminEventoInscritosPage() {
                 <select
                   value={filterEstado}
                   onChange={(e) => setFilterEstado(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
                 >
                   <option value="todos">Todos os estados (UF)</option>
                   {estadosUnicos.map((c) => (
@@ -495,7 +598,7 @@ export default function AdminEventoInscritosPage() {
                 <select
                   value={filterPayment}
                   onChange={(e) => setFilterPayment(e.target.value as 'all' | EventInscriptionPaymentStatus)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
                 >
                   <option value="all">Todos os pagamentos</option>
                   <option value="paid">Pago</option>
@@ -505,7 +608,7 @@ export default function AdminEventoInscritosPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
               >
                 <option value="createdAt">Ordenar por data da inscrição</option>
                 {eventHasConfiguredPayment && <option value="paymentStatus">Ordenar por pagamento</option>}
@@ -518,7 +621,7 @@ export default function AdminEventoInscritosPage() {
               <select
                 value={sortDirection}
                 onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cdl-blue"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
               >
                 <option value="desc">{sortBy === 'createdAt' ? 'Mais recentes primeiro' : 'Z → A'}</option>
                 <option value="asc">{sortBy === 'createdAt' ? 'Mais antigas primeiro' : 'A → Z'}</option>
@@ -533,7 +636,7 @@ export default function AdminEventoInscritosPage() {
                   setSortBy('createdAt');
                   setSortDirection('desc');
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 Limpar filtros
               </button>
@@ -542,7 +645,7 @@ export default function AdminEventoInscritosPage() {
               Exibindo <strong className="text-gray-800">{filteredRows.length}</strong> de{' '}
               <strong className="text-gray-800">{rows.length}</strong> inscrição(ões).
             </p>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
+            <div className="w-full max-w-full rounded-lg border border-gray-200 bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <p className="text-sm font-medium text-gray-900">
                   Campos visíveis na tabela{' '}
@@ -555,7 +658,9 @@ export default function AdminEventoInscritosPage() {
                     type="button"
                     onClick={() => {
                       setVisibleColumnKeys([...columnKeys]);
+                      setShowDateColumn(true);
                       setShowPaymentColumn(eventHasConfiguredPayment);
+                      setShowSignatureColumn(false);
                     }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
@@ -565,7 +670,9 @@ export default function AdminEventoInscritosPage() {
                     type="button"
                     onClick={() => {
                       setVisibleColumnKeys([]);
+                      setShowDateColumn(false);
                       setShowPaymentColumn(false);
+                      setShowSignatureColumn(false);
                     }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
@@ -576,7 +683,7 @@ export default function AdminEventoInscritosPage() {
               {columnKeys.length === 0 ? (
                 <p className="text-xs text-cdl-gray-text">Nenhum campo disponível.</p>
               ) : (
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <div className="flex max-w-full flex-wrap gap-x-4 gap-y-2">
                   {columnKeys.map((k) => (
                     <label key={k} className="inline-flex items-center gap-2 text-sm text-gray-700">
                       <input
@@ -601,6 +708,22 @@ export default function AdminEventoInscritosPage() {
                       Pagamento
                     </label>
                   )}
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showDateColumn}
+                      onChange={(e) => setShowDateColumn(e.target.checked)}
+                    />
+                    Data
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showSignatureColumn}
+                      onChange={(e) => setShowSignatureColumn(e.target.checked)}
+                    />
+                    Assinatura
+                  </label>
                 </div>
               )}
             </div>
@@ -611,12 +734,94 @@ export default function AdminEventoInscritosPage() {
               Nenhuma inscrição registrada para este evento.
             </div>
           ) : (
-            <div className="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <div className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+              <div className="space-y-3 p-3 lg:hidden">
+                {filteredRows.map((row) => (
+                  <article key={row.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(row.id)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) =>
+                              e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id)
+                            );
+                          }}
+                        />
+                        Selecionar
+                      </label>
+                      {showDateColumn ? (
+                        <span className="text-xs text-gray-500">{formatDateBr(row.createdAt)}</span>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      {displayedColumnKeys.map((k) => (
+                        <div key={k} className="rounded-md bg-gray-50 p-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            {labelForInscriptionField(k)}
+                          </p>
+                          {quickEditMode ? (
+                            <input
+                              type="text"
+                              value={getQuickFieldValue(row, k)}
+                              onChange={(e) => updateQuickField(row.id, k, e.target.value)}
+                              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            <p className="mt-1 break-words text-sm text-gray-800">
+                              {(row.fields?.[k] ?? '').toString().trim() || '—'}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {displayPaymentColumn && (
+                      <div className="mt-3">
+                        {paymentStatusOf(row) === 'paid' ? (
+                          <button
+                            type="button"
+                            disabled={updatingPaymentId === row.id}
+                            onClick={() => askChangePaymentStatus(row, 'pending')}
+                            className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50"
+                            title="Clique para marcar como pendente"
+                          >
+                            {updatingPaymentId === row.id ? 'Salvando...' : 'Pago'}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={updatingPaymentId === row.id}
+                            onClick={() => askChangePaymentStatus(row, 'paid')}
+                            className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+                            title="Clique para marcar como pago"
+                          >
+                            {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {showSignatureColumn && (
+                      <div className="mt-3 rounded-md border border-dashed border-gray-300 p-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Assinatura
+                        </p>
+                        <div className="mt-2 h-8 w-full" />
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden w-full max-w-full overflow-hidden lg:block">
+                <table className="w-full table-fixed divide-y divide-gray-200 text-sm">
                   <thead className="bg-cdl-gray">
                     <tr>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
+                      <th className="w-12 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
                         <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
@@ -637,19 +842,21 @@ export default function AdminEventoInscritosPage() {
                         </label>
                       </th>
                       {displayedColumnKeys.map((k) => (
-                        <th
-                          key={k}
-                          className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase min-w-[120px]"
-                        >
-                          {labelForInscriptionField(k)}
+                        <th key={k} className="px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
+                          <span className="block break-words">{labelForInscriptionField(k)}</span>
                         </th>
                       ))}
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
-                        Data
-                      </th>
+                      {showDateColumn && (
+                        <th className="px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">Data</th>
+                      )}
                       {displayPaymentColumn && (
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">
+                        <th className="w-28 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
                           Pagamento
+                        </th>
+                      )}
+                      {showSignatureColumn && (
+                        <th className="w-40 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
+                          Assinatura
                         </th>
                       )}
                     </tr>
@@ -657,31 +864,42 @@ export default function AdminEventoInscritosPage() {
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {filteredRows.map((row) => (
                       <tr key={row.id} className="hover:bg-gray-50/80">
-                        <td className="px-3 py-2 align-top whitespace-nowrap">
+                        <td className="px-2 py-2 align-top">
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(row.id)}
                             onChange={(e) => {
                               setSelectedIds((prev) =>
-                                e.target.checked
-                                  ? [...prev, row.id]
-                                  : prev.filter((id) => id !== row.id)
+                                e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id)
                               );
                             }}
                           />
                         </td>
                         {displayedColumnKeys.map((k) => (
-                          <td key={k} className="px-3 py-2 text-gray-800 align-top max-w-xs break-words">
-                            {(row.fields?.[k] ?? '').toString().trim() || (
-                              <span className="text-cdl-gray-text">—</span>
+                          <td key={k} className="px-2 py-2 align-top text-gray-800">
+                            {quickEditMode ? (
+                              <input
+                                type="text"
+                                value={getQuickFieldValue(row, k)}
+                                onChange={(e) => updateQuickField(row.id, k, e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
+                              />
+                            ) : (
+                              <div className="break-words">
+                                {(row.fields?.[k] ?? '').toString().trim() || (
+                                  <span className="text-cdl-gray-text">—</span>
+                                )}
+                              </div>
                             )}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-gray-700 whitespace-nowrap align-top">
-                          {formatDateBr(row.createdAt)}
-                        </td>
+                        {showDateColumn && (
+                          <td className="px-2 py-2 align-top text-gray-700">
+                            <span className="break-words">{formatDateBr(row.createdAt)}</span>
+                          </td>
+                        )}
                         {displayPaymentColumn && (
-                          <td className="px-3 py-2 align-top whitespace-nowrap">
+                          <td className="px-2 py-2 align-top">
                             {paymentStatusOf(row) === 'paid' ? (
                               <button
                                 type="button"
@@ -705,6 +923,7 @@ export default function AdminEventoInscritosPage() {
                             )}
                           </td>
                         )}
+                        {showSignatureColumn && <td className="px-2 py-2 align-top" />}
                       </tr>
                     ))}
                   </tbody>
