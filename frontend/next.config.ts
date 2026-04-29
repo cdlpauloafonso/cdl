@@ -5,6 +5,18 @@ const nextConfig: NextConfig = {
   // rotas dinâmicas como `/institucional/campanhas/inscricao/[slug]` falhariam para slugs novos.
   // Em desenvolvimento não usamos export; o build de produção (`next build`) mantém o export estático.
   ...(process.env.NODE_ENV === 'production' ? { output: 'export' as const } : {}),
+  ...(process.env.NODE_ENV !== 'production'
+    ? {
+        webpack: (config) => {
+          // Evita timeouts ao carregar chunks durante compilações lentas no `next dev`.
+          config.output = {
+            ...config.output,
+            chunkLoadTimeout: 300000,
+          };
+          return config;
+        },
+      }
+    : {}),
   images: {
     unoptimized: true,
     remotePatterns: [

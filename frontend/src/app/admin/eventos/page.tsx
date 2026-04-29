@@ -391,12 +391,13 @@ export default function AdminEventosPage() {
                 O evento <strong className="text-gray-900">{eventoParaExcluir.title}</strong> será removido da listagem e
                 da página pública. <span className="font-medium text-gray-800">Não é possível desfazer.</span>
               </p>
-              {getEffectiveRegistration(eventoParaExcluir).kind === 'form' && (
-                <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                  Este evento usa inscrição pelo site. Após excluir, o link de inscrição deixa de funcionar; dados já
-                  enviados podem exigir tratamento separado no Firebase.
-                </p>
-              )}
+              {eventoParaExcluir.registrationConfig?.type === 'form' &&
+                (eventoParaExcluir.registrationConfig.fieldKeys?.length ?? 0) > 0 && (
+                  <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                    Este evento usa inscrição pelo site. Após excluir, o link de inscrição deixa de funcionar; dados já
+                    enviados podem exigir tratamento separado no Firebase.
+                  </p>
+                )}
               {error && (
                 <p className="mt-4 text-sm text-red-600" role="alert">
                   {error}

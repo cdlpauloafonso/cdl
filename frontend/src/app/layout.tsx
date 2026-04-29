@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import dynamic from 'next/dynamic';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { ConditionalLayout } from '@/components/ConditionalLayout';
+
+/** Carrega o shell do layout em chunk separado — reduz falhas de ChunkLoadError em dev (timeout no layout). */
+const ConditionalLayout = dynamic(
+  () => import('@/components/ConditionalLayout').then((mod) => ({ default: mod.ConditionalLayout })),
+  { ssr: true }
+);
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
