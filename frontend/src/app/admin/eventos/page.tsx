@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCampaigns, deleteCampaignById, countEventInscriptions, type Campaign } from '@/lib/firestore';
+import { listCampaigns, deleteCampaignById, countEventInscriptions, updateCampaign, type Campaign } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { getEffectiveRegistration } from '@/lib/event-registration-fields';
 
 export default function AdminEventosPage() {
   const [items, setItems] = useState<Campaign[]>([]);
@@ -15,6 +14,7 @@ export default function AdminEventosPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [eventoParaExcluir, setEventoParaExcluir] = useState<Campaign | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingRegistrationId, setTogglingRegistrationId] = useState<string | null>(null);
   const [inscritosPorEvento, setInscritosPorEvento] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function AdminEventosPage() {
         setItems(list);
         const countEntries = await Promise.all(
           list
-            .filter((ev) => !!ev.id && getEffectiveRegistration(ev).kind === 'form')
+            .filter((ev) => !!ev.id && ev.registrationConfig?.type === 'form')
             .map(async (ev) => {
               try {
                 const total = await countEventInscriptions(ev.id as string);
@@ -93,6 +93,26 @@ export default function AdminEventosPage() {
     }
   }
 
+  async function toggleRegistrationClosed(ev: Campaign) {
+    if (!ev.id) return;
+    const hasRegistrationConfigured =
+      (ev.registrationConfig?.type === 'form' && (ev.registrationConfig.fieldKeys?.length ?? 0) > 0) ||
+      (ev.registrationConfig?.type === 'external' && Boolean(ev.registrationConfig.url?.trim())) ||
+      Boolean(ev.registrationUrl?.trim());
+    if (!hasRegistrationConfigured) return;
+    const next = !ev.registrationClosed;
+    try {
+      setTogglingRegistrationId(ev.id);
+      setError('');
+      await updateCampaign(ev.id, { registrationClosed: next });
+      setItems((prev) => prev.map((x) => (x.id === ev.id ? { ...x, registrationClosed: next } : x)));
+    } catch {
+      setError('Erro ao atualizar status da inscrição do evento');
+    } finally {
+      setTogglingRegistrationId(null);
+    }
+  }
+
   return (
     <div className="w-full max-w-full overflow-x-hidden">
       <div className="mb-5 flex flex-col gap-2.5 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
@@ -117,8 +137,13 @@ export default function AdminEventosPage() {
             <div className="w-full max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
               <div className="space-y-2 p-2.5 md:hidden">
                 {items.map((ev) => {
-                  const reg = getEffectiveRegistration(ev);
+                  const hasRegistrationConfigured =
+                    (ev.registrationConfig?.type === 'form' && (ev.registrationConfig.fieldKeys?.length ?? 0) > 0) ||
+                    (ev.registrationConfig?.type === 'external' && Boolean(ev.registrationConfig.url?.trim())) ||
+                    Boolean(ev.registrationUrl?.trim());
+                  const hasFormRegistration = ev.registrationConfig?.type === 'form';
                   const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
+                  const inscricaoEncerrada = Boolean(ev.registrationClosed);
                   return (
                     <article key={ev.id} className="rounded-lg border border-gray-200 bg-white p-2.5">
                       <div className="flex items-start justify-between gap-2">
@@ -139,6 +164,9 @@ export default function AdminEventosPage() {
                         <p>
                           <strong>Inscritos:</strong> {inscritos}
                         </p>
+                        <p>
+                          <strong>Inscrição:</strong> {inscricaoEncerrada ? 'Encerrada' : 'Aberta'}
+                        </p>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <Link
@@ -148,7 +176,7 @@ export default function AdminEventosPage() {
                         >
                           Ver
                         </Link>
-                        {reg.kind === 'form' && (
+                        {hasFormRegistration && (
                           <Link
                             href={`/admin/eventos/inscritos?eventId=${ev.id}`}
                             className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800"
@@ -156,6 +184,24 @@ export default function AdminEventosPage() {
                             Inscritos
                           </Link>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => void toggleRegistrationClosed(ev)}
+                          disabled={togglingRegistrationId === ev.id || !hasRegistrationConfigured}
+                          className={`rounded-md px-2 py-1 text-[11px] font-medium disabled:opacity-50 ${
+                            inscricaoEncerrada
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : 'bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {!hasRegistrationConfigured
+                            ? 'Sem inscrição'
+                            : togglingRegistrationId === ev.id
+                            ? 'Salvando...'
+                            : inscricaoEncerrada
+                              ? 'Reabrir inscrição'
+                              : 'Encerrar inscrição'}
+                        </button>
                         <Link
                           href={`/admin/campanhas/edit?id=${ev.id}`}
                           className="rounded-md bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue"
@@ -199,8 +245,13 @@ export default function AdminEventosPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {items.map((ev) => {
-                      const reg = getEffectiveRegistration(ev);
+                      const hasRegistrationConfigured =
+                        (ev.registrationConfig?.type === 'form' && (ev.registrationConfig.fieldKeys?.length ?? 0) > 0) ||
+                        (ev.registrationConfig?.type === 'external' && Boolean(ev.registrationConfig.url?.trim())) ||
+                        Boolean(ev.registrationUrl?.trim());
+                      const hasFormRegistration = ev.registrationConfig?.type === 'form';
                       const inscritos = inscritosPorEvento[ev.id ?? ''] ?? 0;
+                      const inscricaoEncerrada = Boolean(ev.registrationClosed);
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50/80">
                           <td className="px-3 py-2.5 align-top">
@@ -211,7 +262,16 @@ export default function AdminEventosPage() {
                           </td>
                           <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
                           <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
-                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">{inscritos}</td>
+                          <td className="px-3 py-2.5 align-top text-gray-700 whitespace-nowrap">
+                            {inscritos}
+                            <span
+                              className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                inscricaoEncerrada ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {inscricaoEncerrada ? 'Inscrição encerrada' : 'Inscrição aberta'}
+                            </span>
+                          </td>
                           <td className="px-3 py-2.5 align-top text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
                               <Link
@@ -221,7 +281,7 @@ export default function AdminEventosPage() {
                               >
                                 Ver
                               </Link>
-                              {reg.kind === 'form' && (
+                              {hasFormRegistration && (
                                 <Link
                                   href={`/admin/eventos/inscritos?eventId=${ev.id}`}
                                   className="inline-block px-2 py-1.5 text-emerald-800 hover:bg-emerald-50 rounded-md text-xs sm:text-sm font-medium"
@@ -229,6 +289,24 @@ export default function AdminEventosPage() {
                                   Ver inscritos
                                 </Link>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => void toggleRegistrationClosed(ev)}
+                                disabled={togglingRegistrationId === ev.id || !hasRegistrationConfigured}
+                                className={`inline-block rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 sm:text-sm ${
+                                  inscricaoEncerrada
+                                    ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                }`}
+                              >
+                                {!hasRegistrationConfigured
+                                  ? 'Sem inscrição'
+                                  : togglingRegistrationId === ev.id
+                                  ? 'Salvando...'
+                                  : inscricaoEncerrada
+                                    ? 'Reabrir inscrição'
+                                    : 'Encerrar inscrição'}
+                              </button>
                               <Link
                                 href={`/admin/campanhas/edit?id=${ev.id}`}
                                 aria-label="Editar evento"

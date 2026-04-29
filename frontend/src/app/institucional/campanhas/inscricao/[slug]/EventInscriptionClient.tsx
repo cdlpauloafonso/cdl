@@ -49,6 +49,28 @@ function formatWhatsAppNumber(value: string): string {
   return digits;
 }
 
+function isValidCpf(value: string): boolean {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) {
+    sum += Number(digits[i]) * (10 - i);
+  }
+  let firstDigit = (sum * 10) % 11;
+  if (firstDigit === 10) firstDigit = 0;
+  if (firstDigit !== Number(digits[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i += 1) {
+    sum += Number(digits[i]) * (11 - i);
+  }
+  let secondDigit = (sum * 10) % 11;
+  if (secondDigit === 10) secondDigit = 0;
+  return secondDigit === Number(digits[10]);
+}
+
 type CnpjLookupProps = {
   loading: boolean;
   hint: { type: 'ok' | 'err'; text: string } | null;
@@ -413,6 +435,13 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
 
   async function validateInscriptionData(): Promise<boolean> {
     setError('');
+    if (userInputKeys.includes('cpf')) {
+      const cpf = values.cpf ?? '';
+      if (!isValidCpf(cpf)) {
+        setError('Informe um CPF válido para continuar.');
+        return false;
+      }
+    }
     if (userInputKeys.includes('cnpj')) {
       const d = onlyDigitsCnpj(values.cnpj ?? '');
       if (d.length === 14) {

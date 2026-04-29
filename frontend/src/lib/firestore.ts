@@ -98,6 +98,8 @@ export type Campaign = {
    * Usado para exibir «ingressos esgotados» sem listar a subcoleção.
    */
   inscriptionWebCount?: number;
+  /** Controle manual no admin para ocultar inscrição pública do evento. */
+  registrationClosed?: boolean;
 };
 
 /** Informativos: comunicados e avisos importantes */

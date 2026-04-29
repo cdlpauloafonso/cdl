@@ -99,7 +99,10 @@ export function isInscriptionSoldOut(
   return count >= limit;
 }
 
-export function getEffectiveRegistration(c: Pick<Campaign, 'registrationConfig' | 'registrationUrl'>): EffectiveRegistration {
+export function getEffectiveRegistration(
+  c: Pick<Campaign, 'registrationConfig' | 'registrationUrl' | 'registrationClosed'>
+): EffectiveRegistration {
+  if (c.registrationClosed) return { kind: 'none' };
   const cfg = c.registrationConfig;
   if (cfg?.type === 'external' && cfg.url?.trim()) return { kind: 'external', url: cfg.url.trim() };
   if (cfg?.type === 'form' && cfg.fieldKeys?.length) {
