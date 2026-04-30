@@ -18,6 +18,12 @@ import {
 } from '@/lib/brasil-api-cnpj';
 import { AniversariantesFormSection } from '@/components/admin/AniversariantesFormSection';
 
+function serializeAssociadoForCompare(associado: Associado | null): string {
+  if (!associado) return '';
+  const { id, created_at, updated_at, ...rest } = associado;
+  return JSON.stringify(rest);
+}
+
 function EditarAssociadoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,7 +37,10 @@ function EditarAssociadoContent() {
   const [planosLoaded, setPlanosLoaded] = useState(false);
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
   const cnpjLookupReq = useRef(0);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const initialSnapshotRef = useRef('');
 
   useEffect(() => {
     getPlanos()
@@ -59,6 +68,7 @@ function EditarAssociadoContent() {
         if (cancelled) return;
         if (data) {
           setAssociado(data);
+          initialSnapshotRef.current = serializeAssociadoForCompare(data);
         } else {
           setError('Associado não encontrado.');
         }
@@ -77,6 +87,38 @@ function EditarAssociadoContent() {
     };
   }, [id]);
 
+  const hasUnsavedChanges =
+    associado !== null && serializeAssociadoForCompare(associado) !== initialSnapshotRef.current;
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleAttemptLeave = (targetHref: string) => {
+    if (!hasUnsavedChanges) {
+      router.push(targetHref);
+      return;
+    }
+
+    const shouldSave = window.confirm('Você fez alterações não salvas. Deseja salvar antes de sair?');
+    if (shouldSave) {
+      setPendingRedirect(targetHref);
+      formRef.current?.requestSubmit();
+      return;
+    }
+
+    const shouldDiscard = window.confirm('Deseja sair sem salvar as alterações?');
+    if (shouldDiscard) {
+      router.push(targetHref);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!associado) return;
@@ -87,12 +129,14 @@ function EditarAssociadoContent() {
     try {
       const { id: _, created_at, updated_at, ...updateData } = associado;
       await updateAssociado(id, updateData);
+      initialSnapshotRef.current = serializeAssociadoForCompare({ ...associado, ...updateData } as Associado);
       
       // Mostrar sucesso e redirecionar
       setShowSuccessModal(true);
       setTimeout(() => {
         setShowSuccessModal(false);
-        router.push('/admin/associados');
+        router.push(pendingRedirect || '/admin/associados');
+        setPendingRedirect(null);
       }, 2000);
       
     } catch (err) {
@@ -273,6 +317,10 @@ function EditarAssociadoContent() {
         <div className="flex items-center gap-4">
           <Link
             href="/admin/associados"
+            onClick={(e) => {
+              e.preventDefault();
+              handleAttemptLeave('/admin/associados');
+            }}
             className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,7 +346,7 @@ function EditarAssociadoContent() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* CNPJ */}
           <div>
@@ -571,6 +619,10 @@ function EditarAssociadoContent() {
           </button>
           <Link
             href="/admin/associados"
+            onClick={(e) => {
+              e.preventDefault();
+              handleAttemptLeave('/admin/associados');
+            }}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             Cancelar

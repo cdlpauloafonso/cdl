@@ -22,6 +22,22 @@ function extractMonthDay(dateValue: string): { month: number; day: number } {
   return { month: parsed.getMonth() + 1, day: parsed.getDate() };
 }
 
+function daysUntilNextBirthday(dateValue: string): number {
+  const { month, day } = extractMonthDay(dateValue);
+  if (month === 99 || day === 99) return Number.POSITIVE_INFINITY;
+
+  const today = new Date();
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let next = new Date(startToday.getFullYear(), month - 1, day);
+
+  if (next < startToday) {
+    next = new Date(startToday.getFullYear() + 1, month - 1, day);
+  }
+
+  const diffMs = next.getTime() - startToday.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 function formatBirthday(dateValue: string): string {
   if (!dateValue) return '—';
   const parsed = new Date(dateValue);
@@ -506,10 +522,9 @@ export default function AniversariosPage() {
     });
 
     return flattened.sort((a, b) => {
-      const aMd = extractMonthDay(a.data);
-      const bMd = extractMonthDay(b.data);
-      if (aMd.month !== bMd.month) return aMd.month - bMd.month;
-      if (aMd.day !== bMd.day) return aMd.day - bMd.day;
+      const aNext = daysUntilNextBirthday(a.data);
+      const bNext = daysUntilNextBirthday(b.data);
+      if (aNext !== bNext) return aNext - bNext;
 
       const byName = a.aniversarianteNome.localeCompare(b.aniversarianteNome, 'pt-BR');
       if (byName !== 0) return byName;
@@ -536,12 +551,12 @@ export default function AniversariosPage() {
           </div>
         ) : (
           <>
-          <div className="space-y-2 p-2 md:hidden">
+          <div className="space-y-1.5 p-1.5 md:hidden">
             {rows.map((row, index) => (
-              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 bg-white p-3">
+              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-md border border-gray-200 bg-white p-2.5">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
                       {row.aniversariante.foto ? (
                         <img
                           src={row.aniversariante.foto}
@@ -554,30 +569,30 @@ export default function AniversariosPage() {
                         </div>
                       )}
                     </div>
-                    <p className="text-sm font-semibold leading-tight text-gray-900 break-words">
+                    <p className="truncate text-[13px] font-semibold leading-tight text-gray-900">
                       {formatPersonName(row.aniversarianteNome)}
                     </p>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex items-center justify-between gap-2">
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">
                       {formatBirthday(row.data)}
                     </span>
+                    <p className="truncate text-[11px] text-gray-600">{row.associado.empresa || '—'}</p>
                   </div>
-                  <p className="mt-1.5 text-xs leading-snug text-gray-700 break-words">{row.associado.empresa || '—'}</p>
                 </div>
 
-                <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+                <div className="mt-2 grid grid-cols-3 gap-1">
                   <button
                     type="button"
                     onClick={() => setSelectedAssociado(row.associado)}
-                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2 py-1.5 text-[11px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-1.5 py-1 text-[10px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
                   >
                     Ver
                   </button>
                   <button
                     type="button"
                     onClick={() => openBirthdayCard(row)}
-                    className="rounded-md border border-purple-300/50 bg-purple-50 px-2 py-1.5 text-[11px] font-medium text-purple-700 hover:bg-purple-100"
+                    className="rounded-md border border-purple-300/50 bg-purple-50 px-1.5 py-1 text-[10px] font-medium text-purple-700 hover:bg-purple-100"
                   >
                     Card
                   </button>
@@ -587,7 +602,7 @@ export default function AniversariosPage() {
                       openBirthdayCard(row);
                       setPendingShare(true);
                     }}
-                    className="rounded-md border border-emerald-300/50 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
+                    className="rounded-md border border-emerald-300/50 bg-emerald-50 px-1.5 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
                   >
                     Compartilhar
                   </button>

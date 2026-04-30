@@ -11,6 +11,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin') ?? false;
   const isAgendamentosPage = pathname === '/agendamentos';
+  const isPublicEventInscriptionsPage = pathname === '/institucional/eventos/inscritos';
   const isConfiguracoesPage = pathname === '/admin/configuracoes';
 
   useEffect(() => {
@@ -20,8 +21,8 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isAdmin, isAgendamentosPage]);
 
-  // Página de agendamentos - layout limpo sem header, footer ou WhatsApp
-  if (isAgendamentosPage) {
+  // Páginas de leitura limpa sem header, footer ou WhatsApp
+  if (isAgendamentosPage || isPublicEventInscriptionsPage) {
     return <>{children}</>;
   }
 

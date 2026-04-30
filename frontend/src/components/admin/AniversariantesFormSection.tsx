@@ -33,13 +33,17 @@ export function AniversariantesFormSection({
   const [draftNome, setDraftNome] = useState('');
   const [draftData, setDraftData] = useState('');
   const [draftFoto, setDraftFoto] = useState('');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingNome, setEditingNome] = useState('');
+  const [editingData, setEditingData] = useState('');
+  const [editingFoto, setEditingFoto] = useState('');
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [fotoUploadError, setFotoUploadError] = useState('');
 
-  const uploadDraftFoto = async (file: File) => {
+  const uploadFotoToImgbb = async (file: File): Promise<string | null> => {
     if (!IMGBB_KEY) {
       setFotoUploadError('Chave ImgBB não configurada (NEXT_PUBLIC_IMGBB_KEY).');
-      return;
+      return null;
     }
 
     setUploadingFoto(true);
@@ -56,13 +60,24 @@ export function AniversariantesFormSection({
       if (!res.ok || !url) {
         throw new Error('Falha no upload da foto.');
       }
-      setDraftFoto(url);
+      return url;
     } catch (error) {
       console.error('Erro ao enviar foto do aniversariante:', error);
       setFotoUploadError('Não foi possível enviar a foto para o ImgBB.');
+      return null;
     } finally {
       setUploadingFoto(false);
     }
+  };
+
+  const uploadDraftFoto = async (file: File) => {
+    const url = await uploadFotoToImgbb(file);
+    if (url) setDraftFoto(url);
+  };
+
+  const uploadEditingFoto = async (file: File) => {
+    const url = await uploadFotoToImgbb(file);
+    if (url) setEditingFoto(url);
   };
 
   const confirmar = () => {
@@ -77,6 +92,43 @@ export function AniversariantesFormSection({
     setDraftData('');
     setDraftFoto('');
     setFotoUploadError('');
+  };
+
+  const iniciarEdicao = (index: number) => {
+    const atual = value[index];
+    if (!atual) return;
+    setEditingIndex(index);
+    setEditingNome(atual.nome || '');
+    setEditingData(atual.data || '');
+    setEditingFoto(atual.foto || '');
+    setFotoUploadError('');
+  };
+
+  const cancelarEdicao = () => {
+    setEditingIndex(null);
+    setEditingNome('');
+    setEditingData('');
+    setEditingFoto('');
+    setFotoUploadError('');
+  };
+
+  const salvarEdicao = () => {
+    if (editingIndex === null) return;
+    const nome = editingNome.trim();
+    const data = editingData.trim();
+    if (!nome || !data) {
+      alert('Informe nome e data para salvar a edição.');
+      return;
+    }
+    const next = [...value];
+    next[editingIndex] = {
+      ...next[editingIndex],
+      nome,
+      data,
+      foto: editingFoto || undefined,
+    };
+    onChange(next);
+    cancelarEdicao();
   };
 
   const onDraftKeyDown = (e: React.KeyboardEvent) => {
@@ -97,30 +149,126 @@ export function AniversariantesFormSection({
       </p>
 
       {value.length > 0 && (
-        <ul className="mb-4 space-y-2" aria-label="Aniversariantes já incluídos">
+        <ul className="mb-4 space-y-1.5" aria-label="Aniversariantes já incluídos">
           {value.map((a, index) => (
             <li
               key={`${idPrefix}-${index}-${a.data}-${a.nome.slice(0, 12)}`}
-              className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2"
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-gray-900">{a.nome}</p>
-                <p className="text-sm text-gray-600">{formatDataNascimentoPt(a.data)}</p>
-                {a.foto && (
-                  <img
-                    src={a.foto}
-                    alt={`Foto de ${a.nome}`}
-                    className="mt-2 h-12 w-12 rounded-full border border-gray-200 object-cover"
-                  />
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onChange(value.filter((_, i) => i !== index))}
-                className="shrink-0 self-start rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 sm:self-center"
-              >
-                Remover
-              </button>
+              {editingIndex === index ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+                      {editingFoto ? (
+                        <img src={editingFoto} alt="Foto em edição" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">
+                          {editingNome.trim().charAt(0).toUpperCase() || 'A'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-0.5 block text-xs font-medium text-gray-600">Nome</label>
+                        <input
+                          type="text"
+                          value={editingNome}
+                          onChange={(e) => setEditingNome(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-xs font-medium text-gray-600">Data de nascimento</label>
+                        <input
+                          type="date"
+                          value={editingData}
+                          onChange={(e) => setEditingData(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-0.5 block text-xs font-medium text-gray-600">Foto do aniversariante</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadEditingFoto(file);
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-cdl-blue file:px-2 file:py-1 file:text-xs file:font-medium file:text-white"
+                    />
+                    {uploadingFoto && <p className="mt-1 text-xs text-cdl-gray-text">Enviando foto...</p>}
+                    {fotoUploadError && <p className="mt-1 text-xs text-red-700">{fotoUploadError}</p>}
+                    {editingFoto && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingFoto('')}
+                        className="mt-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        Remover foto
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelarEdicao}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={salvarEdicao}
+                      className="rounded-md bg-cdl-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-cdl-blue-dark"
+                    >
+                      Salvar edição
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex flex-1 items-center gap-2.5">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+                      {a.foto ? (
+                        <img
+                          src={a.foto}
+                          alt={`Foto de ${a.nome}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">
+                          {(a.nome || 'A').trim().charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{a.nome}</p>
+                      <p className="text-xs text-gray-600">{formatDataNascimentoPt(a.data)}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => iniciarEdicao(index)}
+                      className="rounded-md border border-cdl-blue/30 bg-white px-2.5 py-1 text-xs font-medium text-cdl-blue transition-colors hover:bg-cdl-blue/5"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChange(value.filter((_, i) => i !== index))}
+                      className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>

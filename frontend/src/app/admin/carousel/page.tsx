@@ -141,7 +141,7 @@ export default function CarouselPage() {
                           : 'Desabilitar'}
                     </button>
                     <Link
-                      href={`/admin/carousel/${slide.id}/edit`}
+                      href={`/admin/carousel/editar?id=${encodeURIComponent(slide.id || '')}`}
                       className="rounded-md px-2 py-1 text-xs font-medium text-cdl-blue transition-colors hover:bg-cdl-blue/10 sm:px-2.5 sm:py-1.5"
                     >
                       Editar
