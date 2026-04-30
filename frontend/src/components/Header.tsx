@@ -37,13 +37,18 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200/80">
       <div className="container-cdl">
         <div className="flex h-16 sm:h-20 items-center justify-between gap-4">
-          <Link href="/" className="flex items-center shrink-0" aria-label="CDL Paulo Afonso - Home">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center bg-transparent"
+            aria-label="CDL Paulo Afonso - Home"
+          >
             <Image
-              src="/logo.png"
+              src="/logo-site.png"
               alt="CDL Paulo Afonso"
-              width={102}
-              height={37}
-              className="h-10 sm:h-12 w-auto object-contain"
+              width={256}
+              height={99}
+              sizes="(max-width: 640px) 200px, 240px"
+              className="h-9 w-auto object-contain object-left sm:h-11"
               priority
             />
           </Link>

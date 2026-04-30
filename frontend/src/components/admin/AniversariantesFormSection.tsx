@@ -29,8 +29,41 @@ export function AniversariantesFormSection({
   onChange,
   idPrefix = 'aniversariante',
 }: AniversariantesFormSectionProps) {
+  const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY ?? '';
   const [draftNome, setDraftNome] = useState('');
   const [draftData, setDraftData] = useState('');
+  const [draftFoto, setDraftFoto] = useState('');
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [fotoUploadError, setFotoUploadError] = useState('');
+
+  const uploadDraftFoto = async (file: File) => {
+    if (!IMGBB_KEY) {
+      setFotoUploadError('Chave ImgBB não configurada (NEXT_PUBLIC_IMGBB_KEY).');
+      return;
+    }
+
+    setUploadingFoto(true);
+    setFotoUploadError('');
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+        method: 'POST',
+        body: form,
+      });
+      const json = (await res.json()) as { data?: { url?: string } };
+      const url = json?.data?.url ?? '';
+      if (!res.ok || !url) {
+        throw new Error('Falha no upload da foto.');
+      }
+      setDraftFoto(url);
+    } catch (error) {
+      console.error('Erro ao enviar foto do aniversariante:', error);
+      setFotoUploadError('Não foi possível enviar a foto para o ImgBB.');
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
 
   const confirmar = () => {
     const nome = draftNome.trim();
@@ -39,9 +72,11 @@ export function AniversariantesFormSection({
       alert('Informe o nome e a data de nascimento e depois toque em OK.');
       return;
     }
-    onChange([...value, { nome, data }]);
+    onChange([...value, { nome, data, foto: draftFoto || undefined }]);
     setDraftNome('');
     setDraftData('');
+    setDraftFoto('');
+    setFotoUploadError('');
   };
 
   const onDraftKeyDown = (e: React.KeyboardEvent) => {
@@ -71,6 +106,13 @@ export function AniversariantesFormSection({
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-gray-900">{a.nome}</p>
                 <p className="text-sm text-gray-600">{formatDataNascimentoPt(a.data)}</p>
+                {a.foto && (
+                  <img
+                    src={a.foto}
+                    alt={`Foto de ${a.nome}`}
+                    className="mt-2 h-12 w-12 rounded-full border border-gray-200 object-cover"
+                  />
+                )}
               </div>
               <button
                 type="button"
@@ -116,6 +158,35 @@ export function AniversariantesFormSection({
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
               />
             </div>
+          </div>
+          <div>
+            <label htmlFor={`${idPrefix}-draft-foto`} className="mb-1 block text-xs font-medium text-gray-600">
+              Foto do aniversariante (opcional)
+            </label>
+            <input
+              id={`${idPrefix}-draft-foto`}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadDraftFoto(file);
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-cdl-blue file:px-2 file:py-1 file:text-xs file:font-medium file:text-white"
+            />
+            {uploadingFoto && <p className="mt-1 text-xs text-cdl-gray-text">Enviando foto...</p>}
+            {fotoUploadError && <p className="mt-1 text-xs text-red-700">{fotoUploadError}</p>}
+            {draftFoto && (
+              <div className="mt-2 flex items-center gap-2">
+                <img src={draftFoto} alt="Pré-visualização da foto" className="h-12 w-12 rounded-full border border-gray-200 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setDraftFoto('')}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  Remover foto
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex justify-end">
             <button

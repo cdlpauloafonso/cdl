@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getAssociados, type Associado } from '@/lib/firestore';
+import { getAssociados, type Aniversariante, type Associado } from '@/lib/firestore';
 
 type BirthdayRow = {
   associado: Associado;
+  aniversariante: Aniversariante;
   aniversarianteNome: string;
   data: string;
 };
@@ -91,6 +92,7 @@ export default function AniversariosPage() {
   const [sharingCard, setSharingCard] = useState(false);
   const [downloadingCard, setDownloadingCard] = useState<null | 'png' | 'jpg'>(null);
   const [pendingShare, setPendingShare] = useState(false);
+  const [copyingPublicationText, setCopyingPublicationText] = useState(false);
   const cardPreviewRef = useRef<HTMLDivElement | null>(null);
   const [logoPosition, setLogoPosition] = useState({ x: 50, y: 90 });
   const [logoSize, setLogoSize] = useState(56);
@@ -204,6 +206,21 @@ export default function AniversariosPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!selectedBirthdayCard) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [selectedBirthdayCard]);
+
   async function handleUploadBirthdayCardBackground(file: File) {
     if (!IMGBB_KEY) {
       setBgUploadError('Chave ImgBB não configurada (NEXT_PUBLIC_IMGBB_KEY).');
@@ -307,6 +324,7 @@ export default function AniversariosPage() {
     setCardMessageFont('Inter, sans-serif');
     setCardOverlayOpacity(30);
     setCardPublicationDescription(buildPublicationDescription(displayName, row.associado.empresa || ''));
+    setBirthdayCardProfilePhotoUrl(row.aniversariante.foto || '');
     setLogoUploadError('');
     setProfilePhotoUploadError('');
     setLogoPosition({ x: 50, y: 90 });
@@ -447,6 +465,23 @@ export default function AniversariosPage() {
     }
   }
 
+  async function copyPublicationText() {
+    if (typeof window === 'undefined' || !navigator.clipboard) {
+      window.alert('Não foi possível copiar automaticamente neste dispositivo.');
+      return;
+    }
+    try {
+      setCopyingPublicationText(true);
+      await navigator.clipboard.writeText(cardPublicationDescription || '');
+      window.alert('Texto copiado para a área de transferência.');
+    } catch (error) {
+      console.error('Erro ao copiar texto de publicação:', error);
+      window.alert('Não foi possível copiar o texto no momento.');
+    } finally {
+      setCopyingPublicationText(false);
+    }
+  }
+
   useEffect(() => {
     if (!pendingShare || !selectedBirthdayCard) return;
     const t = window.setTimeout(() => {
@@ -463,6 +498,7 @@ export default function AniversariosPage() {
         if (!aniversariante.nome?.trim() && !aniversariante.data?.trim()) return;
         flattened.push({
           associado,
+          aniversariante,
           aniversarianteNome: aniversariante.nome?.trim() || '—',
           data: aniversariante.data?.trim() || '',
         });
@@ -500,26 +536,48 @@ export default function AniversariosPage() {
           </div>
         ) : (
           <>
-          <div className="space-y-1.5 p-2 md:hidden">
+          <div className="space-y-2 p-2 md:hidden">
             {rows.map((row, index) => (
-              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 p-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 break-words">{formatPersonName(row.aniversarianteNome)}</p>
-                    <p className="text-[11px] text-gray-500">{formatBirthday(row.data)}</p>
-                    <p className="mt-0.5 text-[11px] text-gray-700 break-words">{row.associado.empresa || '—'}</p>
+              <article key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                      {row.aniversariante.foto ? (
+                        <img
+                          src={row.aniversariante.foto}
+                          alt={`Foto de ${formatPersonName(row.aniversarianteNome)}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">
+                          {formatPersonName(row.aniversarianteNome).charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold leading-tight text-gray-900 break-words">
+                      {formatPersonName(row.aniversarianteNome)}
+                    </p>
                   </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                      {formatBirthday(row.data)}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-snug text-gray-700 break-words">{row.associado.empresa || '—'}</p>
+                </div>
+
+                <div className="mt-2.5 grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setSelectedAssociado(row.associado)}
-                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2 py-1 text-[10px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
+                    className="rounded-md border border-cdl-blue/30 bg-cdl-blue/5 px-2 py-1.5 text-[11px] font-medium text-cdl-blue hover:bg-cdl-blue/10"
                   >
                     Ver
                   </button>
                   <button
                     type="button"
                     onClick={() => openBirthdayCard(row)}
-                    className="rounded-md border border-purple-300/50 bg-purple-50 px-2 py-1 text-[10px] font-medium text-purple-700 hover:bg-purple-100"
+                    className="rounded-md border border-purple-300/50 bg-purple-50 px-2 py-1.5 text-[11px] font-medium text-purple-700 hover:bg-purple-100"
                   >
                     Card
                   </button>
@@ -529,7 +587,7 @@ export default function AniversariosPage() {
                       openBirthdayCard(row);
                       setPendingShare(true);
                     }}
-                    className="rounded-md border border-emerald-300/50 bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
+                    className="rounded-md border border-emerald-300/50 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
                   >
                     Compartilhar
                   </button>
@@ -551,7 +609,24 @@ export default function AniversariosPage() {
                 {rows.map((row, index) => (
                   <tr key={`${row.associado.id}-${row.aniversarianteNome}-${row.data}-${index}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatBirthday(row.data)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatPersonName(row.aniversarianteNome)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                          {row.aniversariante.foto ? (
+                            <img
+                              src={row.aniversariante.foto}
+                              alt={`Foto de ${formatPersonName(row.aniversarianteNome)}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-500">
+                              {formatPersonName(row.aniversarianteNome).charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        <span>{formatPersonName(row.aniversarianteNome)}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{row.associado.empresa || '—'}</td>
                     <td className="px-4 py-3 text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -638,7 +713,7 @@ export default function AniversariosPage() {
 
       {selectedBirthdayCard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4">
-          <div className="w-full max-w-5xl max-h-[calc(100vh-1.5rem)] overflow-y-auto rounded-xl bg-white shadow-xl sm:max-h-[calc(100vh-2rem)]">
+          <div className="w-full max-w-5xl max-h-[calc(100vh-1.5rem)] overflow-y-auto overscroll-contain rounded-xl bg-white shadow-xl sm:max-h-[calc(100vh-2rem)]">
             <div className="flex flex-col gap-2 border-b border-gray-200 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
               <h3 className="text-sm font-bold text-gray-900 sm:text-base">Card de Aniversário</h3>
               <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center sm:gap-2">
@@ -920,7 +995,17 @@ export default function AniversariosPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Texto para publicação (descrição)</label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <label className="block text-xs font-medium text-gray-700">Texto para publicação (descrição)</label>
+                    <button
+                      type="button"
+                      onClick={() => void copyPublicationText()}
+                      disabled={copyingPublicationText}
+                      className="rounded-md border border-cdl-blue/30 bg-cdl-blue/10 px-2 py-1 text-[11px] font-medium text-cdl-blue hover:bg-cdl-blue/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {copyingPublicationText ? 'Copiando...' : 'Copiar'}
+                    </button>
+                  </div>
                   <textarea
                     value={cardPublicationDescription}
                     onChange={(e) => setCardPublicationDescription(e.target.value)}
@@ -935,7 +1020,7 @@ export default function AniversariosPage() {
                 <div className="w-full max-w-[280px]">
                   <div
                     ref={cardPreviewRef}
-                    className="relative aspect-[9/16] rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5"
+                    className="relative aspect-[9/16] touch-none rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5"
                     onMouseMove={(e) => {
                       if (resizingElement) {
                         const deltaY = e.clientY - resizingElement.startY;
@@ -955,6 +1040,7 @@ export default function AniversariosPage() {
                     }}
                     onTouchMove={(e) => {
                       if (resizingElement) {
+                        e.preventDefault();
                         const touch = e.touches[0];
                         if (!touch) return;
                         const deltaY = touch.clientY - resizingElement.startY;
@@ -962,6 +1048,7 @@ export default function AniversariosPage() {
                         return;
                       }
                       if (!draggingElement) return;
+                      e.preventDefault();
                       const touch = e.touches[0];
                       if (touch) updateElementPositionFromPointer(touch.clientX, touch.clientY);
                     }}
@@ -991,6 +1078,7 @@ export default function AniversariosPage() {
                         updateElementPositionFromPointer(e.clientX, e.clientY);
                       }}
                       onTouchStart={(e) => {
+                        e.preventDefault();
                         setSelectedElement('photo');
                         setDraggingElement('photo');
                         const touch = e.touches[0];
@@ -1024,6 +1112,7 @@ export default function AniversariosPage() {
                               startResize('photo', e.clientY);
                             }}
                             onTouchStart={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               const touch = e.touches[0];
                               if (touch) startResize('photo', touch.clientY);
@@ -1047,6 +1136,7 @@ export default function AniversariosPage() {
                         updateElementPositionFromPointer(e.clientX, e.clientY);
                       }}
                       onTouchStart={(e) => {
+                        e.preventDefault();
                         setSelectedElement('name');
                         setDraggingElement('name');
                         const touch = e.touches[0];
@@ -1072,6 +1162,7 @@ export default function AniversariosPage() {
                             startResize('name', e.clientY);
                           }}
                           onTouchStart={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             const touch = e.touches[0];
                             if (touch) startResize('name', touch.clientY);
@@ -1094,6 +1185,7 @@ export default function AniversariosPage() {
                         updateElementPositionFromPointer(e.clientX, e.clientY);
                       }}
                       onTouchStart={(e) => {
+                        e.preventDefault();
                         setSelectedElement('message');
                         setDraggingElement('message');
                         const touch = e.touches[0];
@@ -1120,6 +1212,7 @@ export default function AniversariosPage() {
                             startResize('message', e.clientY);
                           }}
                           onTouchStart={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             const touch = e.touches[0];
                             if (touch) startResize('message', touch.clientY);
@@ -1142,6 +1235,7 @@ export default function AniversariosPage() {
                           updateElementPositionFromPointer(e.clientX, e.clientY);
                         }}
                         onTouchStart={(e) => {
+                          e.preventDefault();
                           setSelectedElement('logo');
                           setDraggingElement('logo');
                           const touch = e.touches[0];
@@ -1169,6 +1263,7 @@ export default function AniversariosPage() {
                               startResize('logo', e.clientY);
                             }}
                             onTouchStart={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               const touch = e.touches[0];
                               if (touch) startResize('logo', touch.clientY);

@@ -762,6 +762,7 @@ export async function isCnpjCadastradoComoAssociado(cnpjRaw: string): Promise<bo
 export type Aniversariante = {
   nome: string;
   data: string;
+  foto?: string;
 };
 
 export type Associado = {

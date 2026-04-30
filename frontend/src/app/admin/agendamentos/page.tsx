@@ -7,6 +7,10 @@ import { SuccessModal } from '@/components/ui/SuccessModal';
 import { CalendarAgendamentos } from '@/components/admin/CalendarAgendamentos';
 import { getAuth } from 'firebase/auth';
 
+/** Inputs compactos no mobile + min-w-0 evita estourar largura no iOS Safari */
+const FIELD_INPUT_CLASS =
+  'box-border min-w-0 w-full max-w-full rounded-md border border-gray-300 px-2 py-1.5 text-base leading-normal focus:border-cdl-blue focus:outline-none focus:ring-2 focus:ring-cdl-blue sm:rounded-lg sm:py-2 sm:text-sm';
+
 export default function AgendamentosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,14 +78,30 @@ export default function AgendamentosPage() {
     return value;
   };
 
+  /** Separa valor tipo datetime-local / ISO em data + hora (melhor no iOS que um único campo). */
+  function splitDateTime(localIsoLike: string): { date: string; time: string } {
+    if (!localIsoLike?.trim()) return { date: '', time: '' };
+    const s = localIsoLike.trim();
+    const m = /^(\d{4}-\d{2}-\d{2})[T\s](\d{2}):(\d{2})/.exec(s);
+    if (m) {
+      return { date: m[1], time: `${m[2]}:${m[3]}` };
+    }
+    const tIndex = s.indexOf('T');
+    if (tIndex === -1) return { date: s.slice(0, 10), time: '' };
+    const date = s.slice(0, 10);
+    const time = s.slice(tIndex + 1, tIndex + 6);
+    return { date, time: /^\d{2}:\d{2}$/.test(time) ? time : '' };
+  }
+
+  function mergeDateTime(date: string, time: string): string {
+    if (!date) return '';
+    const t = time && /^\d{2}:\d{2}$/.test(time) ? time : '00:00';
+    return `${date}T${t}`;
+  }
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhone(e.target.value);
     setFormData({ ...formData, telefone: formatted });
-  };
-
-  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const startDate = e.target.value;
-    setFormData({ ...formData, start: startDate, end: startDate });
   };
 
   const handleEdit = (agendamento: Agendamento) => {
@@ -139,7 +159,7 @@ export default function AgendamentosPage() {
       const agendamentoData = {
         title: formData.title,
         start: formData.start,
-        end: formData.end,
+        end: formData.end || formData.start,
         extendedProps: {
           solicitante: formData.solicitante,
           contato: formData.telefone,
@@ -652,15 +672,16 @@ ${contratoProcessado}
 
       {/* Modal de Formulário */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-2.5 shadow-lg sm:p-6">
-            <h2 className="mb-3 text-base font-semibold text-gray-900 sm:mb-4 sm:text-lg">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
+          <div className="my-2 box-border flex max-h-[min(92dvh,calc(100dvh-0.75rem))] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg sm:my-4 sm:max-h-[90vh]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-6">
+            <h2 className="mb-2 text-sm font-semibold text-gray-900 sm:mb-4 sm:text-lg">
               {selectedAgendamento ? 'Editar Agendamento' : 'Novo Agendamento'}
             </h2>
             
             {/* Mensagem de Sucesso */}
             {showModalSuccess && (
-              <div className="mx-2 mt-2 rounded-lg border border-green-200 bg-green-50 p-2 sm:mx-6 sm:mt-4 sm:p-3">
+              <div className="mt-2 rounded-lg border border-green-200 bg-green-50 p-2 sm:mt-4 sm:p-3">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -675,28 +696,28 @@ ${contratoProcessado}
                 </div>
               </div>
             )}
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+            <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-4">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
+                <div className="min-w-0">
+                  <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                     Título do Evento
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                    className={FIELD_INPUT_CLASS}
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="min-w-0">
+                  <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                     Status
                   </label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as Agendamento['extendedProps']['status'] })}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                    className={FIELD_INPUT_CLASS}
                   >
                     <option value="pendente">Pendente</option>
                     <option value="confirmado">Confirmado</option>
@@ -705,46 +726,104 @@ ${contratoProcessado}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data e Hora Início
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.start}
-                    onChange={handleStartDateChange}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
-                    required
-                  />
+              <div className="grid grid-cols-1 gap-3 min-w-0 sm:grid-cols-2 sm:gap-3">
+                <div className="min-w-0 space-y-1.5">
+                  <span className="block text-xs font-medium text-gray-800 sm:text-sm">Início</span>
+                  <div className="grid grid-cols-2 gap-2 min-w-0">
+                    <div className="min-w-0">
+                      <label htmlFor="ag-inicio-data" className="mb-0.5 block text-[11px] text-gray-500 sm:text-xs">
+                        Data
+                      </label>
+                      <input
+                        id="ag-inicio-data"
+                        type="date"
+                        value={splitDateTime(formData.start).date}
+                        onChange={(e) => {
+                          const time = splitDateTime(formData.start).time || '09:00';
+                          const merged = mergeDateTime(e.target.value, time);
+                          setFormData((prev) => ({ ...prev, start: merged, end: merged }));
+                        }}
+                        className={FIELD_INPUT_CLASS}
+                        required
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label htmlFor="ag-inicio-hora" className="mb-0.5 block text-[11px] text-gray-500 sm:text-xs">
+                        Hora
+                      </label>
+                      <input
+                        id="ag-inicio-hora"
+                        type="time"
+                        value={splitDateTime(formData.start).time || '09:00'}
+                        onChange={(e) => {
+                          const date = splitDateTime(formData.start).date;
+                          const merged = mergeDateTime(date, e.target.value);
+                          setFormData((prev) => ({ ...prev, start: merged, end: merged }));
+                        }}
+                        className={FIELD_INPUT_CLASS}
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data e Hora Término
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.end}
-                    onChange={(e) => setFormData({ ...formData, end: e.target.value })}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
-                  />
+                <div className="min-w-0 space-y-1.5">
+                  <span className="block text-xs font-medium text-gray-800 sm:text-sm">Término</span>
+                  <div className="grid grid-cols-2 gap-2 min-w-0">
+                    <div className="min-w-0">
+                      <label htmlFor="ag-term-data" className="mb-0.5 block text-[11px] text-gray-500 sm:text-xs">
+                        Data
+                      </label>
+                      <input
+                        id="ag-term-data"
+                        type="date"
+                        value={splitDateTime(formData.end || formData.start).date}
+                        onChange={(e) => {
+                          const base = formData.end || formData.start;
+                          const time = splitDateTime(base).time || '10:00';
+                          setFormData((prev) => ({
+                            ...prev,
+                            end: mergeDateTime(e.target.value, time),
+                          }));
+                        }}
+                        className={FIELD_INPUT_CLASS}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label htmlFor="ag-term-hora" className="mb-0.5 block text-[11px] text-gray-500 sm:text-xs">
+                        Hora
+                      </label>
+                      <input
+                        id="ag-term-hora"
+                        type="time"
+                        value={splitDateTime(formData.end || formData.start).time || '10:00'}
+                        onChange={(e) => {
+                          const date = splitDateTime(formData.end || formData.start).date;
+                          setFormData((prev) => ({
+                            ...prev,
+                            end: mergeDateTime(date, e.target.value),
+                          }));
+                        }}
+                        className={FIELD_INPUT_CLASS}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
+                <div className="min-w-0">
+                  <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                     Solicitante
                   </label>
                   <input
                     type="text"
                     value={formData.solicitante}
                     onChange={(e) => setFormData({ ...formData, solicitante: e.target.value })}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                    className={FIELD_INPUT_CLASS}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="min-w-0">
+                  <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                     Telefone
                   </label>
                   <input
@@ -752,40 +831,40 @@ ${contratoProcessado}
                     value={formData.telefone}
                     onChange={handlePhoneChange}
                     placeholder="(00) 00000-0000"
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                    className={FIELD_INPUT_CLASS}
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="min-w-0">
+                <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                   Email
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                  className={FIELD_INPUT_CLASS}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="min-w-0">
+                <label className="mb-0.5 block text-xs font-medium text-gray-700 sm:text-sm">
                   Observações
                 </label>
                 <textarea
                   value={formData.observacoes}
                   onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                  rows={2}
+                  className={`${FIELD_INPUT_CLASS} resize-y sm:min-h-[5rem]`}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 sm:flex sm:gap-2">
+              <div className="flex flex-col gap-1.5 pt-1 sm:flex-row sm:flex-wrap sm:gap-2">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark disabled:opacity-50 sm:px-4 sm:text-sm"
+                  className="w-full rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark disabled:opacity-50 sm:w-auto sm:px-4 sm:text-sm"
                 >
                   {isSubmitting ? 'Salvando...' : (selectedAgendamento ? 'Atualizar' : 'Criar')}
                 </button>
@@ -797,7 +876,7 @@ ${contratoProcessado}
                         setShowModal(false);
                         handleContrato(selectedAgendamento);
                       }}
-                      className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:px-4 sm:text-sm"
+                      className="w-full rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:w-auto sm:px-4 sm:text-sm"
                     >
                       Contrato
                     </button>
@@ -809,7 +888,7 @@ ${contratoProcessado}
                           setShowModal(false);
                         }
                       }}
-                      className="rounded-lg bg-red-600 px-3 py-2 text-xs text-white transition-colors hover:bg-red-700 sm:px-4 sm:text-sm"
+                      className="w-full rounded-lg bg-red-600 px-3 py-2 text-xs text-white transition-colors hover:bg-red-700 sm:w-auto sm:px-4 sm:text-sm"
                     >
                       Excluir
                     </button>
@@ -818,12 +897,13 @@ ${contratoProcessado}
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-200 sm:px-4 sm:text-sm"
+                  className="w-full rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto sm:px-4 sm:text-sm"
                 >
                   Cancelar
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

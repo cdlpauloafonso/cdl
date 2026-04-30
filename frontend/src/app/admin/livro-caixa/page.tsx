@@ -745,8 +745,8 @@ export default function LivroCaixaPage() {
 
       {/* Modal de Adicionar Transação */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="mx-3 w-full max-w-md rounded-lg bg-white p-6 sm:mx-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center sm:p-4">
+          <div className="my-4 w-full max-w-md rounded-lg bg-white p-4 sm:my-0 sm:p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {editingTransacaoId ? 'Editar Transação' : 'Adicionar Transação'}
             </h3>
@@ -757,7 +757,7 @@ export default function LivroCaixaPage() {
                   type="date" 
                   value={formData.data}
                   onChange={(e) => handleInputChange('data', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm" 
                 />
               </div>
               <div>
@@ -767,7 +767,7 @@ export default function LivroCaixaPage() {
                   placeholder="Descrição da transação" 
                   value={formData.descricao}
                   onChange={(e) => handleInputChange('descricao', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm" 
                 />
               </div>
               <div>
@@ -775,7 +775,7 @@ export default function LivroCaixaPage() {
                 <select 
                   value={formData.categoria}
                   onChange={(e) => handleInputChange('categoria', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm"
                   disabled={categorias.length === 0}
                 >
                   {categorias.length === 0 ? (
@@ -798,8 +798,8 @@ export default function LivroCaixaPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="tipo" 
@@ -810,7 +810,7 @@ export default function LivroCaixaPage() {
                     />
                     Entrada
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="tipo" 
@@ -830,14 +830,14 @@ export default function LivroCaixaPage() {
                   placeholder="R$ 0,00" 
                   value={formData.valor}
                   onChange={(e) => handleInputChange('valor', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base [appearance:textfield] sm:text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" 
                   style={{ MozAppearance: 'textfield' }}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pagamento</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="metodoPagamento" 
@@ -848,7 +848,7 @@ export default function LivroCaixaPage() {
                     />
                     PIX
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="metodoPagamento" 
@@ -859,7 +859,7 @@ export default function LivroCaixaPage() {
                     />
                     Cartão
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="metodoPagamento" 
@@ -874,8 +874,8 @@ export default function LivroCaixaPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="status" 
@@ -886,7 +886,7 @@ export default function LivroCaixaPage() {
                     />
                     Confirmado
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex min-w-0 items-center">
                     <input 
                       type="radio" 
                       name="status" 
@@ -899,10 +899,10 @@ export default function LivroCaixaPage() {
                   </label>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark"
+                  className="w-full rounded-lg bg-cdl-blue px-4 py-2 text-white hover:bg-cdl-blue-dark sm:w-auto"
                 >
                   Salvar
                 </button>
@@ -912,7 +912,7 @@ export default function LivroCaixaPage() {
                     setShowAddModal(false);
                     setEditingTransacaoId(null);
                   }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="w-full rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200 sm:w-auto"
                 >
                   Cancelar
                 </button>
