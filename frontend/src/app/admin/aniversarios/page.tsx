@@ -867,6 +867,11 @@ export default function AniversariosPage() {
                       <option value="'Georgia', serif">Georgia</option>
                       <option value="'Brush Script MT', cursive">Brush Script</option>
                       <option value="'Segoe Script', cursive">Segoe Script</option>
+                      <option value="'Lucida Handwriting', cursive">Lucida Handwriting</option>
+                      <option value="'Monotype Corsiva', cursive">Monotype Corsiva</option>
+                      <option value="'Apple Chancery', cursive">Apple Chancery</option>
+                      <option value="'Snell Roundhand', cursive">Snell Roundhand</option>
+                      <option value="'URW Chancery L', cursive">URW Chancery</option>
                       <option value="cursive">Cursiva padrão</option>
                     </select>
                   </div>
@@ -904,6 +909,11 @@ export default function AniversariosPage() {
                       <option value="'Georgia', serif">Georgia</option>
                       <option value="'Brush Script MT', cursive">Brush Script</option>
                       <option value="'Segoe Script', cursive">Segoe Script</option>
+                      <option value="'Lucida Handwriting', cursive">Lucida Handwriting</option>
+                      <option value="'Monotype Corsiva', cursive">Monotype Corsiva</option>
+                      <option value="'Apple Chancery', cursive">Apple Chancery</option>
+                      <option value="'Snell Roundhand', cursive">Snell Roundhand</option>
+                      <option value="'URW Chancery L', cursive">URW Chancery</option>
                       <option value="cursive">Cursiva padrão</option>
                     </select>
                   </div>

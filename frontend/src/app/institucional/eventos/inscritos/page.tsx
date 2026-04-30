@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getCampaign, listEventInscriptions, type Campaign, type EventInscriptionRecord } from '@/lib/firestore';
 import {
@@ -46,7 +46,7 @@ function formatDateBr(iso: string): string {
   }
 }
 
-export default function PublicEventInscriptionsPage() {
+function PublicEventInscriptionsContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('eventId') ?? '';
 
@@ -152,5 +152,19 @@ export default function PublicEventInscriptionsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function PublicEventInscriptionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto w-full max-w-6xl px-4 py-10">
+          <p className="text-cdl-gray-text">Carregando inscritos...</p>
+        </main>
+      }
+    >
+      <PublicEventInscriptionsContent />
+    </Suspense>
   );
 }
