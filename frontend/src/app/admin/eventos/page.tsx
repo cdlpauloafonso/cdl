@@ -206,17 +206,39 @@ export default function AdminEventosPage() {
                         </button>
                         <Link
                           href={`/admin/campanhas/edit?id=${ev.id}`}
-                          className="inline-flex h-8 items-center rounded-md bg-cdl-blue/10 px-2 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15"
+                          title="Editar evento"
+                          aria-label="Editar evento"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-cdl-blue/10 text-cdl-blue ring-1 ring-cdl-blue/15"
                         >
-                          Editar
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
                         </Link>
                         <button
                           type="button"
                           onClick={() => abrirConfirmacaoExclusao(ev)}
                           disabled={deletingId === ev.id}
-                          className="inline-flex h-8 items-center rounded-md bg-red-50 px-2 text-xs font-medium text-red-700 ring-1 ring-red-100 disabled:opacity-50"
+                          title="Excluir evento"
+                          aria-label="Excluir evento"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100 disabled:opacity-50"
                         >
-                          {deletingId === ev.id ? '…' : 'Excluir'}
+                          {deletingId === ev.id ? (
+                            '…'
+                          ) : (
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          )}
                         </button>
                       </div>
                     </article>
@@ -318,17 +340,39 @@ export default function AdminEventosPage() {
                               </button>
                               <Link
                                 href={`/admin/campanhas/edit?id=${ev.id}`}
-                                className="inline-flex h-8 shrink-0 items-center rounded-md bg-cdl-blue/10 px-2 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15 transition-colors hover:bg-cdl-blue/15"
+                                title="Editar evento"
+                                aria-label="Editar evento"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-cdl-blue/10 text-cdl-blue ring-1 ring-cdl-blue/15 transition-colors hover:bg-cdl-blue/15"
                               >
-                                Editar
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                  />
+                                </svg>
                               </Link>
                               <button
                                 type="button"
                                 onClick={() => abrirConfirmacaoExclusao(ev)}
                                 disabled={deletingId === ev.id}
-                                className="inline-flex h-8 shrink-0 items-center rounded-md bg-red-50 px-2 text-xs font-medium text-red-700 ring-1 ring-red-100 transition-colors hover:bg-red-100 disabled:opacity-50"
+                                title="Excluir evento"
+                                aria-label="Excluir evento"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100 transition-colors hover:bg-red-100 disabled:opacity-50"
                               >
-                                {deletingId === ev.id ? '…' : 'Excluir'}
+                                {deletingId === ev.id ? (
+                                  '…'
+                                ) : (
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                )}
                               </button>
                             </div>
                           </td>

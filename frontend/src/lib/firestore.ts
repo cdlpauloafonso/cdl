@@ -460,6 +460,8 @@ export type CarouselSlide = {
   photoLink?: string | null;
   buttons: CarouselButton[];
   order: number;
+  /** true = visível no site; false = oculto/desabilitado */
+  enabled?: boolean;
 };
 
 export async function listCarouselSlides(): Promise<CarouselSlide[]> {
@@ -477,6 +479,7 @@ export async function listCarouselSlides(): Promise<CarouselSlide[]> {
       photoLink: data.photoLink ?? null,
       buttons: Array.isArray(data.buttons) ? data.buttons : [],
       order: data.order ?? 0,
+      enabled: data.enabled !== false,
     };
   });
 }
@@ -495,6 +498,7 @@ export async function getCarouselSlide(id: string): Promise<CarouselSlide | null
     photoLink: data?.photoLink ?? null,
     buttons: Array.isArray(data?.buttons) ? data.buttons : [],
     order: data?.order ?? 0,
+    enabled: data?.enabled !== false,
   };
 }
 
@@ -508,6 +512,7 @@ export async function createCarouselSlide(data: Omit<CarouselSlide, 'id'>): Prom
     photoLink: data.photoLink ?? null,
     buttons: data.buttons ?? [],
     order: data.order ?? 0,
+    enabled: data.enabled !== false,
   };
   const ref = await addDoc(col, payload);
   return ref.id;
@@ -523,6 +528,7 @@ export async function updateCarouselSlide(id: string, data: Partial<CarouselSlid
   if (data.photoLink !== undefined) payload.photoLink = data.photoLink;
   if (data.buttons !== undefined) payload.buttons = data.buttons;
   if (data.order !== undefined) payload.order = data.order;
+  if (data.enabled !== undefined) payload.enabled = data.enabled;
   await updateDoc(ref, payload);
 }
 
@@ -1343,6 +1349,7 @@ export interface Contrato {
   id?: string;
   nome: string;
   conteudo: string;
+  rodape?: string;
   campos?: string[];
   imagens?: string[];
   criado_em: string;

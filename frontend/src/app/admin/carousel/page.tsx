@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCarouselSlides, deleteCarouselSlide, type CarouselSlide } from '@/lib/firestore';
+import { listCarouselSlides, deleteCarouselSlide, updateCarouselSlide, type CarouselSlide } from '@/lib/firestore';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 
 export default function CarouselPage() {
   const [slides, setSlides] = useState<CarouselSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSlides();
@@ -34,6 +35,19 @@ export default function CarouselPage() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Erro ao excluir slide:', error);
+    }
+  };
+
+  const handleToggleEnabled = async (slide: CarouselSlide) => {
+    if (!slide.id) return;
+    setUpdatingStatusId(slide.id);
+    try {
+      await updateCarouselSlide(slide.id, { enabled: slide.enabled === false });
+      await loadSlides();
+    } catch (error) {
+      console.error('Erro ao atualizar status do slide:', error);
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
@@ -89,6 +103,13 @@ export default function CarouselPage() {
                       <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-[11px]">
                         Ordem {slide.order}
                       </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium sm:text-[11px] ${
+                          slide.enabled === false ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {slide.enabled === false ? 'Desabilitado' : 'Ativo'}
+                      </span>
                     </div>
                     {slide.description ? (
                       <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-600">{slide.description}</p>
@@ -107,6 +128,18 @@ export default function CarouselPage() {
                     )}
                   </div>
                   <div className="flex shrink-0 gap-1 sm:ml-auto sm:flex-col sm:gap-1 md:flex-row md:gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleEnabled(slide)}
+                      disabled={updatingStatusId === slide.id}
+                      className="rounded-md px-2 py-1 text-left text-xs font-medium text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50 sm:px-2.5 sm:py-1.5"
+                    >
+                      {updatingStatusId === slide.id
+                        ? 'Salvando...'
+                        : slide.enabled === false
+                          ? 'Habilitar'
+                          : 'Desabilitar'}
+                    </button>
                     <Link
                       href={`/admin/carousel/${slide.id}/edit`}
                       className="rounded-md px-2 py-1 text-xs font-medium text-cdl-blue transition-colors hover:bg-cdl-blue/10 sm:px-2.5 sm:py-1.5"

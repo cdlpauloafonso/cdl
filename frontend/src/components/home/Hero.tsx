@@ -23,9 +23,10 @@ export function Hero() {
   useEffect(() => {
     listCarouselSlides()
       .then((items) => {
-        if (items.length > 0) {
+        const enabledItems = items.filter((item) => item.enabled !== false);
+        if (enabledItems.length > 0) {
           setSlides(
-            items.map((s) => ({
+            enabledItems.map((s) => ({
               title: s.title,
               subtitle: s.description,
               photo: s.photo,

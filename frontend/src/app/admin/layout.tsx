@@ -18,7 +18,7 @@ const adminNav = [
       { href: '/admin/associados/planos', label: 'Planos' },
     ],
   },
-  { href: '/admin/aniversarios', label: 'Aniversários' },
+  { href: '/admin/aniversarios', label: 'Aniversariantes' },
   { href: '/admin/eventos', label: 'Eventos' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
@@ -28,10 +28,10 @@ const adminNav = [
       label: 'Auditório',
       children: [
         { href: '/admin/agendamentos', label: 'Agenda' },
-        { href: '/admin/contratos', label: 'Contrato' },
         { href: '/admin/auditorio', label: 'Auditório' },
       ],
     },
+  { href: '/admin/contratos', label: 'Contratos' },
     {
       label: 'Soluções para Empresas',
       children: [
@@ -171,19 +171,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
       <aside
         className={`${
-          sidebarCollapsed ? 'lg:w-16' : 'lg:w-56'
-        } fixed left-0 top-0 bottom-0 z-50 w-72 max-w-[85vw] -translate-x-full bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 lg:z-40 lg:w-auto lg:max-w-none lg:translate-x-0 ${
+          sidebarCollapsed ? 'lg:w-0 lg:min-w-0 lg:border-r-0' : 'lg:w-60'
+        } fixed left-0 top-0 bottom-0 z-50 w-72 max-w-[85vw] -translate-x-full border-r border-slate-800/80 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900 text-slate-100 flex flex-col transition-all duration-300 lg:z-40 lg:max-w-none lg:translate-x-0 ${
+          sidebarCollapsed ? 'overflow-hidden' : 'overflow-visible'
+        } ${
           mobileMenuOpen ? 'translate-x-0' : ''
         }`}
       >
-        <div className="p-4 border-b border-gray-200 flex justify-start">
+        <div className={`${sidebarCollapsed ? 'lg:hidden' : 'flex'} justify-start border-b border-slate-800/90 p-4`}>
           <Link href="/" className="flex items-center">
             <Image 
               src="/logo.png" 
               alt="CDL Paulo Afonso" 
-              width={sidebarCollapsed ? 40 : 85} 
-              height={sidebarCollapsed ? 15 : 31} 
-              className="h-7 w-auto object-contain transition-all duration-300" 
+              width={85} 
+              height={31} 
+              className="h-7 w-auto object-contain opacity-95 transition-all duration-300" 
             />
           </Link>
         </div>
@@ -191,7 +193,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Botão de retrair/expandir */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute -right-3 top-8 hidden rounded-full bg-cdl-blue p-1.5 text-white shadow-lg transition-colors hover:bg-cdl-blue-dark lg:block"
+          className={`absolute hidden rounded-full border border-slate-700 bg-slate-800 p-1.5 text-slate-100 shadow-lg shadow-black/30 transition-colors hover:bg-slate-700 lg:block ${
+            sidebarCollapsed ? 'left-2 top-4' : '-right-3 top-8'
+          }`}
           aria-label={sidebarCollapsed ? 'Expandir menu' : 'Retrair menu'}
         >
           <svg
@@ -203,20 +207,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+        <nav className={`${sidebarCollapsed ? 'lg:hidden' : ''} flex-1 space-y-0.5 overflow-y-auto p-2.5`}>
           {adminNav.map((item) =>
             'children' in item ? (
-              <div key={item.label} className="mb-1">
+              <div key={item.label} className="mb-0.5">
                 <button
                   onClick={() => toggleMenu(item.label)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold transition-colors text-left border ${
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left text-[13px] font-semibold transition-colors ${
                     expandedMenus.has(item.label)
-                      ? 'bg-cdl-blue text-white border-cdl-blue'
-                      : 'text-gray-800 border-gray-300 hover:bg-gray-100 hover:border-gray-400'
+                      ? 'border-cyan-500/70 bg-cyan-500/20 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.25)]'
+                      : 'border-slate-800 bg-slate-900/60 text-slate-200 hover:border-slate-700 hover:bg-slate-800/90'
                   }`}
                   title={sidebarCollapsed ? item.label : undefined}
                 >
-                  <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>{item.label}</span>
+                  <span className={`min-w-0 flex-1 truncate whitespace-nowrap ${sidebarCollapsed ? 'hidden' : ''}`}>
+                    {item.label}
+                  </span>
                   <svg
                     className={`w-4 h-4 transition-transform flex-shrink-0 ${
                       expandedMenus.has(item.label) ? 'rotate-90' : ''
@@ -229,15 +235,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </svg>
                 </button>
                 {expandedMenus.has(item.label) && !sidebarCollapsed && (
-                  <div className="mt-1 space-y-0.5">
+                  <div className="mt-0.5 space-y-0.5">
                     {(item.children ?? []).map((child) => (
                       <Link
                         key={child.href}
                         href={child.href}
-                        className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ml-4 ${
+                        className={`ml-2.5 block rounded-md border-l-2 px-2.5 py-1.5 text-[13px] transition-colors ${
                           isNavChildActive(pathname, child.href)
-                            ? 'bg-cdl-blue text-white'
-                            : 'text-gray-600 hover:bg-cdl-gray'
+                            ? 'border-cyan-400 bg-cyan-500/15 font-medium text-cyan-100'
+                            : 'border-transparent text-slate-400 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200'
                         }`}
                       >
                         {child.label}
@@ -250,10 +256,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
-                className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`block rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
                   (item.href === '/admin/eventos' ? pathname.startsWith('/admin/eventos') : pathname === item.href)
-                    ? 'bg-cdl-blue text-white'
-                    : 'text-gray-700 hover:bg-cdl-gray'
+                    ? 'border border-cyan-500/70 bg-cyan-500/20 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.25)]'
+                    : 'border border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-100'
                 }`}
                 title={sidebarCollapsed ? item.label : undefined}
               >
@@ -262,7 +268,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           )}
         </nav>
-        <div className="p-3 border-t border-gray-200">
+        <div className={`${sidebarCollapsed ? 'lg:hidden' : ''} border-t border-slate-800/90 p-3`}>
           <button
             type="button"
             onClick={async () => {
@@ -275,13 +281,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }
               router.push('/admin/login');
             }}
-            className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+            className="block w-full rounded-xl border border-red-900/40 bg-red-500/10 px-3 py-2 text-left text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20"
           >
             Sair
           </button>
         </div>
       </aside>
-      <div className={`flex-1 lg:min-w-0 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'}`}>
+      {sidebarCollapsed && (
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed(false)}
+          className="fixed left-3 top-4 z-50 hidden rounded-full border border-slate-700 bg-slate-900 p-2 text-slate-100 shadow-lg shadow-black/30 transition-colors hover:bg-slate-800 lg:inline-flex"
+          aria-label="Expandir menu"
+          title="Expandir menu"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+      <div className={`flex-1 lg:min-w-0 ${sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-60'}`}>
         <div className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
           <button
             type="button"

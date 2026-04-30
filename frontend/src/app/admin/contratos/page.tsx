@@ -15,11 +15,13 @@ export default function ContratosPage() {
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [viewContrato, setViewContrato] = useState<Contrato | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
     nome: '',
     conteudo: '',
+    rodape: '',
     campos: [] as string[],
     imagens: [] as string[]
   });
@@ -60,6 +62,7 @@ export default function ContratosPage() {
     setFormData({
       nome: '',
       conteudo: '',
+      rodape: '',
       campos: [],
       imagens: []
     });
@@ -71,6 +74,7 @@ export default function ContratosPage() {
     setFormData({
       nome: contrato.nome,
       conteudo: contrato.conteudo,
+      rodape: contrato.rodape || '',
       campos: contrato.campos || [],
       imagens: contrato.imagens || []
     });
@@ -96,6 +100,7 @@ export default function ContratosPage() {
       const contratoData = {
         nome: formData.nome,
         conteudo: formData.conteudo,
+        rodape: formData.rodape,
         campos: formData.campos,
         imagens: formData.imagens,
         criado_em: new Date().toISOString()
@@ -149,6 +154,52 @@ export default function ContratosPage() {
     });
   };
 
+  const handleExportContratoPdf = async (contrato: Contrato) => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const maxTextWidth = pageWidth - margin * 2;
+      const lineHeight = 6;
+      let y = margin;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      const titleLines = doc.splitTextToSize(contrato.nome || 'Modelo de Contrato', maxTextWidth) as string[];
+      doc.text(titleLines, margin, y);
+      y += titleLines.length * lineHeight + 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      const bodyLines = doc.splitTextToSize(contrato.conteudo || '', maxTextWidth) as string[];
+
+      for (const line of bodyLines) {
+        if (y > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line, margin, y);
+        y += lineHeight;
+      }
+
+      const safeName = (contrato.nome || 'modelo-contrato')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\d-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase()
+        .slice(0, 60);
+
+      doc.save(`${safeName || 'modelo-contrato'}.pdf`);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Não foi possível exportar o PDF agora.');
+    }
+  };
+
   if (!mounted || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -172,29 +223,23 @@ export default function ContratosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-gray-900">Modelos de Contrato</h1>
-              <p className="text-gray-600 mt-1">Gerencie os modelos de contrato para agendamentos</p>
-            </div>
-            <div className="flex w-full gap-2 sm:w-auto">
-              <button
-                onClick={handleCreate}
-                className="w-full rounded-lg bg-cdl-blue px-4 py-2 text-sm text-white transition-colors hover:bg-cdl-blue-dark sm:w-auto"
-              >
-                + Novo Modelo
-              </button>
-            </div>
-          </div>
+    <div className="w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900">Modelos de Contrato</h1>
+          <p className="mt-1 text-gray-600">Gerencie os modelos de contrato para agendamentos</p>
+        </div>
+        <div className="flex w-full sm:w-auto">
+          <button
+            onClick={handleCreate}
+            className="btn-primary w-full px-4 py-2 text-center sm:w-auto"
+          >
+            + Novo Modelo
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200 p-3 sm:p-6">
             <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Modelos Cadastrados</h2>
@@ -220,6 +265,12 @@ export default function ContratosPage() {
                       </div>
                     </div>
                     <div className="flex gap-1.5 sm:ml-4 sm:gap-2">
+                      <button
+                        onClick={() => setViewContrato(contrato)}
+                        className="rounded-lg px-3 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100 sm:text-sm"
+                      >
+                        Ver
+                      </button>
                       <button
                         onClick={() => handleEdit(contrato)}
                         className="rounded-lg px-3 py-1 text-xs text-cdl-blue transition-colors hover:bg-cdl-blue/10 sm:text-sm"
@@ -406,8 +457,58 @@ export default function ContratosPage() {
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Rodapé do Contrato
+                    </label>
+                    <textarea
+                      value={formData.rodape}
+                      onChange={(e) => setFormData({ ...formData, rodape: e.target.value })}
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                      placeholder="Digite o texto do rodapé do contrato..."
+                    />
+                  </div>
                 </form>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de visualização */}
+      {viewContrato && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg bg-white shadow-lg">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Visualizar Modelo</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleExportContratoPdf(viewContrato)}
+                  className="rounded-lg bg-cdl-blue px-3 py-2 text-xs text-white transition-colors hover:bg-cdl-blue-dark sm:text-sm"
+                >
+                  Exportar PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewContrato(null)}
+                  className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-200 sm:text-sm"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[75vh] overflow-y-auto p-4 pr-2 sm:p-6 sm:pr-3">
+              <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                <h3 className="mb-4 text-center text-base font-semibold text-gray-900 sm:text-lg">{viewContrato.nome}</h3>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-900">{viewContrato.conteudo}</div>
+                {viewContrato.rodape?.trim() && (
+                  <div className="mt-8 border-t border-gray-200 pt-4 whitespace-pre-wrap text-sm text-gray-700">
+                    {viewContrato.rodape}
+                  </div>
+                )}
+              </article>
             </div>
           </div>
         </div>

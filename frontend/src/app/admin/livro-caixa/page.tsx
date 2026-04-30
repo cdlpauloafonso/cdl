@@ -13,15 +13,51 @@ import {
   type TransacaoLivroCaixa 
 } from '@/lib/firestore';
 
+function getTodayInputDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForStorage(inputDate: string): string {
+  if (!inputDate) return '';
+  if (inputDate.includes('/')) return inputDate;
+  const [year, month, day] = inputDate.split('-');
+  if (!year || !month || !day) return inputDate;
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateForInput(storedDate: string): string {
+  if (!storedDate) return getTodayInputDate();
+  if (storedDate.includes('-')) return storedDate;
+  const [day, month, year] = storedDate.split('/');
+  if (!day || !month || !year) return getTodayInputDate();
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function parseTransactionDateToTime(value: string): number {
+  if (!value) return Number.NaN;
+  if (value.includes('/')) {
+    const [day, month, year] = value.split('/').map((part) => parseInt(part, 10));
+    if (!day || !month || !year) return Number.NaN;
+    return new Date(year, month - 1, day).getTime();
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? Number.NaN : parsed;
+}
+
 export default function LivroCaixaPage() {
   const [transacoes, setTransacoes] = useState<TransacaoLivroCaixa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTransacaoId, setEditingTransacaoId] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [categorias, setCategorias] = useState<CategoriaLivroCaixa[]>([]);
   const [formData, setFormData] = useState({
-    data: new Date().toLocaleDateString('pt-BR'), // Data atual em formato DD/MM/YYYY
+    data: getTodayInputDate(),
     descricao: '',
     categoria: '',
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -30,6 +66,8 @@ export default function LivroCaixaPage() {
     status: 'confirmado' as 'confirmado' | 'pendente',
   });
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
   const [ordenarPor, setOrdenarPor] = useState('data');
 
   useEffect(() => {
@@ -120,7 +158,7 @@ export default function LivroCaixaPage() {
       
       // Preparar dados para salvar
       const dadosTransacao = {
-        data: formData.data,
+        data: formatDateForStorage(formData.data),
         descricao: formData.descricao.trim(),
         categoria: formData.categoria.trim(),
         tipo: formData.tipo,
@@ -129,8 +167,12 @@ export default function LivroCaixaPage() {
         status: formData.status
       };
       
-      // Salvar no Firestore
-      await createTransacaoLivroCaixa(dadosTransacao);
+      // Salvar no Firestore (criação ou edição)
+      if (editingTransacaoId) {
+        await updateTransacaoLivroCaixa(editingTransacaoId, dadosTransacao);
+      } else {
+        await createTransacaoLivroCaixa(dadosTransacao);
+      }
       
       // Recarregar transações
       const transacoesAtualizadas = await getTransacoesLivroCaixa();
@@ -138,7 +180,7 @@ export default function LivroCaixaPage() {
       
       // Resetar formulário
       setFormData({
-        data: new Date().toLocaleDateString('pt-BR'),
+        data: getTodayInputDate(),
         descricao: '',
         categoria: categorias.length > 0 ? categorias[0].nome : '',
         tipo: 'entrada',
@@ -146,9 +188,10 @@ export default function LivroCaixaPage() {
         metodoPagamento: 'dinheiro',
         status: 'confirmado',
       });
+      setEditingTransacaoId(null);
       setShowAddModal(false);
       
-      alert('Transação cadastrada com sucesso!');
+      alert(editingTransacaoId ? 'Transação atualizada com sucesso!' : 'Transação cadastrada com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar transação:', error);
       alert(error instanceof Error ? error.message : 'Erro ao salvar transação');
@@ -158,8 +201,9 @@ export default function LivroCaixaPage() {
   const handleEditTransacao = async (transacao: TransacaoLivroCaixa) => {
     try {
       // Abrir modal de edição com dados preenchidos
+      setEditingTransacaoId(transacao.id);
       setFormData({
-        data: transacao.data,
+        data: formatDateForInput(transacao.data),
         descricao: transacao.descricao,
         categoria: transacao.categoria,
         tipo: transacao.tipo,
@@ -320,6 +364,23 @@ export default function LivroCaixaPage() {
       if (filtroCategoria === 'todas') return true;
       return transacao.categoria === filtroCategoria;
     })
+    .filter((transacao) => {
+      if (!filtroDataInicio && !filtroDataFim) return true;
+      const transacaoTime = parseTransactionDateToTime(transacao.data);
+      if (Number.isNaN(transacaoTime)) return false;
+
+      if (filtroDataInicio) {
+        const inicioTime = parseTransactionDateToTime(filtroDataInicio);
+        if (!Number.isNaN(inicioTime) && transacaoTime < inicioTime) return false;
+      }
+
+      if (filtroDataFim) {
+        const fimTime = parseTransactionDateToTime(filtroDataFim);
+        if (!Number.isNaN(fimTime) && transacaoTime > fimTime) return false;
+      }
+
+      return true;
+    })
     .sort((a, b) => {
       switch (ordenarPor) {
         case 'data':
@@ -375,7 +436,11 @@ export default function LivroCaixaPage() {
             {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setEditingTransacaoId(null);
+              setFormData((prev) => ({ ...prev, data: getTodayInputDate() }));
+              setShowAddModal(true);
+            }}
             className="btn-primary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs sm:!px-4 sm:!py-2 sm:text-sm"
           >
             Adicionar Transação
@@ -401,7 +466,11 @@ export default function LivroCaixaPage() {
           {exportingCsv ? 'Exportando CSV...' : 'Exportar CSV'}
         </button>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setEditingTransacaoId(null);
+            setFormData((prev) => ({ ...prev, data: getTodayInputDate() }));
+            setShowAddModal(true);
+          }}
           className="btn-primary !px-3 !py-2 text-xs"
         >
           Adicionar Transação
@@ -493,7 +562,7 @@ export default function LivroCaixaPage() {
 
       {/* Filtros */}
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-2.5 lg:mb-6 lg:p-4">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-2.5 lg:gap-3">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-2.5 lg:grid-cols-4 lg:gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Filtrar por Categoria</label>
             <select
@@ -515,6 +584,24 @@ export default function LivroCaixaPage() {
                 </Link>
               </p>
             )}
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Data inicial</label>
+            <input
+              type="date"
+              value={filtroDataInicio}
+              onChange={(e) => setFiltroDataInicio(e.target.value)}
+              className="h-9 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs lg:h-10 lg:px-3 lg:py-2 lg:text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Data final</label>
+            <input
+              type="date"
+              value={filtroDataFim}
+              onChange={(e) => setFiltroDataFim(e.target.value)}
+              className="h-9 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs lg:h-10 lg:px-3 lg:py-2 lg:text-sm"
+            />
           </div>
           <div className="flex-1">
             <label className="mb-1 block text-xs font-medium text-gray-700 lg:text-sm">Ordenar por</label>
@@ -659,8 +746,10 @@ export default function LivroCaixaPage() {
       {/* Modal de Adicionar Transação */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Adicionar Transação</h3>
+          <div className="mx-3 w-full max-w-md rounded-lg bg-white p-6 sm:mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingTransacaoId ? 'Editar Transação' : 'Adicionar Transação'}
+            </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
@@ -812,17 +901,20 @@ export default function LivroCaixaPage() {
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                >
-                  Cancelar
-                </button>
-                <button
                   type="submit"
                   className="px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark"
                 >
                   Salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setEditingTransacaoId(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancelar
                 </button>
               </div>
             </form>

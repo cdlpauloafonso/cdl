@@ -79,6 +79,7 @@ export default function AdminEventoInscritosPage() {
   const [showDateColumn, setShowDateColumn] = useState(true);
   const [showSignatureColumn, setShowSignatureColumn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [sharingPublicLink, setSharingPublicLink] = useState(false);
   const [quickEditMode, setQuickEditMode] = useState(false);
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
   const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, Record<string, string>>>({});
@@ -135,6 +136,10 @@ export default function AdminEventoInscritosPage() {
     [campanha]
   );
   const displayPaymentColumn = eventHasConfiguredPayment && showPaymentColumn;
+  const publicListUrl = useMemo(() => {
+    if (!eventId || typeof window === 'undefined') return '';
+    return `${window.location.origin}/institucional/eventos/inscritos?eventId=${encodeURIComponent(eventId)}`;
+  }, [eventId]);
 
   useEffect(() => {
     if (!eventHasConfiguredPayment && sortBy === 'paymentStatus') {
@@ -452,6 +457,31 @@ export default function AdminEventoInscritosPage() {
     }
   }
 
+  async function sharePublicListLink() {
+    if (!publicListUrl) return;
+    setSharingPublicLink(true);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({
+          title: campanha?.title ? `Inscritos - ${campanha.title}` : 'Inscritos no evento',
+          text: 'Confira a lista pública de inscritos no evento.',
+          url: publicListUrl,
+        });
+        return;
+      }
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(publicListUrl);
+        alert('Link público copiado para a área de transferência.');
+        return;
+      }
+      window.prompt('Copie o link público:', publicListUrl);
+    } catch {
+      alert('Não foi possível compartilhar o link público agora.');
+    } finally {
+      setSharingPublicLink(false);
+    }
+  }
+
   if (!eventId) {
     return (
       <div>
@@ -528,6 +558,14 @@ export default function AdminEventoInscritosPage() {
               Excluir selecionados ({selectedCount})
             </button>
           )}
+          <button
+            type="button"
+            disabled={!publicListUrl || sharingPublicLink}
+            onClick={() => void sharePublicListLink()}
+            className="w-full rounded-lg border border-cdl-blue bg-white px-3 py-2 text-sm font-medium text-cdl-blue hover:bg-blue-50 disabled:opacity-50 sm:w-auto"
+          >
+            {sharingPublicLink ? 'Compartilhando...' : 'Link público'}
+          </button>
           <button
             type="button"
             disabled={exportingPdf || filteredRows.length === 0 || !campanha}

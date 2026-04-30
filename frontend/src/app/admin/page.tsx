@@ -109,6 +109,27 @@ export default function AdminDashboardPage() {
     }
   };
 
+  async function compartilharAniversariante(item: { nome: string; empresa: string; data: string }) {
+    const texto = `🎉 Parabéns a ${item.nome} da ${item.empresa} por mais um ano de vida! (${item.data})`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({
+          title: `Aniversariante CDL - ${item.nome}`,
+          text: texto,
+        });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(texto);
+        alert('Texto de aniversário copiado para a área de transferência.');
+        return;
+      }
+      window.prompt('Copie o texto:', texto);
+    } catch {
+      alert('Não foi possível compartilhar agora.');
+    }
+  }
+
   return (
     <div className="w-full max-w-full overflow-x-hidden">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -283,6 +304,60 @@ export default function AdminDashboardPage() {
                       <span className="flex-shrink-0 rounded-full bg-pink-100 px-2 py-1 text-[11px] font-medium text-pink-800 sm:text-xs">
                         {aniversariante.data}
                       </span>
+                      <div className="ml-2 flex shrink-0 items-center gap-1">
+                        <Link
+                          href="/admin/aniversarios"
+                          title="Ver aniversariantes"
+                          aria-label="Ver aniversariantes"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-cdl-blue/10 text-cdl-blue ring-1 ring-cdl-blue/15 hover:bg-cdl-blue/15"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        </Link>
+                        <Link
+                          href="/admin/aniversarios"
+                          title="Abrir card de aniversário"
+                          aria-label="Abrir card de aniversário"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 text-purple-700 ring-1 ring-purple-200 hover:bg-purple-100"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 7h18M7 3h10l1 4H6l1-4zm-2 4h14v14H5V7zm8 4v6m-3-3h6"
+                            />
+                          </svg>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void compartilharAniversariante(aniversariante)}
+                          title="Compartilhar aniversariante"
+                          aria-label="Compartilhar aniversariante"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8.684 13.342C9.113 12.458 10 11.833 11 11.833c1 0 1.887.625 2.316 1.509M15 8a3 3 0 11-6 0 3 3 0 016 0zM19 21H5a2 2 0 01-2-2v-1a4 4 0 014-4h10a4 4 0 014 4v1a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
