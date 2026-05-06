@@ -50,7 +50,7 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
   const isExternalLink = (href: string) => /^https?:\/\//i.test(href);
 
   return (
-    <section className="relative overflow-hidden h-[500px] sm:h-[600px] lg:h-[650px]">
+    <section className="relative w-full overflow-hidden aspect-[16/9] min-h-[200px] sm:aspect-auto sm:min-h-0 sm:h-[600px] lg:h-[650px]">
       {/* Slides */}
       <div className="relative h-full">
         {slides.map((slide, index) => {
@@ -70,19 +70,29 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
               aria-hidden={index !== currentIndex}
             >
               {/* Background: foto ou gradiente */}
-              <div className="absolute inset-0 -z-10 h-full">
+              <div className="absolute inset-0 -z-10 h-full bg-cdl-blue-dark">
                 {slide.photo ? (
                   <>
                     <Image
                       src={slide.photo}
                       alt=""
                       fill
-                      className="object-cover"
+                      className="object-cover scale-125 blur-3xl opacity-90 sm:opacity-70"
                       sizes="100vw"
                       unoptimized={slide.photo.startsWith('http')}
+                      aria-hidden="true"
+                    />
+                    <img
+                      src={slide.photo}
+                      alt=""
+                      className="absolute left-0 top-1/2 w-full h-auto -translate-y-1/2 max-w-none"
+                    />
+                    <div
+                      className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,rgba(23,37,84,0.28)_0%,transparent_12%,transparent_88%,rgba(23,37,84,0.28)_100%),linear-gradient(to_bottom,rgba(23,37,84,0.18)_0%,transparent_16%,transparent_84%,rgba(23,37,84,0.18)_100%)]"
+                      aria-hidden="true"
                     />
                     {!isPhotoOnlySlide && (
-                      <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue/90 via-cdl-blue-dark/85 to-cdl-blue/90" />
+                      <div className="absolute inset-0 h-full bg-gradient-to-br from-cdl-blue/55 via-cdl-blue-dark/45 to-cdl-blue/55 sm:from-cdl-blue/90 sm:via-cdl-blue-dark/85 sm:to-cdl-blue/90" />
                     )}
                   </>
                 ) : (
@@ -97,24 +107,24 @@ export function HeroCarousel({ slides, autoSlideInterval = 5000 }: HeroCarouselP
               )}
 
               {!isPhotoOnlySlide && (
-                <div className="container-cdl relative w-full flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
-                  <div className="max-w-3xl">
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                <div className="container-cdl relative w-full flex-1 flex flex-col justify-center px-3 sm:px-6 lg:px-8">
+                  <div className="max-w-3xl pt-6 sm:pt-0">
+                    <h1 className="text-xl sm:text-4xl lg:text-5xl font-bold text-white leading-snug sm:leading-tight text-balance">
                       {slide.title}
                     </h1>
-                    <p className="mt-6 text-lg sm:text-xl text-blue-100/95 leading-relaxed">
+                    <p className="mt-2 sm:mt-6 text-sm sm:text-xl text-blue-100/95 leading-snug sm:leading-relaxed max-w-[48ch]">
                       {slide.subtitle}
                     </p>
                     {slide.buttons && slide.buttons.length > 0 && (
-                      <div className="mt-10 flex flex-wrap gap-4">
+                      <div className="mt-3 sm:mt-10 flex flex-col sm:flex-row sm:flex-wrap gap-1.5 sm:gap-4">
                         {slide.buttons.map((btn, i) => (
                           <Link
                             key={i}
                             href={btn.href}
                             className={
                               i === 0
-                                ? 'inline-flex items-center rounded-lg bg-white px-6 py-3.5 text-base font-semibold text-cdl-blue shadow-sm hover:bg-blue-50 transition-colors'
-                                : 'inline-flex items-center rounded-lg border-2 border-white/80 px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors'
+                                ? 'inline-flex w-full sm:w-auto justify-center items-center rounded-lg bg-white px-3 sm:px-6 py-2 sm:py-3.5 text-xs sm:text-base font-semibold text-cdl-blue shadow-sm hover:bg-blue-50 transition-colors'
+                                : 'inline-flex w-full sm:w-auto justify-center items-center rounded-lg border-2 border-white/80 px-3 sm:px-6 py-2 sm:py-3.5 text-xs sm:text-base font-semibold text-white hover:bg-white/10 transition-colors'
                             }
                           >
                             {btn.text}

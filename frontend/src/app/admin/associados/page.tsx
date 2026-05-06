@@ -336,13 +336,17 @@ export default function AdminAssociadosPage() {
   const filteredAssociados = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     const filtered = associados.filter((associado) => {
+      const matchAniversariante = (associado.aniversariantes ?? []).some((aniversariante) =>
+        (aniversariante.nome ?? '').toLowerCase().includes(term)
+      );
       const matchSearch =
         !term ||
         associado.nome.toLowerCase().includes(term) ||
         associado.empresa.toLowerCase().includes(term) ||
         (associado.razao_social || '').toLowerCase().includes(term) ||
         associado.cnpj.includes(searchTerm) ||
-        associado.email.toLowerCase().includes(term);
+        associado.email.toLowerCase().includes(term) ||
+        matchAniversariante;
       const matchPlano = selectedPlano === 'todos' || associado.plano === selectedPlano;
       const matchCidade = selectedCidade === 'todas' || associado.cidade === selectedCidade;
       const matchStatus = selectedStatus === 'todos' || (associado.status ?? 'ativo') === selectedStatus;
@@ -594,7 +598,7 @@ export default function AdminAssociadosPage() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Buscar por nome, empresa, razão social, CNPJ ou email..."
+                placeholder="Buscar por nome, empresa, aniversariante, razão social, CNPJ ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue sm:h-11 sm:px-4 sm:py-3 sm:pl-10"

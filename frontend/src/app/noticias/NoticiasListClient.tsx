@@ -43,18 +43,24 @@ export function NoticiasListClient() {
       {items.map((n) => (
         <Link
           key={n.id!}
-          href={`/noticias/ver?slug=${encodeURIComponent(n.slug)}`}
-          className="group flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-cdl-blue/30 hover:shadow-lg transition-all duration-300"
+          href={`/noticias/${encodeURIComponent(n.slug)}`}
+          className="group flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-cdl-blue/30 hover:shadow-lg hover:-translate-y-0.5 hover:scale-[1.01] transition-all duration-300"
         >
           <div className="relative aspect-video bg-gradient-to-br from-cdl-blue/10 via-cdl-blue/5 to-transparent overflow-hidden">
             {n.image ? (
-              <Image
-                src={n.image.startsWith('http') ? n.image : n.image}
-                alt={n.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              />
+              <>
+                <Image
+                  src={n.image.startsWith('http') ? n.image : n.image}
+                  alt={n.title}
+                  fill
+                  className="object-cover group-hover:scale-110 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
+                <div
+                  className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.14)_0%,transparent_16%,transparent_84%,rgba(15,23,42,0.14)_100%),linear-gradient(to_bottom,rgba(15,23,42,0.1)_0%,transparent_20%,transparent_80%,rgba(15,23,42,0.1)_100%)]"
+                  aria-hidden="true"
+                />
+              </>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center p-6">

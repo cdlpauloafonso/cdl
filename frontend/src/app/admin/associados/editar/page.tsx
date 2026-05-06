@@ -38,6 +38,8 @@ function EditarAssociadoContent() {
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
   const cnpjLookupReq = useRef(0);
   const formRef = useRef<HTMLFormElement | null>(null);
   const initialSnapshotRef = useRef('');
@@ -105,18 +107,8 @@ function EditarAssociadoContent() {
       router.push(targetHref);
       return;
     }
-
-    const shouldSave = window.confirm('Você fez alterações não salvas. Deseja salvar antes de sair?');
-    if (shouldSave) {
-      setPendingRedirect(targetHref);
-      formRef.current?.requestSubmit();
-      return;
-    }
-
-    const shouldDiscard = window.confirm('Deseja sair sem salvar as alterações?');
-    if (shouldDiscard) {
-      router.push(targetHref);
-    }
+    setPendingLeaveHref(targetHref);
+    setShowLeaveModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -647,6 +639,41 @@ function EditarAssociadoContent() {
                 className="w-full px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
               >
                 Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLeaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Deseja sair sem salvar as alterações?</h3>
+            <p className="mt-2 text-sm text-cdl-gray-text">
+              As mudanças feitas neste cadastro serão perdidas.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveModal(false);
+                  setPendingLeaveHref(null);
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Continuar editando
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = pendingLeaveHref ?? '/admin/associados';
+                  setShowLeaveModal(false);
+                  setPendingLeaveHref(null);
+                  router.push(target);
+                }}
+                className="rounded-lg bg-cdl-blue px-4 py-2 text-sm font-semibold text-white hover:bg-cdl-blue-dark"
+              >
+                Sair sem salvar
               </button>
             </div>
           </div>

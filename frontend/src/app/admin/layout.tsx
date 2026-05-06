@@ -104,6 +104,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
 
+  // Bloqueia zoom por gesto apenas no painel administrativo mobile.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!pathname.startsWith('/admin')) return;
+
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) return;
+
+    const previousViewport = viewportMeta.getAttribute('content');
+    viewportMeta.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+    );
+
+    return () => {
+      if (previousViewport) viewportMeta.setAttribute('content', previousViewport);
+    };
+  }, [pathname]);
+
   const toggleMenu = (label: string) => {
     setExpandedMenus(prev => {
       const newSet = new Set(prev);

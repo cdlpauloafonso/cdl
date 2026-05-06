@@ -3,7 +3,7 @@ export type ShareNewsArticleResult =
   | { ok: false; reason: 'no-slug' | 'cancelled' | 'error' };
 
 /**
- * Compartilha link público da notícia (`/noticias/ver?slug=...`).
+ * Compartilha URL canônica da notícia (`/noticias/{slug}`) para previews com imagem (Open Graph).
  * Web Share API → clipboard → prompt.
  */
 export async function shareNewsArticle(params: {
@@ -16,21 +16,23 @@ export async function shareNewsArticle(params: {
 
   if (typeof window === 'undefined') return { ok: false, reason: 'error' };
 
-  const shareUrl = `${window.location.origin}/noticias/ver?slug=${encodeURIComponent(slug)}`;
+  const shareUrl = `${window.location.origin}/noticias/${encodeURIComponent(slug)}`;
   const shareText = `${params.title}\n${shareUrl}`;
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const clipboardText = isMobile ? shareUrl : shareText;
 
   try {
     if (typeof navigator !== 'undefined' && navigator.share) {
       await navigator.share({
-        title: params.title,
-        text: params.excerpt?.trim() || undefined,
+        title: isMobile ? undefined : params.title,
+        text: isMobile ? undefined : params.excerpt?.trim() || undefined,
         url: shareUrl,
       });
       return { ok: true, method: 'native' };
     }
 
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(shareText);
+      await navigator.clipboard.writeText(clipboardText);
       return { ok: true, method: 'clipboard' };
     }
 
@@ -42,7 +44,7 @@ export async function shareNewsArticle(params: {
 
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareText);
+        await navigator.clipboard.writeText(clipboardText);
         return { ok: true, method: 'clipboard' };
       }
     } catch {

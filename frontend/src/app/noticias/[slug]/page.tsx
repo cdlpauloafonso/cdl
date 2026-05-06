@@ -1,4 +1,15 @@
+import type { Metadata } from 'next';
 import { NoticiaDetailClient } from './NoticiaDetailClient';
+import { buildMetadataForNewsSlug } from '@/lib/news-metadata';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return buildMetadataForNewsSlug(slug);
+}
 
 export async function generateStaticParams() {
   // Em desenvolvimento, não gera params estáticos para permitir rotas dinâmicas

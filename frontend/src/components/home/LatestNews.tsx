@@ -192,17 +192,21 @@ export function LatestNews() {
               {news.map((item) => (
                 <article
                   key={item.id}
-                  className="overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md"
+                  className="group overflow-hidden rounded-lg bg-white shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:scale-[1.01]"
                 >
                   {item.image && (
-                    <div className="relative h-48">
+                    <div className="relative h-48 overflow-hidden">
                       <Image
                         src={item.image}
                         alt={item.title}
                         fill
-                        className="object-cover"
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
                         sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         unoptimized={item.image.startsWith('http')}
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.14)_0%,transparent_16%,transparent_84%,rgba(15,23,42,0.14)_100%),linear-gradient(to_bottom,rgba(15,23,42,0.1)_0%,transparent_20%,transparent_80%,rgba(15,23,42,0.1)_100%)]"
+                        aria-hidden="true"
                       />
                     </div>
                   )}
@@ -214,7 +218,7 @@ export function LatestNews() {
                     </div>
                     <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
                       <Link
-                        href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
+                        href={`/noticias/${encodeURIComponent(item.slug)}`}
                         className="transition-colors hover:text-cdl-blue"
                       >
                         {item.title}
@@ -223,7 +227,7 @@ export function LatestNews() {
                     <p className="mb-4 line-clamp-3 text-sm text-gray-600">{item.excerpt}</p>
                     <div className="flex flex-wrap items-center gap-3">
                       <Link
-                        href={`/noticias/ver?slug=${encodeURIComponent(item.slug)}`}
+                        href={`/noticias/${encodeURIComponent(item.slug)}`}
                         className="inline-flex items-center gap-1 text-sm font-medium text-cdl-blue hover:text-cdl-blue-dark"
                       >
                         Ler mais

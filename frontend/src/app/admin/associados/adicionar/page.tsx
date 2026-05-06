@@ -22,6 +22,10 @@ import {
 } from '@/lib/associados-csv-import';
 import { AniversariantesFormSection } from '@/components/admin/AniversariantesFormSection';
 
+function serializeForCompare(value: unknown): string {
+  return JSON.stringify(value);
+}
+
 export default function AdicionarAssociadoPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,12 +64,58 @@ export default function AdicionarAssociadoPage() {
     ok: number;
     errors: { line: number; msg: string }[];
   } | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
+
+  const initialFormDataRef = useRef(
+    serializeForCompare({
+      status: 'ativo',
+      nome: '',
+      empresa: '',
+      razao_social: '',
+      cnpj: '',
+      telefone: '',
+      telefone_responsavel: '',
+      data_nascimento_responsavel: '',
+      email: '',
+      quantidade_funcionarios: '',
+      cep: '',
+      endereco: '',
+      cidade: '',
+      estado: '',
+      plano: '',
+      codigo_spc: '',
+      aniversariantes: [],
+      observacoes: '',
+    })
+  );
 
   useEffect(() => {
     getPlanos()
       .then((list) => setPlanos(list.filter((p) => p.ativo)))
       .catch(() => setPlanos([]));
   }, []);
+
+  const hasUnsavedChanges = serializeForCompare(formData) !== initialFormDataRef.current;
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleAttemptLeave = (targetHref: string) => {
+    if (!hasUnsavedChanges) {
+      router.push(targetHref);
+      return;
+    }
+    setPendingLeaveHref(targetHref);
+    setShowLeaveModal(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,6 +376,10 @@ export default function AdicionarAssociadoPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/admin/associados"
+            onClick={(e) => {
+              e.preventDefault();
+              handleAttemptLeave('/admin/associados');
+            }}
             className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -761,6 +815,10 @@ export default function AdicionarAssociadoPage() {
             </button>
             <Link
               href="/admin/associados"
+              onClick={(e) => {
+                e.preventDefault();
+                handleAttemptLeave('/admin/associados');
+              }}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Cancelar
@@ -785,6 +843,41 @@ export default function AdicionarAssociadoPage() {
                   className="w-full px-4 py-2 bg-cdl-blue text-white rounded-lg hover:bg-cdl-blue-dark transition-colors"
                 >
                   Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showLeaveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-bold text-gray-900">Deseja sair sem salvar as alterações?</h3>
+              <p className="mt-2 text-sm text-cdl-gray-text">
+                As mudanças feitas neste cadastro serão perdidas.
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeaveModal(false);
+                    setPendingLeaveHref(null);
+                  }}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Continuar editando
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = pendingLeaveHref ?? '/admin/associados';
+                    setShowLeaveModal(false);
+                    setPendingLeaveHref(null);
+                    router.push(target);
+                  }}
+                  className="rounded-lg bg-cdl-blue px-4 py-2 text-sm font-semibold text-white hover:bg-cdl-blue-dark"
+                >
+                  Sair sem salvar
                 </button>
               </div>
             </div>

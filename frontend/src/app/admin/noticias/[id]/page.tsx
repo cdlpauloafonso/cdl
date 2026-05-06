@@ -33,6 +33,7 @@ export default function AdminNoticiaEditPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [sharing, setSharing] = useState(false);
   const slugManuallyEdited = useRef(false);
 
@@ -105,12 +106,15 @@ export default function AdminNoticiaEditPage() {
       }
 
       if (isNew) {
-        const newId = await createNews(payload);
-        router.push(`/admin/noticias/${newId}`);
+        await createNews(payload);
       } else {
         await updateNews(id, payload);
-        router.push('/admin/noticias');
       }
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        router.push('/admin/noticias');
+      }, 1400);
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Erro ao salvar';
       // Notícias usam Firestore (não API); mensagens comuns de erro
@@ -211,7 +215,7 @@ export default function AdminNoticiaEditPage() {
     }
     setSharing(true);
     try {
-      const shareUrl = `${window.location.origin}/noticias/ver?slug=${encodeURIComponent(slug)}`;
+      const shareUrl = `${window.location.origin}/noticias/${encodeURIComponent(slug)}`;
       const shareText = `${news.title ?? 'Notícia CDL'}\n${shareUrl}`;
 
       if (navigator.share) {
@@ -465,6 +469,23 @@ export default function AdminNoticiaEditPage() {
           {sharing ? 'Compartilhando...' : 'Compartilhar'}
         </button>
       </form>
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                <svg className="h-5 w-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Notícia salva com sucesso</h3>
+                <p className="mt-1 text-sm text-cdl-gray-text">Redirecionando para a lista de notícias...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
