@@ -9,6 +9,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
+import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
 
 type CreateCampaignFormProps = {
   variant: 'campaign' | 'event';
@@ -53,6 +54,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [pixObservationText, setPixObservationText] = useState('');
+  /** Apenas eventos: salvar já publicado no site (padrão: sim). */
+  const [publishOnSite, setPublishOnSite] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -113,6 +116,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         date: date || undefined,
         category: category || undefined,
         image: imageUrl || undefined,
+        ...(variant === 'event' ? { published: publishOnSite } : {}),
         ...(variant === 'event' && wantsRegistrationLink
           ? {
               registrationConfig:
@@ -294,14 +298,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Data/Período</label>
-          <input
-            type="text"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            placeholder="ex: Junho, Novembro - Dezembro"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
+          <EventDateTimeFields value={date} onChange={setDate} idPrefix="create-campaign" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Categoria</label>
@@ -364,6 +361,24 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
               />
             )}
           </>
+        )}
+        {variant === 'event' && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+                checked={publishOnSite}
+                onChange={(e) => setPublishOnSite(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">Publicar no site</span>
+                <span className="mt-1 block text-xs text-cdl-gray-text">
+                  Desmarque para guardar o evento como rascunho (visível apenas no painel até você publicar na edição).
+                </span>
+              </span>
+            </label>
+          </div>
         )}
         <div>
           <button type="submit" disabled={loading} className="btn-primary">

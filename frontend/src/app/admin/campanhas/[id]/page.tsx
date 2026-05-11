@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getCampaign, updateCampaign, Campaign } from '@/lib/firestore';
+import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
 
 export default function AdminCampanhaEditPage() {
   const params = useParams();
@@ -76,8 +77,11 @@ export default function AdminCampanhaEditPage() {
                 <input value={campanha.category} onChange={(e) => setCampanha({ ...campanha, category: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data/Período</label>
-                <input value={campanha.date} onChange={(e) => setCampanha({ ...campanha, date: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                <EventDateTimeFields
+                  value={campanha.date ?? ''}
+                  onChange={(next) => setCampanha({ ...campanha, date: next })}
+                  idPrefix={`campanha-${id}`}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>

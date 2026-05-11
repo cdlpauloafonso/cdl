@@ -1,13 +1,37 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { NoticiaDetailClient } from '../[slug]/NoticiaDetailClient';
 
+/**
+ * Slug: `?slug=` / `?id=` ou último segmento de `/noticias/:slug`.
+ * Com export estático + Netlify, `/noticias/qualquer-coisa` reescreve para `ver.html` mas o
+ * pathname no browser continua `/noticias/qualquer-coisa`.
+ *
+ * `/noticias/ver` sem query segue inválido (rota auxiliar); notícia com slug `ver` use `?slug=ver`.
+ */
+function resolveNewsSlug(searchParams: URLSearchParams, pathname: string | null): string {
+  const fromQuery = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
+  if (fromQuery) return fromQuery;
+
+  if (!pathname) return '';
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] !== 'noticias' || parts.length < 2) return '';
+  const last = parts[parts.length - 1];
+  if (parts.length === 2 && last === 'ver') return '';
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+}
+
 function NewsByQueryContent() {
   const searchParams = useSearchParams();
-  const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
+  const pathname = usePathname();
+  const slug = resolveNewsSlug(searchParams, pathname).trim();
 
   if (!slug) {
     return (

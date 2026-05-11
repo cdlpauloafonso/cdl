@@ -33,6 +33,7 @@ import {
   hasInscriptionFieldMask,
 } from '@/lib/input-masks-br';
 import { PixPaymentPublicBlock } from '@/components/PixPaymentPublicBlock';
+import { formatEventDateForDisplay } from '@/lib/event-datetime';
 
 const PADRAO_IDS = new Set<string>(PADRAO_INSCRIPTION_FIELDS.map((f) => f.id));
 const EXTRA_IDS = new Set<string>(EXTRA_INSCRIPTION_FIELDS.map((f) => f.id));
@@ -208,7 +209,11 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       try {
         const c = await getCampaign(slug);
         if (!mounted) return;
-        setCampanha(c);
+        if (c?.published === false) {
+          setCampanha(null);
+        } else {
+          setCampanha(c);
+        }
       } catch {
         if (mounted) setCampanha(null);
       } finally {
@@ -619,7 +624,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {campanha.date}
+                {formatEventDateForDisplay(campanha.date)}
               </span>
             )}
           </div>

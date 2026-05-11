@@ -8,6 +8,7 @@ import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
 import { getEffectiveRegistration } from '@/lib/event-registration-fields';
 import { parsePositiveInscriptionLimit } from '@/lib/inscription-limit';
+import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
 
 // imgbb upload key
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -324,8 +325,11 @@ export default function AdminCampanhaEditByQueryPage() {
                 <input value={campanha.category} onChange={(e) => setCampanha({ ...campanha, category: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data/Período</label>
-                <input value={campanha.date} onChange={(e) => setCampanha({ ...campanha, date: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                <EventDateTimeFields
+                  value={campanha.date ?? ''}
+                  onChange={(next) => setCampanha({ ...campanha, date: next })}
+                  idPrefix="edit-campaign"
+                />
               </div>
               <RegistrationLinkSection
                 wantsLink={wantsRegistrationLink}
@@ -363,6 +367,23 @@ export default function AdminCampanhaEditByQueryPage() {
                 pixObservationText={pixObservationText}
                 onPixObservationTextChange={setPixObservationText}
               />
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    id="edit-published-event"
+                    type="checkbox"
+                    className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+                    checked={campanha.published !== false}
+                    onChange={(e) => setCampanha({ ...campanha, published: e.target.checked })}
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900">Publicar no site</span>
+                    <span className="mt-1 block text-xs text-cdl-gray-text">
+                      Desmarque para manter como rascunho (o público não verá o evento nas listagens).
+                    </span>
+                  </span>
+                </label>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                 <textarea value={campanha.description} onChange={(e) => setCampanha({ ...campanha, description: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
@@ -412,9 +433,13 @@ export default function AdminCampanhaEditByQueryPage() {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <button onClick={handleSave} disabled={saving} className="btn-primary">{saving ? 'Salvando...' : 'Salvar'}</button>
-            <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id ?? '')}`} target="_blank" className="btn-secondary">Ver página pública</Link>
+            {campanha.published !== false && (
+              <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id ?? '')}`} target="_blank" className="btn-secondary">
+                Ver página pública
+              </Link>
+            )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

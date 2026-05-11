@@ -100,6 +100,11 @@ export type Campaign = {
   inscriptionWebCount?: number;
   /** Controle manual no admin para ocultar inscrição pública do evento. */
   registrationClosed?: boolean;
+  /**
+   * Quando `false`, o evento não aparece nas listagens públicas nem na página de detalhe.
+   * Ausente ou `true` = publicado (compatível com registros antigos).
+   */
+  published?: boolean;
 };
 
 /** Informativos: comunicados e avisos importantes */
@@ -167,6 +172,7 @@ export async function listCampaignsByCreatedAtDesc(): Promise<Campaign[]> {
   const snap = await getDocs(col);
   return snap.docs
     .map((d) => ({ ...(d.data() as any), id: d.id }))
+    .filter((c) => (c as Campaign).published !== false)
     .sort((a, b) => {
       // Mais recentes primeiro (mesma ideia da lista de notícias por publishedAt).
       const ma = millisFromFirestore(a.createdAt);
@@ -244,6 +250,9 @@ export async function createEventInscription(campaignId: string, fields: Record<
       throw new Error('CAMPAIGN_NOT_FOUND');
     }
     const camp = campSnap.data() as Campaign;
+    if (camp.published === false) {
+      throw new Error('CAMPAIGN_NOT_PUBLISHED');
+    }
     if (camp.registrationClosed === true) {
       throw new Error(REGISTRATION_CLOSED_ERROR);
     }

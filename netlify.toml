@@ -31,6 +31,16 @@
   status = 200
   force = true
 
+# Detalhe `/noticias/:slug` com `output: 'export'`: só existem HTML estáticos para
+# slugs pré-gerados no build. Notícias novas não têm arquivo → 404 no host antes do React.
+# Reescreve para a página cliente única `noticias/ver.html`, mantendo a URL no browser;
+# o slug é lido do pathname em `noticias/ver/page.tsx`.
+[[redirects]]
+  from = "/noticias/:slug"
+  to = "/noticias/ver.html"
+  status = 200
+  force = true
+
 # Mesmo padrão: existe `inscricao.html` e a pasta `inscricao/` (rotas dinâmicas); sem index na pasta.
 [[redirects]]
   from = "/institucional/campanhas/inscricao/"

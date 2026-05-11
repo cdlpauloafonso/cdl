@@ -6,6 +6,65 @@ import { listCampaigns, deleteCampaignById, countEventInscriptions, updateCampai
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { formatEventDateForDisplay } from '@/lib/event-datetime';
+
+/** Ordenação decrescente pela data do evento (mais recentes primeiro); texto livre não parseável usa createdAt. */
+function millisFromCreatedAt(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === 'string') return new Date(v).getTime() || 0;
+  if (typeof v === 'object' && v !== null && typeof (v as { toDate?: () => Date }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate().getTime();
+  }
+  if (typeof v === 'object' && v !== null && typeof (v as { seconds?: number }).seconds === 'number') {
+    return (v as { seconds: number }).seconds * 1000;
+  }
+  return 0;
+}
+
+function parseEventDateForSort(raw: string | undefined): number | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+
+  const isoDt = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})/);
+  if (isoDt) {
+    const y = parseInt(isoDt[1].slice(0, 4), 10);
+    const mo = parseInt(isoDt[1].slice(5, 7), 10) - 1;
+    const day = parseInt(isoDt[1].slice(8, 10), 10);
+    const hh = parseInt(isoDt[2], 10);
+    const mm = parseInt(isoDt[3], 10);
+    const t = new Date(y, mo, day, hh, mm).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+
+  const isoStart = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoStart) {
+    const t = new Date(isoStart[1]).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+
+  const br = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/);
+  if (br) {
+    const d = parseInt(br[1], 10);
+    const m = parseInt(br[2], 10) - 1;
+    let y = parseInt(br[3], 10);
+    if (y < 100) y += y < 50 ? 2000 : 1900;
+    const t = new Date(y, m, d).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+
+  return null;
+}
+
+function sortCampaignsByEventDateDesc(list: Campaign[]): Campaign[] {
+  return [...list].sort((a, b) => {
+    const pa = parseEventDateForSort(a.date);
+    const pb = parseEventDateForSort(b.date);
+    const ka = pa ?? millisFromCreatedAt(a.createdAt);
+    const kb = pb ?? millisFromCreatedAt(b.createdAt);
+    if (ka !== kb) return kb - ka;
+    return (a.title || '').localeCompare(b.title || '', 'pt-BR');
+  });
+}
 
 export default function AdminEventosPage() {
   const [items, setItems] = useState<Campaign[]>([]);
@@ -23,7 +82,7 @@ export default function AdminEventosPage() {
       try {
         const list = await listCampaigns();
         if (!mounted) return;
-        setItems(list);
+        setItems(sortCampaignsByEventDateDesc(list));
         const countEntries = await Promise.all(
           list
             .filter((ev) => !!ev.id && ev.registrationConfig?.type === 'form')
@@ -147,7 +206,14 @@ export default function AdminEventosPage() {
                   return (
                     <article key={ev.id} className="rounded-lg border border-gray-200 bg-white p-2">
                       <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-gray-900">{ev.title}</h3>
+                        <h3 className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-gray-900">
+                          <span className="truncate">{ev.title}</span>
+                          {ev.published === false && (
+                            <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
+                              Rascunho
+                            </span>
+                          )}
+                        </h3>
                         {ev.description && (
                           <p className="mt-0.5 line-clamp-2 text-xs text-cdl-gray-text">{ev.description}</p>
                         )}
@@ -157,7 +223,7 @@ export default function AdminEventosPage() {
                           <strong>Categoria:</strong> {ev.category || '—'}
                         </p>
                         <p>
-                          <strong>Data:</strong> {ev.date || '—'}
+                          <strong>Data:</strong> {ev.date ? formatEventDateForDisplay(ev.date) : '—'}
                         </p>
                         <p>
                           <strong>Inscritos:</strong> {inscritos}
@@ -257,7 +323,7 @@ export default function AdminEventosPage() {
                         Categoria
                       </th>
                       <th scope="col" className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
-                        Data / período
+                        Data
                       </th>
                       <th scope="col" className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
                         Inscritos
@@ -282,13 +348,20 @@ export default function AdminEventosPage() {
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50/80">
                           <td className="px-3 py-2 align-middle">
-                            <span className="font-medium text-gray-900">{ev.title}</span>
+                            <span className="flex flex-wrap items-center gap-2 font-medium text-gray-900">
+                              <span>{ev.title}</span>
+                              {ev.published === false && (
+                                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
+                                  Rascunho
+                                </span>
+                              )}
+                            </span>
                             {ev.description && (
                               <p className="text-cdl-gray-text mt-0.5 line-clamp-2 max-w-md text-xs">{ev.description}</p>
                             )}
                           </td>
                           <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">{ev.category || '—'}</td>
-                          <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">{ev.date || '—'}</td>
+                          <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">{ev.date ? formatEventDateForDisplay(ev.date) : '—'}</td>
                           <td className="px-3 py-2 align-middle text-gray-700 whitespace-nowrap">
                             {inscritos}
                             {hasRegistrationConfigured && (

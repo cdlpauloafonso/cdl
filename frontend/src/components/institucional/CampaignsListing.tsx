@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { listCampaignsByCreatedAtDesc, Campaign } from '@/lib/firestore';
+import { formatEventDateForDisplay } from '@/lib/event-datetime';
 
 type CampaignsListingProps = {
   title: string;
@@ -67,7 +68,7 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                           </div>
-                          <p className="text-sm font-medium text-cdl-gray-text">{event.date}</p>
+                          <p className="text-sm font-medium text-cdl-gray-text">{formatEventDateForDisplay(event.date)}</p>
                         </div>
                         <div className="absolute top-4 right-4">
                           <span className="px-3 py-1 text-xs font-semibold rounded-full bg-cdl-blue text-white">{event.category}</span>
@@ -84,7 +85,7 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {event.date}
+                        {formatEventDateForDisplay(event.date)}
                       </p>
                     </div>
                   </div>

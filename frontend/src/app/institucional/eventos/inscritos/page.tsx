@@ -87,12 +87,13 @@ function PublicEventInscriptionsContent() {
       setError('');
       try {
         const c = await getCampaign(eventId);
-        setCampanha(c);
-        if (!c) {
+        if (!c || c.published === false) {
+          setCampanha(null);
           setRows([]);
           setError('Evento não encontrado.');
           return;
         }
+        setCampanha(c);
         const reg = getEffectiveRegistration(c, { ignoreRegistrationClosed: true });
         if (reg.kind !== 'form') {
           setRows([]);
