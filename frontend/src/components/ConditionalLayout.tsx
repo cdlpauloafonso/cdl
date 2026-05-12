@@ -10,6 +10,8 @@ import { initFirebase } from '@/lib/firebase';
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin') ?? false;
+  /** WebView/App — home compacta sem header/footer do site (ex.: /m/cdl-mobile-…) */
+  const isMobileWebviewShell = pathname?.startsWith('/m/') ?? false;
   const isAgendamentosPage = pathname === '/agendamentos';
   const isPublicEventInscriptionsPage = pathname === '/institucional/eventos/inscritos';
   const isConfiguracoesPage = pathname === '/admin/configuracoes';
@@ -22,7 +24,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }, [isAdmin, isAgendamentosPage]);
 
   // Páginas de leitura limpa sem header, footer ou WhatsApp
-  if (isAgendamentosPage || isPublicEventInscriptionsPage) {
+  if (isAgendamentosPage || isPublicEventInscriptionsPage || isMobileWebviewShell) {
     return <>{children}</>;
   }
 

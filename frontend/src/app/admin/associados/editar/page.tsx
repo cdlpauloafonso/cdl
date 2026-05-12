@@ -24,6 +24,60 @@ function serializeAssociadoForCompare(associado: Associado | null): string {
   return JSON.stringify(rest);
 }
 
+/** Converte valor vindo do Firestore para `YYYY-MM-DD` usado em input type="date". */
+function toDateInputValue(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+    if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+    return '';
+  }
+  if (
+    typeof raw === 'object' &&
+    raw !== null &&
+    'toDate' in raw &&
+    typeof (raw as { toDate: () => Date }).toDate === 'function'
+  ) {
+    const d = (raw as { toDate: () => Date }).toDate();
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${da}`;
+  }
+  return '';
+}
+
+function normalizeAssociadoForEditForm(data: Associado): Associado {
+  return {
+    ...data,
+    status: data.status ?? 'ativo',
+    razao_social: data.razao_social ?? '',
+    telefone_responsavel: data.telefone_responsavel ?? '',
+    data_nascimento_responsavel: toDateInputValue(data.data_nascimento_responsavel as unknown),
+    quantidade_funcionarios:
+      data.quantidade_funcionarios != null && String(data.quantidade_funcionarios).trim() !== ''
+        ? String(data.quantidade_funcionarios).replace(/\D/g, '')
+        : '',
+    cep: data.cep ?? '',
+    endereco: data.endereco ?? '',
+    cidade: data.cidade ?? '',
+    estado: data.estado ?? '',
+    empresa: data.empresa ?? '',
+    nome: data.nome ?? '',
+    cnpj: data.cnpj ?? '',
+    telefone: data.telefone ?? '',
+    email: data.email ?? '',
+    plano: data.plano ?? '',
+    codigo_spc: data.codigo_spc ?? '',
+    observacoes: data.observacoes ?? '',
+    aniversariantes: Array.isArray(data.aniversariantes) ? data.aniversariantes : [],
+  };
+}
+
 function EditarAssociadoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -69,8 +123,9 @@ function EditarAssociadoContent() {
         const data = await getAssociadoById(id);
         if (cancelled) return;
         if (data) {
-          setAssociado(data);
-          initialSnapshotRef.current = serializeAssociadoForCompare(data);
+          const normalized = normalizeAssociadoForEditForm(data);
+          setAssociado(normalized);
+          initialSnapshotRef.current = serializeAssociadoForCompare(normalized);
         } else {
           setError('Associado não encontrado.');
         }
@@ -133,7 +188,13 @@ function EditarAssociadoContent() {
       
     } catch (err) {
       console.error('Erro ao atualizar associado:', err);
-      setError('Erro ao atualizar associado. Tente novamente.');
+      const msg =
+        err && typeof err === 'object' && 'code' in err && String((err as { code?: unknown }).code) === 'permission-denied'
+          ? 'Sem permissão para atualizar este cadastro. Verifique se você está logado como administrador.'
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao atualizar associado. Tente novamente.';
+      setError(msg || 'Erro ao atualizar associado. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -147,6 +208,22 @@ function EditarAssociadoContent() {
       ...prev,
       [name]: value
     }) : null);
+  };
+
+  const handleResponsavelPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const d = e.target.value.replace(/\D/g, '').slice(0, 11);
+    let value = '';
+    if (d.length === 0) value = '';
+    else if (d.length <= 2) value = `(${d}`;
+    else if (d.length <= 6) value = `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    else if (d.length <= 10) value = `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    else value = `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    setAssociado((prev) => (prev ? { ...prev, telefone_responsavel: value } : null));
+  };
+
+  const handleQuantidadeFuncionariosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    setAssociado((prev) => (prev ? { ...prev, quantidade_funcionarios: digits } : null));
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -338,266 +415,305 @@ function EditarAssociadoContent() {
         </div>
       )}
 
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* CNPJ */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              CNPJ *{' '}
-              <span className="font-normal text-cdl-gray-text">
-                (ao completar, saia do campo para buscar na Receita)
-              </span>
-            </label>
-            <input
-              type="text"
-              value={associado.cnpj}
-              onChange={handleCnpjChange}
-              onBlur={handleCnpjBlur}
-              placeholder="00.000.000/0000-00"
-              autoComplete="off"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
-            />
-            {cnpjLookupLoading && (
-              <p className="mt-1 text-xs text-cdl-gray-text">Consultando Brasil API…</p>
-            )}
-            {cnpjLookupHint && !cnpjLookupLoading && (
-              <p
-                className={`mt-1 text-xs ${
-                  cnpjLookupHint.type === 'ok' ? 'text-green-800' : 'text-red-700'
-                }`}
-              >
-                {cnpjLookupHint.text}
-              </p>
-            )}
-          </div>
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+        {associado.origem ? (
+          <p className="text-xs text-cdl-gray-text">
+            Origem do cadastro:{' '}
+            <span className="font-medium text-gray-700">
+              {associado.origem === 'site' ? 'Site (associe-se)' : 'Administrativo'}
+            </span>
+          </p>
+        ) : null}
 
-          {/* Razão social */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Razão social
-            </label>
-            <input
-              type="text"
-              name="razao_social"
-              value={associado.razao_social ?? ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
-          </div>
-
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome Completo *
-            </label>
-            <input
-              type="text"
-              name="nome"
-              value={associado.nome}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
-            />
-          </div>
-
-          {/* Empresa */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Empresa * <span className="font-normal text-cdl-gray-text">(nome fantasia)</span>
-            </label>
-            <input
-              type="text"
-              name="empresa"
-              value={associado.empresa}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
-            />
-          </div>
-
-          {/* Telefone */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Telefone *
-            </label>
-            <input
-              type="tel"
-              value={associado.telefone}
-              onChange={handlePhoneChange}
-              placeholder="(00) 00000-0000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              E-mail *
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={associado.email}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* CEP */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              CEP
-            </label>
-            <input
-              type="text"
-              value={associado.cep}
-              onChange={handleCepChange}
-              placeholder="00000-000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
-          </div>
-
-          {/* Endereço */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Endereço
-            </label>
-            <input
-              type="text"
-              name="endereco"
-              value={associado.endereco}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
-          </div>
-
-          {/* Cidade */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cidade
-            </label>
-            <input
-              type="text"
-              name="cidade"
-              value={associado.cidade}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
-          </div>
-
-          {/* Estado */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Estado
-            </label>
-            <select
-              name="estado"
-              value={associado.estado}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            >
-              <option value="">Selecione...</option>
-              <option value="AC">Acre</option>
-              <option value="AL">Alagoas</option>
-              <option value="AP">Amapá</option>
-              <option value="AM">Amazonas</option>
-              <option value="BA">Bahia</option>
-              <option value="CE">Ceará</option>
-              <option value="DF">Distrito Federal</option>
-              <option value="ES">Espírito Santo</option>
-              <option value="GO">Goiás</option>
-              <option value="MA">Maranhão</option>
-              <option value="MT">Mato Grosso</option>
-              <option value="MS">Mato Grosso do Sul</option>
-              <option value="MG">Minas Gerais</option>
-              <option value="PA">Pará</option>
-              <option value="PB">Paraíba</option>
-              <option value="PR">Paraná</option>
-              <option value="PE">Pernambuco</option>
-              <option value="PI">Piauí</option>
-              <option value="RJ">Rio de Janeiro</option>
-              <option value="RN">Rio Grande do Norte</option>
-              <option value="RS">Rio Grande do Sul</option>
-              <option value="RO">Rondônia</option>
-              <option value="RR">Roraima</option>
-              <option value="SC">Santa Catarina</option>
-              <option value="SP">São Paulo</option>
-              <option value="SE">Sergipe</option>
-              <option value="TO">Tocantins</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Plano */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Plano
-            </label>
-            <select
-              name="plano"
-              value={associado.plano ?? ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            >
-              <option value="">Selecione...</option>
-              {legacyPlano !== null && (
-                <option value={legacyPlano}>
-                  {legacyPlano} (valor atual — não está nos planos cadastrados)
-                </option>
+        {/* Informações básicas — alinhado ao cadastrar associado */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Informações básicas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CNPJ *{' '}
+                <span className="font-normal text-cdl-gray-text">
+                  (ao completar, saia do campo para buscar na Receita)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={associado.cnpj}
+                onChange={handleCnpjChange}
+                onBlur={handleCnpjBlur}
+                placeholder="00.000.000/0000-00"
+                autoComplete="off"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                required
+              />
+              {cnpjLookupLoading && (
+                <p className="mt-1 text-xs text-cdl-gray-text">Consultando Brasil API…</p>
               )}
-              {planoOptions.map((p) => (
-                <option key={p.id} value={p.nome}>
-                  {p.nome}
-                  {!p.ativo ? ' (inativo)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+              {cnpjLookupHint && !cnpjLookupLoading && (
+                <p
+                  className={`mt-1 text-xs ${
+                    cnpjLookupHint.type === 'ok' ? 'text-green-800' : 'text-red-700'
+                  }`}
+                >
+                  {cnpjLookupHint.text}
+                </p>
+              )}
+            </div>
 
-          {/* Código SPC */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Código SPC
-            </label>
-            <input
-              type="text"
-              name="codigo_spc"
-              value={associado.codigo_spc}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Razão social</label>
+              <input
+                type="text"
+                name="razao_social"
+                value={associado.razao_social ?? ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Responsável *</label>
+              <input
+                type="text"
+                name="nome"
+                value={associado.nome}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefone do responsável
+              </label>
+              <input
+                type="tel"
+                value={associado.telefone_responsavel ?? ''}
+                onChange={handleResponsavelPhoneChange}
+                placeholder="(00) 00000-0000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data de nascimento do responsável
+              </label>
+              <input
+                type="date"
+                name="data_nascimento_responsavel"
+                value={associado.data_nascimento_responsavel ?? ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nome da Empresa * <span className="font-normal text-cdl-gray-text">(nome fantasia)</span>
+              </label>
+              <input
+                type="text"
+                name="empresa"
+                value={associado.empresa}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Plano</label>
+              <select
+                name="plano"
+                value={associado.plano ?? ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              >
+                <option value="">Selecione...</option>
+                {legacyPlano !== null && (
+                  <option value={legacyPlano}>
+                    {legacyPlano} (valor atual — não está nos planos cadastrados)
+                  </option>
+                )}
+                {planoOptions.map((p) => (
+                  <option key={p.id} value={p.nome}>
+                    {p.nome}
+                    {!p.ativo ? ' (inativo)' : ''}
+                  </option>
+                ))}
+              </select>
+              {planosLoaded && planos.length === 0 && (
+                <p className="mt-1 text-xs text-amber-700">Nenhum plano cadastrado.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                name="status"
+                value={associado.status ?? 'ativo'}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              >
+                <option value="ativo">Ativo</option>
+                <option value="desativado">Desativado</option>
+                <option value="em_negociacao">Em negociação</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+              <input
+                type="email"
+                name="email"
+                value={associado.email}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                required
+              />
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <AniversariantesFormSection
-            idPrefix="edit-associado-aniv"
-            value={associado.aniversariantes ?? []}
-            onChange={(next) =>
-              setAssociado((prev) => (prev ? { ...prev, aniversariantes: next } : null))
-            }
-          />
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Informações de contato</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone da empresa *</label>
+              <input
+                type="tel"
+                value={associado.telefone}
+                onChange={handlePhoneChange}
+                placeholder="(00) 00000-0000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+                required
+              />
+            </div>
 
-          {/* Observações */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observações
-            </label>
-            <textarea
-              name="observacoes"
-              value={associado.observacoes}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
-              placeholder="Informações adicionais sobre o associado..."
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código do Operador SPC</label>
+              <input
+                type="text"
+                name="codigo_spc"
+                value={associado.codigo_spc}
+                onChange={handleInputChange}
+                placeholder="Código SPC"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quantidade de funcionários
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={associado.quantidade_funcionarios ?? ''}
+                onChange={handleQuantidadeFuncionariosChange}
+                placeholder="Ex.: 15"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
           </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Endereço</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+              <input
+                type="text"
+                value={associado.cep}
+                onChange={handleCepChange}
+                placeholder="00000-000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
+              <input
+                type="text"
+                name="endereco"
+                value={associado.endereco}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+              <input
+                type="text"
+                name="cidade"
+                value={associado.cidade}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select
+                name="estado"
+                value={associado.estado}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+              >
+                <option value="">Selecione...</option>
+                <option value="AC">Acre</option>
+                <option value="AL">Alagoas</option>
+                <option value="AP">Amapá</option>
+                <option value="AM">Amazonas</option>
+                <option value="BA">Bahia</option>
+                <option value="CE">Ceará</option>
+                <option value="DF">Distrito Federal</option>
+                <option value="ES">Espírito Santo</option>
+                <option value="GO">Goiás</option>
+                <option value="MA">Maranhão</option>
+                <option value="MT">Mato Grosso</option>
+                <option value="MS">Mato Grosso do Sul</option>
+                <option value="MG">Minas Gerais</option>
+                <option value="PA">Pará</option>
+                <option value="PB">Paraíba</option>
+                <option value="PR">Paraná</option>
+                <option value="PE">Pernambuco</option>
+                <option value="PI">Piauí</option>
+                <option value="RJ">Rio de Janeiro</option>
+                <option value="RN">Rio Grande do Norte</option>
+                <option value="RS">Rio Grande do Sul</option>
+                <option value="RO">Rondônia</option>
+                <option value="RR">Roraima</option>
+                <option value="SC">Santa Catarina</option>
+                <option value="SP">São Paulo</option>
+                <option value="SE">Sergipe</option>
+                <option value="TO">Tocantins</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <AniversariantesFormSection
+          idPrefix="edit-associado-aniv"
+          value={associado.aniversariantes ?? []}
+          onChange={(next) => setAssociado((prev) => (prev ? { ...prev, aniversariantes: next } : null))}
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+          <textarea
+            name="observacoes"
+            value={associado.observacoes}
+            onChange={handleInputChange}
+            rows={4}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cdl-blue focus:border-cdl-blue"
+            placeholder="Informações adicionais sobre o associado..."
+          />
         </div>
 
         {/* Botões */}

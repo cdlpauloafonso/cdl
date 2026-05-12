@@ -20,6 +20,7 @@ const adminNav = [
   },
   { href: '/admin/aniversarios', label: 'Aniversariantes' },
   { href: '/admin/eventos', label: 'Eventos' },
+  { href: '/admin/beneficios-associados', label: 'Benefícios' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
   { href: '/admin/diretoria', label: 'Diretoria' },
   { href: '/admin/informativos', label: 'Informativos' },
@@ -36,7 +37,6 @@ const adminNav = [
       label: 'Soluções para Empresas',
       children: [
         { href: '/admin/certificado-digital', label: 'Certificado Digital' },
-        { href: '/admin/beneficios-associados', label: 'Benefícios para Associados' },
         { href: '/admin/servicos', label: 'Serviços' },
       ],
     },
@@ -276,7 +276,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 className={`block rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
-                  (item.href === '/admin/eventos' ? pathname.startsWith('/admin/eventos') : pathname === item.href)
+                  (item.href === '/admin/eventos'
+                    ? pathname.startsWith('/admin/eventos')
+                    : item.href === '/admin/beneficios-associados'
+                      ? pathname.startsWith('/admin/beneficios-associados')
+                      : pathname === item.href)
                     ? 'border border-cyan-500/70 bg-cyan-500/20 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.25)]'
                     : 'border border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-100'
                 }`}

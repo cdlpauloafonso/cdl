@@ -87,7 +87,7 @@ export function AniversariantesFormSection({
       alert('Informe o nome e a data de nascimento e depois toque em OK.');
       return;
     }
-    onChange([...value, { nome, data, foto: draftFoto || undefined }]);
+    onChange([...value, { nome, data, ...(draftFoto ? { foto: draftFoto } : {}) }]);
     setDraftNome('');
     setDraftData('');
     setDraftFoto('');
@@ -122,10 +122,9 @@ export function AniversariantesFormSection({
     }
     const next = [...value];
     next[editingIndex] = {
-      ...next[editingIndex],
       nome,
       data,
-      foto: editingFoto || undefined,
+      ...(editingFoto ? { foto: editingFoto } : {}),
     };
     onChange(next);
     cancelarEdicao();

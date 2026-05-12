@@ -125,6 +125,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Parceiros / convênios da página de benefícios (cards gerenciáveis no admin)
+    match /beneficiosParceiros/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     match /agendamentos/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();

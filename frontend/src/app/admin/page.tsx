@@ -141,6 +141,7 @@ export default function AdminDashboardPage() {
     { label: 'Páginas', value: stats?.pages ?? '—', href: '/admin/paginas' },
     { label: 'Diretoria', value: stats?.directors ?? '—', href: '/admin/diretoria' },
     { label: 'Serviços', value: stats?.services ?? '—', href: '/admin/servicos' },
+    { label: 'Benefícios', value: 'Editar', href: '/admin/beneficios-associados' },
     { label: 'Notícias', value: stats?.news ?? '—', href: '/admin/noticias' },
     { label: 'Mensagens', value: stats?.messages ?? '—', href: '/admin/contato' },
   ];
@@ -331,7 +332,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Outros Cards */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {cards.map((c) => (
           <Link
             key={c.href}

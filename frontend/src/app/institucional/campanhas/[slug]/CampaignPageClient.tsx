@@ -13,7 +13,19 @@ import { formatEventDateForDisplay } from '@/lib/event-datetime';
 
 const SOLD_OUT_TOAST_MS = 6000;
 
-export function CampaignPageClient({ slug }: { slug: string }) {
+export function CampaignPageClient({
+  slug,
+  campanhasIndexHref = '/institucional/campanhas',
+  associeHref = '/associe-se',
+  atendimentoHref = '/atendimento',
+  fillAppShellViewport = false,
+}: {
+  slug: string;
+  campanhasIndexHref?: string;
+  associeHref?: string;
+  atendimentoHref?: string;
+  fillAppShellViewport?: boolean;
+}) {
   const router = useRouter();
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,10 +108,12 @@ export function CampaignPageClient({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="relative py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
+    <div
+      className={`relative bg-gradient-to-b from-white to-cdl-gray/30 py-12 sm:py-16 ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}
+    >
       {soldOutNotification && (
         <div
-          className="fixed bottom-6 left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
+          className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
           role="status"
           aria-live="polite"
         >
@@ -111,7 +125,7 @@ export function CampaignPageClient({ slug }: { slug: string }) {
       )}
       {registrationClosedNotification && (
         <div
-          className="fixed bottom-6 left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
+          className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] left-1/2 z-[100] flex w-[min(100%,24rem)] -translate-x-1/2 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-lg shadow-black/10"
           role="status"
           aria-live="polite"
         >
@@ -122,8 +136,8 @@ export function CampaignPageClient({ slug }: { slug: string }) {
         </div>
       )}
 
-      <div className="container-cdl max-w-4xl">
-        <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
+      <div className={`container-cdl max-w-4xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+        <Link href={campanhasIndexHref} prefetch={false} className="mb-6 inline-block text-sm text-cdl-blue hover:underline">
           ← Voltar às campanhas
         </Link>
 
@@ -261,11 +275,16 @@ export function CampaignPageClient({ slug }: { slug: string }) {
             <h2 className="text-2xl font-bold mb-3">Quer saber mais?</h2>
             <p className="text-blue-100 mb-6">{campanha.contact || 'Entre em contato conosco para mais informações sobre esta campanha.'}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/atendimento" className="btn-secondary bg-white text-cdl-blue hover:bg-gray-100">Entre em contato</Link>
-              <Link href="/associe-se" className="btn-secondary border-2 border-white text-white hover:bg-white/10">Associe-se</Link>
+              <Link href={atendimentoHref} prefetch={false} className="btn-secondary bg-white text-cdl-blue hover:bg-gray-100">
+                Entre em contato
+              </Link>
+              <Link href={associeHref} prefetch={false} className="btn-secondary border-2 border-white text-white hover:bg-white/10">
+                Associe-se
+              </Link>
             </div>
           </div>
         </section>
+        {fillAppShellViewport ? <div className="min-h-8 flex-1" aria-hidden /> : null}
       </div>
     </div>
   );

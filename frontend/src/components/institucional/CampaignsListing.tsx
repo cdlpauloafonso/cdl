@@ -2,16 +2,29 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCampaignsByCreatedAtDesc, Campaign } from '@/lib/firestore';
+import { listCampaignsByCreatedAtDesc, type Campaign } from '@/lib/firestore';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { resolveAppShellHref } from '@/lib/mobile-shell-links';
 
-type CampaignsListingProps = {
+export type CampaignsListingProps = {
   title: string;
   description: string;
   loadingLabel: string;
+  /** Lista compacta (corpo já envolve MobileWebSubPageChrome). */
+  mobileShell?: boolean;
+  shellSegment?: string | null;
+  /** Quando dentro do chrome mobile: não repetir giant H1. */
+  hideStandaloneHeader?: boolean;
 };
 
-export function CampaignsListing({ title, description, loadingLabel }: CampaignsListingProps) {
+export function CampaignsListing({
+  title,
+  description,
+  loadingLabel,
+  mobileShell = false,
+  shellSegment = null,
+  hideStandaloneHeader = false,
+}: CampaignsListingProps) {
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,79 +45,145 @@ export function CampaignsListing({ title, description, loadingLabel }: Campaigns
     };
   }, []);
 
+  function hrefParaVer(slug: string): string {
+    const base = `/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`;
+    return resolveAppShellHref(shellSegment, base);
+  }
+
+  const associeLink = resolveAppShellHref(shellSegment, '/associe-se');
+  const atendimentoHref = resolveAppShellHref(shellSegment, '/atendimento');
+
   return (
-    <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-      <div className="container-cdl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">{title}</h1>
-          <p className="text-lg sm:text-xl text-cdl-gray-text max-w-3xl mx-auto">{description}</p>
-        </div>
+    <div className={mobileShell ? '' : 'py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30'}>
+      <div className={mobileShell ? 'w-full' : 'container-cdl'}>
+        {!hideStandaloneHeader && title && (
+          <div className={`text-center ${mobileShell ? '' : 'mb-12'}`}>
+            <h1 className="mb-4 text-4xl font-bold text-gray-900 sm:text-5xl">{title}</h1>
+            {description ? (
+              <p className="mx-auto max-w-3xl text-lg text-cdl-gray-text sm:text-xl">{description}</p>
+            ) : null}
+          </div>
+        )}
 
-        {loading ? (
-          <p className="text-center text-cdl-gray-text">{loadingLabel}</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-              {items.map((event) => (
-                <Link
-                  key={event.id}
-                  href={`/institucional/campanhas/ver?slug=${encodeURIComponent(event.id ?? '')}`}
-                  className="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg hover:border-cdl-blue/30 transition-all block"
-                >
-                  <div className="relative h-48 overflow-hidden">
-                    {event.image ? (
-                      <>
-                        <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-                        <div className="absolute top-4 right-4">
-                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-cdl-blue text-white">{event.category}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 bg-gradient-to-br from-cdl-blue/20 to-cdl-blue-dark/20" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
-                          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-cdl-blue/10 flex items-center justify-center">
-                            <svg className="w-10 h-10 text-cdl-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+        {loading ?
+          <p className={`text-center text-cdl-gray-text ${mobileShell ? 'py-8 text-sm' : ''}`}>{loadingLabel}</p>
+        : <>
+            <div
+              className={
+                mobileShell ?
+                  'grid grid-cols-2 gap-2.5'
+                : 'mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8'
+              }
+            >
+              {items.map((event) => {
+                const id = event.id ?? '';
+                return (
+                  <Link
+                    key={event.id}
+                    href={hrefParaVer(id)}
+                    prefetch={false}
+                    className={
+                      mobileShell ?
+                        'group block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-900/[0.04] transition-all hover:border-cdl-blue/35 hover:shadow-lg'
+                      : 'group block overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:border-cdl-blue/30 hover:shadow-lg'
+                    }
+                  >
+                    <div className={`relative overflow-hidden ${mobileShell ? 'h-36' : 'h-48'}`}>
+                      {event.image ?
+                        <>
+                          <img src={event.image} alt={event.title} className="h-full w-full object-cover" />
+                          <div className="absolute right-3 top-3">
+                            <span className="rounded-full bg-cdl-blue px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                              {event.category}
+                            </span>
                           </div>
-                          <p className="text-sm font-medium text-cdl-gray-text">{formatEventDateForDisplay(event.date)}</p>
-                        </div>
-                        <div className="absolute top-4 right-4">
-                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-cdl-blue text-white">{event.category}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-cdl-blue transition-colors">{event.title}</h3>
-                    <p className="text-sm text-cdl-gray-text leading-relaxed mb-4">{event.description}</p>
-                    <div className="pt-4 border-t border-gray-100">
-                      <p className="text-xs text-cdl-gray-text flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {formatEventDateForDisplay(event.date)}
-                      </p>
+                        </>
+                      : <>
+                          <div className="absolute inset-0 bg-gradient-to-br from-cdl-blue/20 to-cdl-blue-dark/20" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-cdl-blue/10">
+                              <svg className="h-8 w-8 text-cdl-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-xs font-medium text-cdl-gray-text">
+                              {formatEventDateForDisplay(event.date)}
+                            </p>
+                          </div>
+                          <div className="absolute right-3 top-3">
+                            <span className="rounded-full bg-cdl-blue px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                              {event.category}
+                            </span>
+                          </div>
+                        </>
+                      }
                     </div>
-                  </div>
-                </Link>
-              ))}
+
+                    <div className={mobileShell ? 'p-4' : 'p-6'}>
+                      <h3
+                        className={`mb-2 font-bold text-gray-900 transition-colors group-hover:text-cdl-blue ${mobileShell ? 'text-[15px] leading-snug' : 'mb-3 text-xl'}`}
+                      >
+                        {event.title}
+                      </h3>
+                      <p
+                        className={`mb-4 leading-relaxed text-cdl-gray-text ${mobileShell ? 'line-clamp-3 text-[12px]' : 'text-sm'}`}
+                      >
+                        {event.description}
+                      </p>
+                      <div className="border-t border-gray-100 pt-3">
+                        <p className="flex items-center gap-2 text-xs text-cdl-gray-text">
+                          <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          {formatEventDateForDisplay(event.date)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
 
-            <div className="mt-16 text-center">
-              <div className="inline-block p-8 rounded-xl bg-gradient-to-r from-cdl-blue to-cdl-blue-dark text-white">
-                <h2 className="text-2xl font-bold mb-3">Quer participar dos nossos eventos?</h2>
-                <p className="text-blue-100 mb-6 max-w-2xl">Entre em contato conosco e fique por dentro de todas as campanhas e eventos promovidos pela CDL Paulo Afonso.</p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/atendimento" className="btn-secondary bg-white text-cdl-blue hover:bg-gray-100">Entre em contato</Link>
-                  <Link href="/associe-se" className="btn-secondary border-2 border-white text-white hover:bg-white/10">Associe-se</Link>
+            <div className={mobileShell ? 'mt-8 w-full text-left' : 'mt-16 text-center'}>
+              <div
+                className={
+                  mobileShell ?
+                    'rounded-2xl bg-gradient-to-r from-cdl-blue to-cdl-blue-dark p-5 text-white'
+                  : 'inline-block rounded-xl bg-gradient-to-r from-cdl-blue to-cdl-blue-dark p-8 text-white'
+                }
+              >
+                <h2 className={`font-bold ${mobileShell ? 'mb-2 text-base' : 'mb-3 text-2xl'}`}>
+                  Quer participar dos nossos eventos?
+                </h2>
+                <p className={`mb-5 text-blue-100 ${mobileShell ? 'text-[13px] leading-snug' : 'mb-6 max-w-2xl'}`}>
+                  Entre em contato e fique por dentro das campanhas e eventos da CDL Paulo Afonso.
+                </p>
+                <div className={`flex gap-3 ${mobileShell ? 'flex-col' : 'flex-col justify-center gap-4 sm:flex-row'}`}>
+                  <Link href={atendimentoHref} prefetch={false} className="btn-secondary bg-white text-cdl-blue hover:bg-gray-100">
+                    Entre em contato
+                  </Link>
+                  <Link
+                    href={associeLink}
+                    prefetch={false}
+                    className="btn-secondary border-2 border-white text-white hover:bg-white/10"
+                  >
+                    Associe-se
+                  </Link>
                 </div>
               </div>
             </div>
           </>
-        )}
+        }
       </div>
     </div>
   );

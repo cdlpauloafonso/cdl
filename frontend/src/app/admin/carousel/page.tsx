@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCarouselSlides, deleteCarouselSlide, updateCarouselSlide, type CarouselSlide } from '@/lib/firestore';
+import {
+  listCarouselSlides,
+  deleteCarouselSlide,
+  updateCarouselSlide,
+  sortCarouselSlidesAdminList,
+  type CarouselSlide,
+} from '@/lib/firestore';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 
 export default function CarouselPage() {
@@ -18,7 +24,7 @@ export default function CarouselPage() {
   const loadSlides = async () => {
     try {
       const data = await listCarouselSlides();
-      setSlides(data);
+      setSlides(sortCarouselSlidesAdminList(data));
     } catch (error) {
       console.error('Erro ao carregar slides:', error);
     } finally {

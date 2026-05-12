@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { getAssociados, deleteAssociado, updateAssociado, type Associado } from '@/lib/firestore';
 
 function hasRequiredMissingFields(a: Associado): boolean {
@@ -27,6 +28,9 @@ function labelStatus(status?: string): string {
 type AssociadoStatus = 'ativo' | 'desativado' | 'em_negociacao';
 
 export default function AdminAssociadosPage() {
+  const router = useRouter();
+  const pathname = usePathname() ?? '/admin/associados';
+
   const allFieldKeys = [
     'cnpj',
     'empresa',
@@ -104,6 +108,11 @@ export default function AdminAssociadosPage() {
   const [quickEditMode, setQuickEditMode] = useState(false);
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
   const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, Partial<Record<VisibleFieldKey, string>>>>({});
+
+  const limparFiltroStatusNegociacao = () => {
+    setSelectedStatus('todos');
+    router.replace(pathname);
+  };
 
   useEffect(() => {
     loadAssociados();
@@ -672,6 +681,7 @@ export default function AdminAssociadosPage() {
                   setSortBy('empresa');
                   setSortDirection('asc');
                   setOnlyPendingRequired(false);
+                  router.replace(pathname);
                 }}
                 className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50 lg:h-10 lg:px-3 lg:py-2"
               >
@@ -686,15 +696,36 @@ export default function AdminAssociadosPage() {
               />
               Auditoria: exibir apenas cadastros com campos obrigatórios pendentes
             </label>
-            {associadosEmNegociacaoCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setSelectedStatus('em_negociacao')}
-                className="flex w-full text-left rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 hover:bg-amber-100 sm:w-fit sm:px-3 sm:text-sm"
-              >
-                Existem associados em negociação ({associadosEmNegociacaoCount}). Clique para visualizar.
-              </button>
-            )}
+            {associadosEmNegociacaoCount > 0 &&
+              (selectedStatus === 'em_negociacao' ? (
+                <div
+                  role="status"
+                  className="flex w-full flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-amber-950 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
+                  <p className="text-xs sm:text-sm">
+                    <span className="font-semibold">Filtro ativo:</span> exibindo apenas associados{' '}
+                    <span className="font-medium">em negociação</span> ({filteredAssociados.length} na lista).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => limparFiltroStatusNegociacao()}
+                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 sm:text-sm"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Mostrar todos os associados
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus('em_negociacao')}
+                  className="flex w-full text-left rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 hover:bg-amber-100 sm:w-fit sm:px-3 sm:text-sm"
+                >
+                  Existem associados em negociação ({associadosEmNegociacaoCount}). Clique para visualizar.
+                </button>
+              ))}
             <div className="rounded-lg border border-gray-200 bg-white p-2.5 sm:p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-gray-900">Campos visíveis na tabela</p>

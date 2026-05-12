@@ -22,6 +22,9 @@ import {
   limit,
   getCountFromServer,
   increment,
+  type QueryDocumentSnapshot,
+  type DocumentData,
+  type UpdateData,
 } from 'firebase/firestore';
 
 export function getDb() {
@@ -493,6 +496,16 @@ export async function listCarouselSlides(): Promise<CarouselSlide[]> {
   });
 }
 
+/** Lista do admin: ativos primeiro (por ordem), desativados no final (por ordem). */
+export function sortCarouselSlidesAdminList(slides: CarouselSlide[]): CarouselSlide[] {
+  return [...slides].sort((a, b) => {
+    const aOn = a.enabled !== false;
+    const bOn = b.enabled !== false;
+    if (aOn !== bOn) return aOn ? -1 : 1;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+}
+
 export async function getCarouselSlide(id: string): Promise<CarouselSlide | null> {
   const db = getDb();
   const ref = doc(db, 'carousel', id);
@@ -514,17 +527,24 @@ export async function getCarouselSlide(id: string): Promise<CarouselSlide | null
 export async function createCarouselSlide(data: Omit<CarouselSlide, 'id'>): Promise<string> {
   const db = getDb();
   const col = collection(db, 'carousel');
-  const payload = {
+  const snap = await getDocs(col);
+  const batch = writeBatch(db);
+  for (const d of snap.docs) {
+    const cur = typeof d.data().order === 'number' ? d.data().order : 0;
+    batch.update(d.ref, { order: cur + 1 });
+  }
+  const newRef = doc(col);
+  batch.set(newRef, {
     title: data.title,
     description: data.description,
     photo: data.photo ?? null,
     photoLink: data.photoLink ?? null,
     buttons: data.buttons ?? [],
-    order: data.order ?? 0,
+    order: 0,
     enabled: data.enabled !== false,
-  };
-  const ref = await addDoc(col, payload);
-  return ref.id;
+  });
+  await batch.commit();
+  return newRef.id;
 }
 
 export async function updateCarouselSlide(id: string, data: Partial<CarouselSlide>): Promise<void> {
@@ -629,7 +649,12 @@ export async function getBeneficiosAssociados(): Promise<BeneficiosAssociadosIte
       photo: null,
     };
   }
-  return snap.data() as BeneficiosAssociadosItem;
+  const raw = snap.data();
+  return {
+    title: typeof raw.title === 'string' ? raw.title : '',
+    description: typeof raw.description === 'string' ? raw.description : '',
+    photo: raw.photo != null && raw.photo !== '' ? String(raw.photo) : null,
+  };
 }
 
 export async function setBeneficiosAssociados(data: BeneficiosAssociadosItem): Promise<void> {
@@ -640,6 +665,196 @@ export async function setBeneficiosAssociados(data: BeneficiosAssociadosItem): P
     description: data.description,
     photo: data.photo ?? null,
   });
+}
+
+// ---- Benefícios — Parceiros e Convênios (coleção ordenada) ----
+const BENEFICIOS_PARCEIROS_COLLECTION = 'beneficiosParceiros';
+
+export type BeneficioParceiro = {
+  id: string;
+  name: string;
+  description: string;
+  /** Texto longo (condições, observações); pode ficar vazio. */
+  details: string;
+  photo: string | null;
+  order: number;
+  createdAt?: string;
+  /** false = não aparece no site público. Ausente no Firestore = ativo. */
+  active: boolean;
+};
+
+/** Lista inicial equivalente ao mock antigo do site (sem fotos). */
+const BENEFICIOS_PARCEIROS_SEED: Omit<BeneficioParceiro, 'id' | 'createdAt'>[] = [
+  { name: 'Unirios', description: 'Convênio especial para associados', details: '', photo: null, order: 0, active: true },
+  {
+    name: 'Colégio Sete',
+    description: 'Descontos de 20% a 30% dependendo do curso',
+    details: '',
+    photo: null,
+    order: 1,
+    active: true,
+  },
+  { name: 'Stone', description: 'Condições especiais para associados', details: '', photo: null, order: 2, active: true },
+  { name: 'Sicoob', description: 'Taxas diferenciadas para associados', details: '', photo: null, order: 3, active: true },
+  {
+    name: 'CNA',
+    description: '50% de desconto para funcionários, filhos e cônjuges dos proprietários',
+    details: '',
+    photo: null,
+    order: 4,
+    active: true,
+  },
+  {
+    name: 'Paulo Afonso TEM',
+    description: 'Benefícios exclusivos para associados',
+    details: '',
+    photo: null,
+    order: 5,
+    active: true,
+  },
+  { name: '7ELLOS', description: 'Condições especiais para associados', details: '', photo: null, order: 6, active: true },
+  {
+    name: 'Laboratório Estrela',
+    description: 'Convênio especial para associados',
+    details: '',
+    photo: null,
+    order: 7,
+    active: true,
+  },
+  { name: 'Auto Escola PA', description: 'Desconto para funcionários', details: '', photo: null, order: 8, active: true },
+  {
+    name: 'Rocha Menezes Advocacia',
+    description: 'Convênio exclusivo para associados',
+    details: '',
+    photo: null,
+    order: 9,
+    active: true,
+  },
+  {
+    name: 'LN Cursos e Concurso',
+    description: 'Condições especiais para associados',
+    details: '',
+    photo: null,
+    order: 10,
+    active: true,
+  },
+  { name: 'Oralface', description: 'Convênio especial para associados', details: '', photo: null, order: 11, active: true },
+];
+
+function mapBeneficioParceiroDoc(d: QueryDocumentSnapshot): BeneficioParceiro {
+  const data = d.data();
+  const ord = data.order;
+  return {
+    id: d.id,
+    name: typeof data.name === 'string' ? data.name : '',
+    description: typeof data.description === 'string' ? data.description : '',
+    details: typeof data.details === 'string' ? data.details : '',
+    photo: data.photo != null && data.photo !== '' ? String(data.photo) : null,
+    order: typeof ord === 'number' ? ord : Number(ord) || 0,
+    createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
+    active: data.active !== false,
+  };
+}
+
+export async function listBeneficiosParceiros(): Promise<BeneficioParceiro[]> {
+  const db = getDb();
+  const col = collection(db, BENEFICIOS_PARCEIROS_COLLECTION);
+  const q = query(col, orderBy('order', 'asc'));
+  const snap = await getDocs(q);
+  const items = snap.docs.map(mapBeneficioParceiroDoc);
+  items.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'pt-BR'));
+  return items;
+}
+
+/** Apenas parceiros visíveis no site público. */
+export async function listBeneficiosParceirosPublic(): Promise<BeneficioParceiro[]> {
+  const items = await listBeneficiosParceiros();
+  return items.filter((p) => p.active !== false);
+}
+
+/** Preenche a coleção com a lista inicial se estiver vazia (admin). Retorna true se criou documentos. */
+export async function seedBeneficiosParceirosIfEmpty(): Promise<boolean> {
+  const db = getDb();
+  const colRef = collection(db, BENEFICIOS_PARCEIROS_COLLECTION);
+  const snap = await getDocs(colRef);
+  if (!snap.empty) return false;
+
+  const batch = writeBatch(db);
+  const createdAt = new Date().toISOString();
+  BENEFICIOS_PARCEIROS_SEED.forEach((row, i) => {
+    const ref = doc(colRef);
+    batch.set(ref, {
+      name: row.name,
+      description: row.description,
+      details: row.details?.trim() ? row.details : '',
+      photo: row.photo ?? null,
+      order: i,
+      active: row.active !== false,
+      createdAt,
+    });
+  });
+  await batch.commit();
+  return true;
+}
+
+export async function addBeneficioParceiro(input: {
+  name: string;
+  description: string;
+  details?: string;
+  photo?: string | null;
+  active?: boolean;
+}): Promise<string> {
+  const db = getDb();
+  const existing = await listBeneficiosParceiros();
+  const nextOrder =
+    existing.length === 0 ? 0 : Math.max(...existing.map((p) => p.order), -1) + 1;
+  const ref = await addDoc(collection(db, BENEFICIOS_PARCEIROS_COLLECTION), {
+    name: input.name.trim(),
+    description: input.description.trim(),
+    details: (input.details ?? '').trim(),
+    photo: input.photo ?? null,
+    order: nextOrder,
+    active: input.active !== false,
+    createdAt: new Date().toISOString(),
+  });
+  return ref.id;
+}
+
+export async function updateBeneficioParceiro(
+  id: string,
+  data: Partial<Pick<BeneficioParceiro, 'name' | 'description' | 'details' | 'photo' | 'order' | 'active'>>
+): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, BENEFICIOS_PARCEIROS_COLLECTION, id);
+  const payload: Record<string, unknown> = {};
+  if (data.name !== undefined) payload.name = data.name.trim();
+  if (data.description !== undefined) payload.description = data.description.trim();
+  if (data.details !== undefined) payload.details = data.details.trim();
+  if (data.photo !== undefined) payload.photo = data.photo;
+  if (data.order !== undefined) payload.order = data.order;
+  if (data.active !== undefined) payload.active = data.active;
+  if (Object.keys(payload).length === 0) return;
+  await updateDoc(ref, payload);
+}
+
+export async function deleteBeneficioParceiro(id: string): Promise<void> {
+  const db = getDb();
+  await deleteDoc(doc(db, BENEFICIOS_PARCEIROS_COLLECTION, id));
+}
+
+export async function moveBeneficioParceiro(id: string, direction: 'up' | 'down'): Promise<void> {
+  const db = getDb();
+  const list = await listBeneficiosParceiros();
+  const idx = list.findIndex((p) => p.id === id);
+  if (idx < 0) return;
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  const a = list[idx];
+  const b = list[swapIdx];
+  const batch = writeBatch(db);
+  batch.update(doc(db, BENEFICIOS_PARCEIROS_COLLECTION, a.id), { order: b.order });
+  batch.update(doc(db, BENEFICIOS_PARCEIROS_COLLECTION, b.id), { order: a.order });
+  await batch.commit();
 }
 
 // ---- Auditorium (Firestore: single doc) ----
@@ -1128,6 +1343,27 @@ export async function createAssociadoFromImport(
   return docRef.id;
 }
 
+/** Firestore rejeita valores `undefined`; remove chaves opcionais não definidas no payload de update. */
+function sanitizeAssociadoFirestoreUpdate(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val === undefined) continue;
+    if (key === 'aniversariantes' && Array.isArray(val)) {
+      out[key] = val.map((item) => {
+        if (item == null || typeof item !== 'object' || Array.isArray(item)) return item;
+        const row: Record<string, unknown> = {};
+        for (const [ik, iv] of Object.entries(item as Record<string, unknown>)) {
+          if (iv !== undefined) row[ik] = iv;
+        }
+        return row;
+      });
+      continue;
+    }
+    out[key] = val;
+  }
+  return out;
+}
+
 export async function updateAssociado(id: string, data: Partial<Omit<Associado, 'id' | 'created_at'>>): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'associados', id);
@@ -1138,10 +1374,11 @@ export async function updateAssociado(id: string, data: Partial<Omit<Associado, 
       prevCnpjDigits = onlyDigitsCnpj(String(prevSnap.data().cnpj));
     }
   }
-  await updateDoc(docRef, {
+  const payload = sanitizeAssociadoFirestoreUpdate({
     ...data,
-    updated_at: new Date()
-  });
+    updated_at: new Date(),
+  } as Record<string, unknown>);
+  await updateDoc(docRef, payload as UpdateData<DocumentData>);
   if (data.cnpj !== undefined) {
     const newDigits = onlyDigitsCnpj(data.cnpj);
     if (prevCnpjDigits.length === 14 && prevCnpjDigits !== newDigits) {

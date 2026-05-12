@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PontosTuristicosSection } from '@/components/institucional/PontosTuristicosSection';
 
 async function getPage() {
   const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -73,6 +74,8 @@ export default async function NossaCidadePage() {
             </div>
           )}
         </section>
+
+        <PontosTuristicosSection />
 
         {/* Indicadores Econômicos */}
         <section className="mb-12">

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  listCarouselSlides,
   getCarouselSlide,
   createCarouselSlide,
   updateCarouselSlide,
@@ -64,12 +63,10 @@ export function CarouselSlideEditor({ mode, slideId }: CarouselSlideEditorProps)
             order: slide.order,
           });
         } else {
-          const slides = await listCarouselSlides();
           if (cancelled) return;
-          const maxOrder = slides.length > 0 ? Math.max(...slides.map((s) => s.order)) : -1;
           setFormData({
             ...emptyForm,
-            order: maxOrder + 1,
+            order: 0,
           });
         }
       } catch (e) {
@@ -232,13 +229,28 @@ export function CarouselSlideEditor({ mode, slideId }: CarouselSlideEditorProps)
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Ordem</label>
-              <input
-                type="number"
-                value={formData.order}
-                onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value, 10) || 0 })}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
-                required
-              />
+              {mode === 'create' ? (
+                <>
+                  <input
+                    type="number"
+                    value={0}
+                    readOnly
+                    disabled
+                    className="h-10 w-full max-w-[120px] cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                  />
+                  <p className="mt-1 text-xs text-cdl-gray-text">
+                    Novos slides entram em primeiro (ordem 0). Os demais são renumerados para manter a sequência.
+                  </p>
+                </>
+              ) : (
+                <input
+                  type="number"
+                  value={formData.order}
+                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value, 10) || 0 })}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+                  required
+                />
+              )}
             </div>
           </div>
 

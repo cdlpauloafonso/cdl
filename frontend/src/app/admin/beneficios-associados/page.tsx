@@ -6,9 +6,8 @@ import {
   setBeneficiosAssociados,
   type BeneficiosAssociadosItem,
 } from '@/lib/firestore';
-import { initFirebase } from '@/lib/firebase';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { BeneficiosParceirosAdmin } from '@/components/admin/BeneficiosParceirosAdmin';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
 
@@ -23,6 +22,7 @@ export default function AdminBeneficiosAssociadosPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState('');
   const [error, setError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     getBeneficiosAssociados()
@@ -51,8 +51,8 @@ export default function AdminBeneficiosAssociadosPage() {
       if (!json.success) throw new Error(json.error?.message || 'Erro no upload');
 
       setData((prev) => ({ ...prev, photo: json.data.url }));
-    } catch (e: any) {
-      setImageError(e.message || 'Erro ao fazer upload');
+    } catch (e: unknown) {
+      setImageError(e instanceof Error ? e.message : 'Erro ao fazer upload');
     } finally {
       setImageUploading(false);
     }
@@ -65,8 +65,9 @@ export default function AdminBeneficiosAssociadosPage() {
 
     try {
       await setBeneficiosAssociados(data);
-    } catch (e: any) {
-      setError(e.message || 'Erro ao salvar');
+      setShowSuccessModal(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -80,107 +81,117 @@ export default function AdminBeneficiosAssociadosPage() {
     );
   }
 
-  return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Benefícios para Associados</h1>
-        <p className="mt-1 text-cdl-gray-text">
-          Edite as informações da página de benefícios para associados do site
-        </p>
-      </div>
+  const fieldLabel = 'mb-1 block text-xs font-medium text-gray-700 sm:text-sm';
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Foto Principal */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Foto Principal
-          </label>
-          {data.photo ? (
-            <div className="relative">
-              <img
-                src={data.photo}
-                alt="Foto principal"
-                className="h-48 w-full object-cover rounded-lg border"
-              />
-              <button
-                type="button"
-                onClick={() => setData((prev) => ({ ...prev, photo: null }))}
-                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-md hover:bg-red-600"
-              >
-                Remover
-              </button>
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div>
+        <div className="mb-4 sm:mb-5">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Benefícios para Associados</h1>
+          <p className="mt-1 text-sm text-cdl-gray-text sm:text-base">
+            Edite o cabeçalho da página e gerencie parceiros abaixo. Ativar/desativar vale só para cada parceiro.
+          </p>
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-4 sm:space-y-4 lg:space-y-3">
+          {/* Mobile: coluna única; desktop: foto compacta à esquerda + texto à direita */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,220px)_1fr] lg:items-start lg:gap-5 xl:grid-cols-[minmax(0,260px)_1fr]">
+            <div className="min-w-0 lg:max-w-[260px]">
+              <label className={fieldLabel}>Foto principal</label>
+              {data.photo ? (
+                <div className="relative mt-1">
+                  <img
+                    src={data.photo}
+                    alt="Foto principal"
+                    className="aspect-[16/10] w-full rounded-lg border border-gray-200 object-cover sm:aspect-[4/3] lg:aspect-square lg:max-h-[200px] lg:w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, photo: null }))}
+                    className="absolute right-1.5 top-1.5 rounded-md bg-red-500 px-2 py-1 text-xs font-medium text-white shadow-sm hover:bg-red-600 sm:right-2 sm:top-2 sm:px-2.5 sm:text-sm"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-1 rounded-lg border-2 border-dashed border-gray-300 p-3 sm:p-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => uploadImageFile(e.target.files?.[0])}
+                    disabled={imageUploading}
+                    className="block w-full text-xs text-gray-600 file:mr-2 file:rounded-full file:border-0 file:bg-cdl-blue file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-cdl-blue-dark sm:text-sm file:sm:mr-4 file:sm:px-4 file:sm:py-2 file:sm:text-sm"
+                  />
+                  {imageUploading && <p className="mt-1.5 text-xs text-gray-500 sm:text-sm">Enviando...</p>}
+                  {imageError && <p className="mt-1.5 text-xs text-red-600 sm:text-sm">{imageError}</p>}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => uploadImageFile(e.target.files?.[0])}
-                disabled={imageUploading}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cdl-blue file:text-white hover:file:bg-cdl-blue-dark"
-              />
-              {imageUploading && <p className="mt-2 text-sm text-gray-500">Enviando...</p>}
-              {imageError && <p className="mt-2 text-sm text-red-600">{imageError}</p>}
+
+            <div className="flex min-w-0 flex-col gap-3 sm:gap-3 lg:gap-2.5">
+              <div>
+                <label htmlFor="title" className={fieldLabel}>
+                  Título
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  value={data.title}
+                  onChange={(e) => setData((prev) => ({ ...prev, title: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-cdl-blue sm:px-3 sm:py-2 sm:text-base"
+                  placeholder="Ex: Benefícios Exclusivos para Associados"
+                />
+              </div>
+
+              <div className="min-h-0 flex-1">
+                <label htmlFor="description" className={fieldLabel}>
+                  Descrição
+                </label>
+                <textarea
+                  id="description"
+                  value={data.description}
+                  onChange={(e) => setData((prev) => ({ ...prev, description: e.target.value }))}
+                  rows={5}
+                  className="mt-1 min-h-[120px] w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-cdl-blue sm:min-h-[140px] sm:px-3 sm:py-2 sm:text-base lg:min-h-[168px]"
+                  placeholder="Descreva os benefícios oferecidos aos associados..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:px-4 sm:py-3">
+              {error}
             </div>
           )}
-        </div>
 
-        {/* Título */}
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-            Título
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={data.title}
-            onChange={(e) => setData((prev) => ({ ...prev, title: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cdl-blue focus:border-transparent"
-            placeholder="Ex: Benefícios Exclusivos para Associados"
-          />
-        </div>
-
-        {/* Descrição */}
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Descrição
-          </label>
-          <textarea
-            id="description"
-            value={data.description}
-            onChange={(e) => setData((prev) => ({ ...prev, description: e.target.value }))}
-            rows={8}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cdl-blue focus:border-transparent"
-            placeholder="Descreva os benefícios oferecidos aos associados..."
-          />
-        </div>
-
-        {/* Erro */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-            {error}
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end sm:gap-3 sm:pt-0">
+            <a
+              href="/servicos/beneficios-associados"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex justify-center rounded-md border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 sm:px-4"
+            >
+              Ver no site
+            </a>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex justify-center rounded-md bg-cdl-blue px-3 py-2 text-sm font-medium text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:px-4"
+            >
+              {saving ? 'Salvando...' : 'Salvar cabeçalho'}
+            </button>
           </div>
-        )}
+        </form>
+      </div>
 
-        {/* Botões */}
-        <div className="flex justify-end gap-3">
-          <a
-            href="/beneficios-associados"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Ver no site
-          </a>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-cdl-blue text-white rounded-md hover:bg-cdl-blue-dark disabled:opacity-50"
-          >
-            {saving ? 'Salvando...' : 'Salvar'}
-          </button>
-        </div>
-      </form>
+      <BeneficiosParceirosAdmin />
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message="Cabeçalho salvo com sucesso!"
+      />
     </div>
   );
 }

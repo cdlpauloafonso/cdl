@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { listCarouselSlides, deleteCarouselSlide, type CarouselSlide } from '@/lib/firestore';
+import {
+  listCarouselSlides,
+  deleteCarouselSlide,
+  sortCarouselSlidesAdminList,
+  type CarouselSlide,
+} from '@/lib/firestore';
 
 export default function AdminPaginasPage() {
   const [list, setList] = useState<CarouselSlide[]>([]);
@@ -10,7 +15,7 @@ export default function AdminPaginasPage() {
 
   useEffect(() => {
     listCarouselSlides()
-      .then(setList)
+      .then((items) => setList(sortCarouselSlidesAdminList(items)))
       .catch(() => setList([]))
       .finally(() => setLoading(false));
   }, []);

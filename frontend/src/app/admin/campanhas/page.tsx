@@ -71,7 +71,7 @@ export default function AdminCampanhasPage() {
         <p className="p-6 text-cdl-gray-text">Carregando campanhas...</p>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {items.map((campanha) => (
               <div key={campanha.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-md transition-all">
                 {campanha.image && (

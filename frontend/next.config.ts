@@ -10,10 +10,10 @@ const nextConfig: NextConfig = {
     ? {
         webpack: (config) => {
           // Evita timeouts ao carregar chunks durante compilações lentas no `next dev`.
-          config.output = {
-            ...config.output,
-            chunkLoadTimeout: 300000,
-          };
+          // Nunca substituir `output` inteiro por spread (se `output` ainda for undefined,
+          // `{ ...undefined }` vira `{}` e quebra o runtime dos módulos — TypeError `.call`).
+          if (!config.output) config.output = {};
+          config.output.chunkLoadTimeout = 300000;
           return config;
         },
       }

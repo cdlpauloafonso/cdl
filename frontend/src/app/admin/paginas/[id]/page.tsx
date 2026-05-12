@@ -7,7 +7,6 @@ import {
   getCarouselSlide,
   createCarouselSlide,
   updateCarouselSlide,
-  listCarouselSlides,
   type CarouselSlide,
   type CarouselButton,
 } from '@/lib/firestore';
@@ -38,9 +37,7 @@ export default function AdminPaginaEditPage() {
 
   useEffect(() => {
     if (isNew) {
-      listCarouselSlides()
-        .then((list) => setSlide((s) => ({ ...s, order: list.length })))
-        .catch(() => {});
+      setSlide((s) => ({ ...s, order: 0 }));
       setLoading(false);
       return;
     }
@@ -338,14 +335,32 @@ export default function AdminPaginaEditPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Ordem</label>
-          <input
-            type="number"
-            min={0}
-            value={slide.order ?? 0}
-            onChange={(e) => setSlide((s) => ({ ...s, order: parseInt(e.target.value, 10) || 0 }))}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 max-w-[120px]"
-          />
-          <p className="mt-1 text-xs text-cdl-gray-text">Menor número aparece primeiro.</p>
+          {isNew ? (
+            <>
+              <input
+                type="number"
+                min={0}
+                value={0}
+                readOnly
+                disabled
+                className="mt-1 block w-full max-w-[120px] cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-600"
+              />
+              <p className="mt-1 text-xs text-cdl-gray-text">
+                O novo slide entra em primeiro (ordem 0). Os demais são renumerados automaticamente.
+              </p>
+            </>
+          ) : (
+            <>
+              <input
+                type="number"
+                min={0}
+                value={slide.order ?? 0}
+                onChange={(e) => setSlide((s) => ({ ...s, order: parseInt(e.target.value, 10) || 0 }))}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 max-w-[120px]"
+              />
+              <p className="mt-1 text-xs text-cdl-gray-text">Menor número aparece primeiro entre os slides ativos no site.</p>
+            </>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
