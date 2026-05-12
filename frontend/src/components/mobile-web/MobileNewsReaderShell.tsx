@@ -50,7 +50,7 @@ export function MobileNewsReaderToolbar({
 
 export function MobileNewsReaderSurface({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overscroll-y-none rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-14px_48px_rgba(15,23,42,0.45)]">
+    <div className="relative flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-14px_48px_rgba(15,23,42,0.45)]">
       {children}
     </div>
   );

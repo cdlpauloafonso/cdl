@@ -322,7 +322,7 @@ export function MobileCDLHome() {
         </div>
       </header>
 
-      <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col overscroll-y-none rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
+      <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
         <div className="flex flex-1 flex-col">
         <div className="mx-auto mb-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />

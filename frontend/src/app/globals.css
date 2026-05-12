@@ -94,12 +94,13 @@ body {
   }
 }
 
-/* Shell /m/[token]: barras de rolagem ocultas; scroll mantém-se */
+/* Shell /m/[token]: barras de rolagem ocultas; mantém bounce nativo vertical (safari/WebView).
+   Horizontal sem “chain” evita comportamentos estranhos em alguns gestures. */
 html.mobile-shell-app,
 html.mobile-shell-app body {
   scrollbar-width: none;
   -ms-overflow-style: none;
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
 }
 
 html.mobile-shell-app * {
@@ -120,7 +121,7 @@ html:has([data-mobile-shell]),
 html:has([data-mobile-shell]) body {
   scrollbar-width: none;
   -ms-overflow-style: none;
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
 }
 
 html:has([data-mobile-shell]) * {
@@ -135,4 +136,26 @@ html:has([data-mobile-shell]) body::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
   background: transparent;
+}
+
+/*
+ * Cobertura do “canvas” atrás da página — no bounce/overscroll o motor pinta zona extra;
+ * esta cor igual ao pé do degradé (#0b1224) garante que nada mais “embaixo” fique à vista,
+ * até quando as camadas decorativas (fixed do hero) ficam fora da moldura habitual.
+ */
+html:has([data-mobile-shell]),
+html.mobile-shell-app {
+  min-height: 100%;
+}
+
+html:has([data-mobile-shell]),
+html:has([data-mobile-shell]) body,
+html.mobile-shell-app,
+html.mobile-shell-app body {
+  background-color: #0b1224;
+}
+
+html:has([data-mobile-shell]) body {
+  min-height: 100%;
+  min-height: -webkit-fill-available;
 }
