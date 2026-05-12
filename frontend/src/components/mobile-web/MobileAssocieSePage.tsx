@@ -62,7 +62,6 @@ export function MobileAssocieSePage({ segment }: MobileAssocieSePageProps) {
   return (
     <MobileWebSubPageChrome
       backHref={homeHref}
-      backLabel="Início app"
       title="Associe-se"
       subtitle="Menos institucional, mais resultado — faça parte da comunidade empresarial de Paulo Afonso."
     >

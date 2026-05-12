@@ -64,7 +64,7 @@ export function BeneficiosAssociadosView({
 
   const heroH = mobileShell ? 'h-44 sm:h-48' : 'h-64 sm:h-96';
   const titleCls =
-    mobileShell ? 'mb-5 text-xl font-bold text-slate-900' : 'mb-8 text-3xl sm:text-4xl font-bold text-gray-900';
+    mobileShell ? 'mb-5 text-xl font-semibold tracking-tight text-slate-900 antialiased' : 'mb-8 text-3xl sm:text-4xl font-bold text-gray-900';
   const titleContent = data?.title || 'Benefícios para Associados';
 
   return (
@@ -115,7 +115,9 @@ export function BeneficiosAssociadosView({
 
         <div className={mobileShell ? 'mb-6' : 'mb-8 sm:mb-10'}>
           {mobileShell ? (
-            <h3 className="mb-2 font-bold text-sm uppercase tracking-[0.1em] text-slate-500">Parceiros e Convênios</h3>
+            <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 antialiased">
+              Parceiros e Convênios
+            </h3>
           ) : (
             <h2 className="mb-2 font-bold text-gray-900 text-lg sm:mb-3 sm:text-xl">Parceiros e Convênios</h2>
           )}
@@ -124,9 +126,15 @@ export function BeneficiosAssociadosView({
               Nenhum parceiro ativo cadastrado no momento.
             </p>
           ) : (
-            <div className={mobileShell ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6'}>
+            <div
+              className={
+                mobileShell
+                  ? 'grid grid-cols-3 gap-x-2 gap-y-2.5'
+                  : 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6'
+              }
+            >
               {partners.map((partner) => (
-                <PartnerCard key={partner.id} partner={partner} compact={mobileShell} />
+                <PartnerCard key={partner.id} partner={partner} compact={mobileShell} iconTile={mobileShell} />
               ))}
             </div>
           )}
@@ -182,20 +190,83 @@ export function BeneficiosAssociadosView({
   );
 }
 
-function PartnerCard({ partner, compact }: { partner: BeneficioParceiro; compact?: boolean }) {
+function PartnerCard({
+  partner,
+  compact,
+  iconTile,
+}: {
+  partner: BeneficioParceiro;
+  compact?: boolean;
+  /** Modo app: mosaico 3 colunas, estilo ícone compacto */
+  iconTile?: boolean;
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const detailText = partner.details?.trim() ?? '';
   const showSaibaMais = detailText.length > 0;
 
+  if (iconTile) {
+    const tileBody = (
+      <>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cdl-blue/12 to-cdl-blue-dark/18 ring-1 ring-cdl-blue/12">
+          {partner.photo ? (
+            <img
+              src={partner.photo}
+              alt=""
+              className="max-h-12 max-w-12 object-contain"
+            />
+          ) : (
+            <svg className="h-9 w-9 text-cdl-blue/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.35}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-4 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+          )}
+        </div>
+        <h3 className="mt-2.5 line-clamp-2 min-h-[2.625rem] w-full px-0.5 text-center text-[11px] font-semibold leading-snug tracking-tight text-slate-800 antialiased">
+          {partner.name}
+        </h3>
+        {showSaibaMais ? (
+          <span className="mt-1 text-[10px] font-medium tracking-wide text-cdl-blue">Ver detalhes</span>
+        ) : null}
+      </>
+    );
+
+    const tileCls =
+      'group flex min-h-[7.75rem] w-full flex-col items-center rounded-2xl border border-slate-200/90 bg-white px-3 py-3 pb-3.5 text-center shadow-sm shadow-slate-900/[0.04] transition-colors hover:border-cdl-blue/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cdl-blue focus-visible:ring-offset-2 active:scale-[0.97]';
+
+    return (
+      <>
+        {showSaibaMais ? (
+          <button
+            type="button"
+            aria-label={`${partner.name} — ver detalhes do convênio`}
+            onClick={() => setModalOpen(true)}
+            className={tileCls}
+          >
+            {tileBody}
+          </button>
+        ) : (
+          <article className={tileCls} aria-label={partner.name}>
+            {tileBody}
+          </article>
+        )}
+        {modalOpen && <PartnerDetailModal partner={partner} onClose={() => setModalOpen(false)} />}
+      </>
+    );
+  }
+
   return (
     <>
       <article
-        className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-md shadow-gray-900/5 transition-all duration-300 hover:border-cdl-blue/35 hover:shadow-xl hover:shadow-cdl-blue/10 ${
+        className={`group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-md shadow-gray-900/5 transition-all duration-300 hover:border-cdl-blue/35 hover:shadow-xl hover:shadow-cdl-blue/10 sm:rounded-2xl ${
           compact ? '' : 'hover:-translate-y-1'
         }`}
       >
-        <div className={`relative aspect-[5/3] w-full shrink-0 bg-gradient-to-br from-slate-100 via-slate-50 to-cdl-blue/10 ${compact ? 'max-h-[9.5rem]' : ''}`}>
-          <div className={`absolute inset-0 flex items-center justify-center ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
+        <div className={`relative aspect-[4/3] w-full shrink-0 bg-gradient-to-br from-slate-100 via-slate-50 to-cdl-blue/10 ${compact ? 'max-h-[5.75rem]' : ''}`}>
+          <div className={`absolute inset-0 flex items-center justify-center ${compact ? 'p-2' : 'p-4 sm:p-5'}`}>
             {partner.photo ? (
               <img
                 src={partner.photo}
@@ -203,8 +274,8 @@ function PartnerCard({ partner, compact }: { partner: BeneficioParceiro; compact
                 className="h-full w-full min-h-0 min-w-0 object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
               />
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-cdl-blue/40">
-                <svg className="h-12 w-12 sm:h-14 sm:w-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-cdl-blue/40">
+                <svg className={`${compact ? 'h-9 w-9' : 'h-12 w-12 sm:h-14 sm:w-14'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -212,20 +283,26 @@ function PartnerCard({ partner, compact }: { partner: BeneficioParceiro; compact
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-4 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                   />
                 </svg>
-                <span className="text-[11px] font-medium text-slate-400">Convênio</span>
+                <span className={`font-medium text-slate-400 ${compact ? 'text-[9px]' : 'text-[11px]'}`}>Convênio</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className={`flex flex-1 flex-col ${compact ? 'p-3.5' : 'p-4 sm:p-5'}`}>
-          <h3 className={`font-bold leading-snug text-gray-900 ${compact ? 'text-[15px]' : 'text-base sm:text-lg'}`}>{partner.name}</h3>
-          <p className={`mt-1.5 flex-1 text-cdl-gray-text ${compact ? 'line-clamp-4 text-[12px] leading-snug' : 'line-clamp-3 text-sm'}`}>{partner.description}</p>
+        <div className={`flex flex-1 flex-col ${compact ? 'p-2.5' : 'p-4 sm:p-5'}`}>
+          <h3
+            className={`tracking-tight text-gray-900 antialiased ${compact ? 'line-clamp-2 text-[13px] font-semibold leading-snug' : 'text-base font-semibold leading-snug sm:text-lg'}`}
+          >
+            {partner.name}
+          </h3>
+          <p className={`mt-1 flex-1 text-cdl-gray-text ${compact ? 'line-clamp-2 text-[11px] leading-snug' : 'line-clamp-3 text-sm'}`}>
+            {partner.description}
+          </p>
           {showSaibaMais ? (
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className={`mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-cdl-blue px-3 py-1.5 font-semibold text-white shadow-sm transition-colors hover:bg-cdl-blue-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-cdl-blue focus-visible:ring-offset-2 sm:mt-4 sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm ${compact ? 'text-xs' : 'text-sm'}`}
+              className={`mt-2 inline-flex w-fit max-w-full items-center gap-0.5 rounded-full bg-cdl-blue px-2 py-1 font-semibold text-white shadow-sm transition-colors hover:bg-cdl-blue-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-cdl-blue focus-visible:ring-offset-2 sm:mt-4 sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm ${compact ? 'text-[10px]' : 'text-sm'}`}
             >
               Saiba mais
               <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -233,7 +310,10 @@ function PartnerCard({ partner, compact }: { partner: BeneficioParceiro; compact
               </svg>
             </button>
           ) : (
-            <span className="mt-3 block h-px w-10 rounded-full bg-gradient-to-r from-cdl-blue/40 to-transparent sm:mt-4 sm:w-12" aria-hidden />
+            <span
+              className={`mt-2 block h-px rounded-full bg-gradient-to-r from-cdl-blue/40 to-transparent sm:mt-4 sm:w-12 ${compact ? 'w-6' : 'w-10'}`}
+              aria-hidden
+            />
           )}
         </div>
       </article>
@@ -284,7 +364,7 @@ function PartnerDetailModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-5">
-          <h2 id="partner-modal-title" className="pr-2 text-base font-bold text-gray-900 sm:text-lg">
+          <h2 id="partner-modal-title" className="pr-2 text-base font-semibold tracking-tight text-gray-900 sm:text-lg">
             {partner.name}
           </h2>
           <button

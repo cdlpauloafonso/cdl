@@ -7,7 +7,6 @@ export function MobileNoticiasPage({ segment }: { segment: string }) {
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Últimas notícias"
       subtitle="Novidades da CDL, do comércio e da comunidade — leitura otimizada no app."
     >

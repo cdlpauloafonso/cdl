@@ -13,7 +13,6 @@ export function MobileServicosPage({ segment, services }: MobileServicosPageProp
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Serviços"
       subtitle="Soluções e convênios da CDL — catálogo otimizado para o app."
     >

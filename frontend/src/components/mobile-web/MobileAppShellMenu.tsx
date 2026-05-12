@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { getMarketingSiteHomeAbsoluteUrl } from '@/lib/mobile-shell-links';
 
 export type MobileAppShellMenuItem = {
   href: string;
@@ -150,7 +151,7 @@ export function MobileAppShellMenu({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`absolute right-0 top-0 flex h-[100dvh] w-[min(20rem,calc(100vw-2.5rem))] flex-col border-l border-white/10 bg-gradient-to-b from-[#172554] to-[#0b1224] shadow-2xl shadow-black/40 transition-transform duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transform-none motion-reduce:transition-none ${
+            className={`absolute right-0 top-0 flex h-[100dvh] w-[min(13rem,calc((100vw-2.5rem)*0.65))] flex-col border-l border-white/10 bg-gradient-to-b from-[#172554] to-[#0b1224] shadow-2xl shadow-black/40 transition-transform duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transform-none motion-reduce:transition-none ${
               reveal ? 'translate-x-0' : 'translate-x-full'
             }`}
           >
@@ -200,9 +201,10 @@ export function MobileAppShellMenu({
                 reveal ? 'opacity-100 motion-safe:delay-[120ms] motion-reduce:delay-0' : 'opacity-0'
               }`}
             >
-              <Link
-                href="/"
-                prefetch={false}
+              <a
+                href={getMarketingSiteHomeAbsoluteUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex w-full items-center justify-center gap-1 rounded-xl border border-white/15 bg-white/5 py-3 text-[12px] font-semibold text-cyan-200 hover:bg-white/10"
                 onClick={() => requestClose()}
               >
@@ -210,7 +212,7 @@ export function MobileAppShellMenu({
                 <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-              </Link>
+              </a>
             </div>
           </div>
         </div>

@@ -11,7 +11,6 @@ export function MobileCampanhasPage({ segment }: MobileCampanhasPageProps) {
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Campanhas e eventos"
       subtitle="Ações da CDL Paulo Afonso no formato compacto para o app."
     >

@@ -13,7 +13,7 @@ export function MobileNewsReaderToolbar({
   sharing: boolean;
 }) {
   return (
-    <div className="sticky top-[env(safe-area-inset-top,0px)] z-30 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#172554]/95 px-3 py-2.5 pr-14 backdrop-blur-md">
+    <div className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#172554]/95 px-3 pb-2.5 pt-[calc(env(safe-area-inset-top,0px)+0.625rem)] pr-14 backdrop-blur-md">
       <Link
         href={noticiasIndexHref}
         prefetch={false}
@@ -50,7 +50,7 @@ export function MobileNewsReaderToolbar({
 
 export function MobileNewsReaderSurface({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-14px_48px_rgba(15,23,42,0.45)]">
+    <div className="relative flex min-h-0 flex-1 flex-col overscroll-y-none rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-14px_48px_rgba(15,23,42,0.45)]">
       {children}
     </div>
   );

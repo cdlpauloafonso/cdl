@@ -11,7 +11,6 @@ export function MobileAreaAssociadoPage({ segment }: MobileAreaAssociadoPageProp
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Área do associado"
       subtitle="Serviços, SPC e links úteis para quem já é associado."
     >

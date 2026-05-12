@@ -11,7 +11,6 @@ export function MobileBeneficiosAssociadosPage({ segment }: MobileBeneficiosAsso
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Benefícios para associados"
       subtitle="Convênios e vantagens da CDL — leitura otimizada para o app."
     >

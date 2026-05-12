@@ -109,7 +109,11 @@ export function CampaignPageClient({
 
   return (
     <div
-      className={`relative bg-gradient-to-b from-white to-cdl-gray/30 py-12 sm:py-16 ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}
+      className={`relative bg-gradient-to-b from-white to-cdl-gray/30 ${
+        fillAppShellViewport ?
+          `flex min-h-0 flex-1 flex-col pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]`
+        : 'py-12 sm:py-16'
+      }`}
     >
       {soldOutNotification && (
         <div

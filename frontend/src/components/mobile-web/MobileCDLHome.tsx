@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { resolveAppShellHref, segmentFromMobilePathname, shouldUseNativeAnchorForMobileNav, coerceToAppRelativePath } from '@/lib/mobile-shell-links';
+import { getMarketingSiteHomeAbsoluteUrl, resolveAppShellHref, segmentFromMobilePathname, shouldUseNativeAnchorForMobileNav, coerceToAppRelativePath } from '@/lib/mobile-shell-links';
 import { HOME_PAGE_STATS } from '@/constants/home-stats';
 import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore } from '@/lib/firestore';
+import { MobileHeroHeaderBackdrop } from '@/components/mobile-web/MobileHeroHeaderBackdrop';
 
 type HeroSlideVM = {
   id: string;
@@ -217,11 +218,8 @@ export function MobileCDLHome() {
 
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col text-slate-100">
-      <header className="relative shrink-0 overflow-hidden px-5 pb-28 pt-4">
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(59,130,246,0.35),transparent),linear-gradient(180deg,#172554_0%,#0b1224_100%)]"
-          aria-hidden
-        />
+      <MobileHeroHeaderBackdrop variant="home" />
+      <header className="relative z-10 shrink-0 px-5 pb-28 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
         <div className="relative flex items-center pt-1">
           <div className="relative min-h-[44px] min-w-0 flex-1">
             {/* Logo PNG com canal alpha — fundos explícitos transparentes */}
@@ -238,8 +236,8 @@ export function MobileCDLHome() {
           </div>
         </div>
 
-        <div className="relative mt-6">
-          <div className="-mx-1 flex gap-3 overflow-x-auto pb-1 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative mt-6 -mx-5">
+          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 px-5 pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {slides.map((s, i) => {
               const href = s.href;
               const useNativeAnchor = !!href && shouldUseNativeAnchorForMobileNav(href);
@@ -324,7 +322,7 @@ export function MobileCDLHome() {
         </div>
       </header>
 
-      <main className="relative -mt-16 flex flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
+      <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col overscroll-y-none rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
         <div className="flex flex-1 flex-col">
         <div className="mx-auto mb-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />
@@ -445,13 +443,14 @@ export function MobileCDLHome() {
         </section>
 
         <div className="mt-10 border-t border-slate-200/80 pt-6 text-center">
-          <Link
-            href="/"
-            prefetch={false}
+          <a
+            href={getMarketingSiteHomeAbsoluteUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-xs font-semibold text-cdl-blue hover:underline"
           >
             Ir para o site completo ↗
-          </Link>
+          </a>
           <p className="mx-auto mt-3 max-w-xs text-[10px] leading-relaxed text-slate-500">
             Experiência mobile institucional — os destaques do topo e as notícias podem refletir o conteúdo publicado no
             site quando o app estiver online.

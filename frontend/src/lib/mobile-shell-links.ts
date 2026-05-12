@@ -134,6 +134,25 @@ export function shouldUseNativeAnchorForMobileNav(href: string): boolean {
   return /^https?:\/\//i.test(t);
 }
 
+/**
+ * Raiz absoluta do site institucional (fora da shell `/m/`), para abrir em navegador/Safari.
+ * Usa `NEXT_PUBLIC_SITE_URL` em dev/host custom; caso contrário produção.
+ */
+export function getMarketingSiteHomeAbsoluteUrl(): string {
+  const raw =
+    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL?.trim()
+      ? process.env.NEXT_PUBLIC_SITE_URL.trim()
+      : null;
+  if (raw) {
+    try {
+      return new URL('/', raw.endsWith('/') ? raw : `${raw}/`).href;
+    } catch {
+      /* ignore */
+    }
+  }
+  return 'https://www.cdlpauloafonso.com/';
+}
+
 /** @deprecated use `resolveAppShellHref` */
 export function resolveAssocieHrefInMobileShell(segment: string | null, href: string): string {
   return resolveAppShellHref(segment, href);

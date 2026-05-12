@@ -93,3 +93,46 @@ body {
     font-size: 0.85rem;
   }
 }
+
+/* Shell /m/[token]: barras de rolagem ocultas; scroll mantém-se */
+html.mobile-shell-app,
+html.mobile-shell-app body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: none;
+}
+
+html.mobile-shell-app * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.mobile-shell-app *::-webkit-scrollbar,
+html.mobile-shell-app::-webkit-scrollbar,
+html.mobile-shell-app body::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent;
+}
+
+html:has([data-mobile-shell]),
+html:has([data-mobile-shell]) body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior: none;
+}
+
+html:has([data-mobile-shell]) * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html:has([data-mobile-shell]) *::-webkit-scrollbar,
+html:has([data-mobile-shell])::-webkit-scrollbar,
+html:has([data-mobile-shell]) body::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent;
+}

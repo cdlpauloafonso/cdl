@@ -25,7 +25,11 @@ function CampaignVerInner({
   if (!slug) {
     return (
       <div
-        className={`bg-gradient-to-b from-white to-cdl-gray/30 py-12 sm:py-16 ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}
+        className={`bg-gradient-to-b from-white to-cdl-gray/30 ${
+          fillAppShellViewport ?
+            `flex min-h-0 flex-1 flex-col pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]`
+          : 'py-12 sm:py-16'
+        }`}
       >
         <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex flex-1 flex-col' : ''}`}>
           <Link href={campanhasIndexHref} prefetch={false} className="mb-6 inline-block text-sm text-cdl-blue hover:underline">
@@ -52,7 +56,7 @@ function CampaignVerInner({
 export function CampaignVerContent(props: CampaignVerContentProps) {
   const fallback =
     props.fillAppShellViewport ?
-      <div className="flex min-h-[30vh] flex-1 flex-col items-center justify-center py-12">
+      <div className="flex min-h-[30vh] flex-1 flex-col items-center justify-center pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))]">
         <p className="text-cdl-gray-text">Carregando...</p>
       </div>
     : (

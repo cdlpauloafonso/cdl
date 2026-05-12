@@ -11,7 +11,6 @@ export function MobileAtendimentoPage({ segment }: MobileAtendimentoPageProps) {
   return (
     <MobileWebSubPageChrome
       backHref={segment}
-      backLabel="Início app"
       title="Fale conosco"
       subtitle="Envie uma mensagem para a equipe de atendimento da CDL Paulo Afonso."
     >
