@@ -5,24 +5,12 @@ import { useEffect } from 'react';
 /** Classe em `document.documentElement` — estilos globais só no app `/m/` (ex.: scrollbar). */
 export const MOBILE_SHELL_HTML_CLASS = 'mobile-shell-app';
 
-/** Tom inferior do degradê azul (miolo / hero). */
-export const MOBILE_WEBVIEW_PAGE_BG = '#0b1224';
-
-/** Cor “tapete” por baixo de todo o scroll — alinha ao fim do painel claro (`to-[#eef2fb]` na home mobile). No bounce no fim da página não aparece #0b1224 atrás do branco. */
-export const MOBILE_WEBVIEW_DOCUMENT_BOTTOM_BG = '#eef2fb';
-
-/** Altura da faixa degradê no topo do documento; abaixo disso vê-se só `MOBILE_WEBVIEW_DOCUMENT_BOTTOM_BG`. */
-const MOBILE_WEBVIEW_DOCUMENT_GRADIENT_HEIGHT = 'min(92vh, 760px)';
-
-/** Azul institucional (`cdl.blue`) — deve ser o primeiro stop do degradê para o bounce no topo não revelar `#172554`. */
-export const MOBILE_WEBVIEW_DOCUMENT_TOP_BLUE = '#1E3A8A';
-
-/** Degradê só na zona superior; o resto do canvas usa `MOBILE_WEBVIEW_DOCUMENT_BOTTOM_BG`. */
-const MOBILE_WEBVIEW_DOCUMENT_GRADIENT = `linear-gradient(180deg, ${MOBILE_WEBVIEW_DOCUMENT_TOP_BLUE} 0%, ${MOBILE_WEBVIEW_PAGE_BG} 100%)`;
+/** Tom base do canvas do shell — alinhado ao painel claro; hero azul cobre o topo via camadas fixas. */
+export const MOBILE_WEBVIEW_PAGE_BG = '#eef2fb';
 
 /**
- * Nos WebViews/Safari, o “rubber band” pinta contra `html`/`body`:
- * mesmo azul do topo na faixa inicial; fundo claro por defeito para o elastic no fim da página não mostrar azul escuro atrás da área branca.
+ * Marca `html`, define tapete claro no canvas (bounce inferior contínuo com o <main>).
+ * O degradê do hero fica em {@link MobileShellViewportBackdrop} (`position: fixed`).
  */
 export function MobileWebviewDocumentBackdrop() {
   useEffect(() => {
@@ -40,16 +28,16 @@ export function MobileWebviewDocumentBackdrop() {
     const prevBodyBgRepeat = body.style.backgroundRepeat;
     const prevBodyBgPosition = body.style.backgroundPosition;
 
-    html.style.backgroundColor = MOBILE_WEBVIEW_DOCUMENT_BOTTOM_BG;
-    html.style.backgroundImage = MOBILE_WEBVIEW_DOCUMENT_GRADIENT;
-    html.style.backgroundSize = `100% ${MOBILE_WEBVIEW_DOCUMENT_GRADIENT_HEIGHT}`;
-    html.style.backgroundRepeat = 'no-repeat';
-    html.style.backgroundPosition = 'top center';
-    body.style.backgroundColor = MOBILE_WEBVIEW_DOCUMENT_BOTTOM_BG;
-    body.style.backgroundImage = MOBILE_WEBVIEW_DOCUMENT_GRADIENT;
-    body.style.backgroundSize = `100% ${MOBILE_WEBVIEW_DOCUMENT_GRADIENT_HEIGHT}`;
-    body.style.backgroundRepeat = 'no-repeat';
-    body.style.backgroundPosition = 'top center';
+    html.style.backgroundColor = MOBILE_WEBVIEW_PAGE_BG;
+    html.style.backgroundImage = 'none';
+    html.style.backgroundSize = '';
+    html.style.backgroundRepeat = '';
+    html.style.backgroundPosition = '';
+    body.style.backgroundColor = MOBILE_WEBVIEW_PAGE_BG;
+    body.style.backgroundImage = 'none';
+    body.style.backgroundSize = '';
+    body.style.backgroundRepeat = '';
+    body.style.backgroundPosition = '';
     html.classList.add(MOBILE_SHELL_HTML_CLASS);
 
     return () => {

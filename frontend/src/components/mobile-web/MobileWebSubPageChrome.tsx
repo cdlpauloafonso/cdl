@@ -13,7 +13,7 @@ type MobileWebSubPageChromeProps = {
 };
 
 /**
- * Páginas filhas dentro de `/m/:token/` — mesmo “card” clarinho sobre fundo `#0b1224`
+ * Páginas filhas dentro de `/m/:token/` — mesmo “card” clarinho sobre fundo claro do shell (`#eef2fb`).
  * do layout, alinhado à home MobileCDLHome.
  */
 export function MobileWebSubPageChrome({

@@ -56,18 +56,20 @@ export function MobileNossaCidadePage({
               Ver mais
             </Link>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 gap-y-3 sm:gap-3">
             {NOSSA_CIDADE_ECONOMIC_INDICATORS.map((indicator, i) => (
               <div
                 key={`${indicator.label}-${i}`}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03]"
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/[0.03] sm:p-4"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex shrink-0 scale-90 origin-top-left">{indicator.icon}</div>
-                  <p className="text-right text-xl font-bold tabular-nums text-cdl-blue">{indicator.value}</p>
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="flex shrink-0 scale-[0.82] origin-top-left sm:scale-90">{indicator.icon}</div>
+                  <p className="text-right text-base font-bold tabular-nums leading-tight text-cdl-blue sm:text-xl">
+                    {indicator.value}
+                  </p>
                 </div>
-                <h3 className="mt-1 text-xs font-semibold text-slate-900">{indicator.label}</h3>
-                <p className="text-[11px] text-slate-500">{indicator.description}</p>
+                <h3 className="mt-1 text-[11px] font-semibold leading-snug text-slate-900 sm:text-xs">{indicator.label}</h3>
+                <p className="text-[10px] leading-snug text-slate-500 sm:text-[11px]">{indicator.description}</p>
               </div>
             ))}
           </div>
