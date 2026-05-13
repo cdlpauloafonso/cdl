@@ -19,7 +19,7 @@ export default function MobileWebviewSegmentLayout({ children }: { children: Rea
       <MobileWebviewDocumentBackdrop />
       <div
         data-mobile-shell
-        className="relative z-[1] flex min-h-dvh flex-col bg-[#eef2fb] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+        className="relative z-[1] flex min-h-dvh flex-col bg-[#0b1224] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
       >
         <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col">
           <MobileWebviewShellChrome>{children}</MobileWebviewShellChrome>

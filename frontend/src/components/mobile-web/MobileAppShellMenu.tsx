@@ -85,8 +85,8 @@ export function MobileAppShellMenu({
 
   useEffect(() => {
     if (!(open || leaving)) return undefined;
-    const prevHtml = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
+    const prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
     let focusTimer = 0;
     if (open && !leaving) {
@@ -94,7 +94,7 @@ export function MobileAppShellMenu({
     }
     return () => {
       window.clearTimeout(focusTimer);
-      document.documentElement.style.overflow = prevHtml || '';
+      document.body.style.overflow = prevBodyOverflow || '';
     };
   }, [open, leaving]);
 

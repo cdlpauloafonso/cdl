@@ -121,6 +121,8 @@ html:has([data-mobile-shell]),
 html:has([data-mobile-shell]) body {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 html:has([data-mobile-shell]) * {
@@ -150,7 +152,7 @@ html:has([data-mobile-shell]),
 html:has([data-mobile-shell]) body,
 html.mobile-shell-app,
 html.mobile-shell-app body {
-  background-color: #eef2fb;
+  background-color: #0b1224;
   background-image: none;
 }
 
@@ -163,4 +165,6 @@ html:has([data-mobile-shell]) body {
 html:has([data-mobile-shell]) body,
 html.mobile-shell-app body {
   overflow-x: visible;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
