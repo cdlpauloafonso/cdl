@@ -1,21 +1,17 @@
 'use client';
 
 import { useEffect } from 'react';
-import {
-  MOBILE_SHELL_CANVAS_FALLBACK,
-  MOBILE_SHELL_VIEWPORT_GRADIENT,
-} from '@/components/mobile-web/mobile-shell-viewport-gradient';
+import { MOBILE_SHELL_CANVAS_FALLBACK } from '@/components/mobile-web/mobile-shell-viewport-gradient';
 
 /** Classe em `document.documentElement` — estilos globais só no app `/m/` (ex.: scrollbar). */
 export const MOBILE_SHELL_HTML_CLASS = 'mobile-shell-app';
 
-/** Fallback sólido atrás do degradê (tapete claro na zona inferior). */
+/** Tom base do canvas do documento (painel claro). Degradê do hero: só {@link MobileShellViewportBackdrop}. */
 export const MOBILE_WEBVIEW_PAGE_BG = MOBILE_SHELL_CANVAS_FALLBACK;
 
 /**
- * Marca `html` e pinta o mesmo degradê fixo ao viewport que {@link MobileShellViewportBackdrop},
- * para o bounce da WKWebView revelar cores coerentes (sem pedir `overscroll-behavior-y: contain`,
- * que no WebKit tende a matar o elástico vertical).
+ * Marca `html` e define fundo sólido no canvas.
+ * Evita `background-attachment: fixed` e degradê em html/body — no Safari/WKWebView isso costuma matar o rubber-band.
  */
 export function MobileWebviewDocumentBackdrop() {
   useEffect(() => {
@@ -35,17 +31,17 @@ export function MobileWebviewDocumentBackdrop() {
     const prevBodyBgPosition = body.style.backgroundPosition;
     const prevBodyBgAttachment = body.style.backgroundAttachment;
 
-    const paintFixedViewportGradient = (el: HTMLElement) => {
+    const paintSolid = (el: HTMLElement) => {
       el.style.backgroundColor = MOBILE_SHELL_CANVAS_FALLBACK;
-      el.style.backgroundImage = MOBILE_SHELL_VIEWPORT_GRADIENT;
-      el.style.backgroundAttachment = 'fixed';
-      el.style.backgroundSize = '100% 100%';
-      el.style.backgroundRepeat = 'no-repeat';
-      el.style.backgroundPosition = 'center top';
+      el.style.backgroundImage = 'none';
+      el.style.backgroundSize = '';
+      el.style.backgroundRepeat = '';
+      el.style.backgroundPosition = '';
+      el.style.backgroundAttachment = '';
     };
 
-    paintFixedViewportGradient(html);
-    paintFixedViewportGradient(body);
+    paintSolid(html);
+    paintSolid(body);
 
     html.classList.add(MOBILE_SHELL_HTML_CLASS);
 
