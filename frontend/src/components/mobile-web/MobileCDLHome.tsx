@@ -373,14 +373,6 @@ export function MobileCDLHome() {
                 <p className="text-xs font-bold text-white">{tile.title}</p>
                 <p className="text-[10px] text-white/85">{tile.subtitle}</p>
               </div>
-              <span
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm group-hover:border-white/35 group-hover:bg-black/50"
-                aria-hidden
-              >
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </span>
             </Link>
           ))}
         </div>

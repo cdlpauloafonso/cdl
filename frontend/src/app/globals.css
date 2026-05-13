@@ -94,14 +94,13 @@ body {
   }
 }
 
-/* Shell /m/[token]: barras de rolagem ocultas; mantém bounce nativo vertical (safari/WebView).
-   Horizontal sem “chain” evita comportamentos estranhos em alguns gestures. */
+/* Shell /m/[token]: barras de rolagem ocultas; sem overscroll-behavior-y (contain/noise no WebKit
+   reduz ou remove o rubber-band vertical). Só cortamos chain horizontal. */
 html.mobile-shell-app,
 html.mobile-shell-app body {
   scrollbar-width: none;
   -ms-overflow-style: none;
   overscroll-behavior-x: none;
-  overscroll-behavior-y: contain;
 }
 
 html.mobile-shell-app * {
@@ -123,7 +122,6 @@ html:has([data-mobile-shell]) body {
   scrollbar-width: none;
   -ms-overflow-style: none;
   overscroll-behavior-x: none;
-  overscroll-behavior-y: contain;
 }
 
 html:has([data-mobile-shell]) * {
@@ -141,8 +139,8 @@ html:has([data-mobile-shell]) body::-webkit-scrollbar {
 }
 
 /*
- * Canvas do shell `/m/`: tom do painel claro (#eef2fb) para o bounce inferior não revelar #0b1224
- * entre o <main> e o fundo nativo. O hero azul vem de MobileShellViewportBackdrop + MobileHeroHeaderBackdrop.
+ * Canvas do shell `/m/`: mesmo degradê fixo ao viewport que MobileShellViewportBackdrop (alinhar string ao TS).
+ * background-attachment: fixed mantém topo azul / base clara durante o bounce sem usar overscroll-behavior-y.
  */
 html:has([data-mobile-shell]),
 html.mobile-shell-app {
@@ -155,8 +153,11 @@ html:has([data-mobile-shell]) body,
 html.mobile-shell-app,
 html.mobile-shell-app body {
   background-color: #eef2fb;
-  background-image: none;
-  overscroll-behavior-y: contain;
+  background-image: linear-gradient(180deg, #1e3a8a 0%, #0b1224 28%, #0b1224 38%, #eef2fb 46%, #eef2fb 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
 }
 
 html:has([data-mobile-shell]) body {
