@@ -12,6 +12,7 @@ import contact from './routes/contact.js';
 import settings from './routes/settings.js';
 import upload from './routes/upload.js';
 import about from './routes/about.js';
+import nossaCidade from './routes/nossa-cidade.js';
 
 
 const app = express();
@@ -28,6 +29,7 @@ app.get('/', (_req, res) => {
 app.use('/uploads', express.static(path.resolve(UPLOAD_DIR)));
 
 app.use('/api/auth', auth);
+app.use('/api/nossa-cidade', nossaCidade);
 app.use('/api/pages', pages);
 app.use('/api/directors', directors);
 app.use('/api/services', services);

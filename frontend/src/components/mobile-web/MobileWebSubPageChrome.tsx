@@ -28,7 +28,7 @@ export function MobileWebSubPageChrome({
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col text-slate-100">
       <MobileHeroHeaderBackdrop variant="subpage" />
-      <header className="relative z-10 shrink-0 overflow-x-hidden px-4 pb-6 pt-[calc(env(safe-area-inset-top,0px)+0.25rem)]">
+      <header className="relative z-10 shrink-0 overflow-x-hidden px-5 pb-6 pt-[calc(env(safe-area-inset-top,0px)+0.25rem)] sm:px-6">
         <div className="relative">
           <Link
             href={backHref}
@@ -60,8 +60,8 @@ export function MobileWebSubPageChrome({
         </div>
       </header>
 
-      <main className="relative z-10 -mt-2 flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col">{children}</div>
+      <main className="relative z-10 -mt-2 flex min-h-0 flex-1 flex-col overflow-x-hidden rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-5 pb-[max(2.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)] sm:px-6">
+        <div className="mx-auto flex w-full min-w-0 max-w-lg flex-1 flex-col overflow-x-hidden">{children}</div>
       </main>
     </div>
   );

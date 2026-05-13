@@ -7,6 +7,8 @@ export const MOBILE_APP_SHELL_MENU_ITEMS: readonly MobileAppShellMenuItem[] = [
   { href: '/institucional/campanhas', label: 'Campanhas', subtitle: 'Eventos' },
   { href: '/atendimento', label: 'Fale conosco', subtitle: 'Contato' },
   { href: '/noticias', label: 'Notícias', subtitle: 'Publicações e comunicados' },
+  { href: '/indicadores-economicos', label: 'Indicadores', subtitle: 'Dados de Paulo Afonso' },
+  { href: '/institucional/nossa-cidade', label: 'Nossa cidade', subtitle: 'Paulo Afonso e turismo' },
   { href: '/area-associado', label: 'Área do associado', subtitle: 'Benefícios e canais exclusivos' },
   { href: '/associe-se', label: 'Associe-se', subtitle: 'Faça parte da rede CDL' },
 ];

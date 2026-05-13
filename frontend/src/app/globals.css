@@ -139,9 +139,9 @@ html:has([data-mobile-shell]) body::-webkit-scrollbar {
 }
 
 /*
- * Cobertura do “canvas” atrás da página — no bounce/overscroll o motor pinta zona extra;
- * esta cor igual ao pé do degradé (#0b1224) garante que nada mais “embaixo” fique à vista,
- * até quando as camadas decorativas (fixed do hero) ficam fora da moldura habitual.
+ * Canvas atrás do shell `/m/`: overscroll revela `html`/`body`.
+ * Topo: degradê azul só numa faixa (`background-size`); por baixo, tapete #eef2fb como no painel claro da home —
+ * bounce no fim da página não mostra #0b1224 atrás do branco.
  */
 html:has([data-mobile-shell]),
 html.mobile-shell-app {
@@ -152,7 +152,11 @@ html:has([data-mobile-shell]),
 html:has([data-mobile-shell]) body,
 html.mobile-shell-app,
 html.mobile-shell-app body {
-  background-color: #0b1224;
+  background-color: #eef2fb;
+  background-image: linear-gradient(180deg, #1e3a8a 0%, #0b1224 100%);
+  background-size: 100% min(92vh, 760px);
+  background-repeat: no-repeat;
+  background-position: top center;
 }
 
 html:has([data-mobile-shell]) body {

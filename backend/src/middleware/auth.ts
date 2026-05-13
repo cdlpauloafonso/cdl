@@ -2,27 +2,13 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import admin from 'firebase-admin';
+import { initFirebaseAdmin } from '../lib/firebase-admin.js';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
 
 export interface AuthPayload {
   userId: string;
   email: string;
-}
-
-function initFirebaseAdmin() {
-  try {
-    if ((admin as any).apps && (admin as any).apps.length) return;
-    const creds = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    if (creds) {
-      const parsed = JSON.parse(creds);
-      admin.initializeApp({ credential: admin.credential.cert(parsed) } as any);
-    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      admin.initializeApp();
-    }
-  } catch (e) {
-    // ignore init errors; verification will fail later if not configured
-  }
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {

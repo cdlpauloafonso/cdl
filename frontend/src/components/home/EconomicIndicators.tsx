@@ -1,11 +1,5 @@
 import Link from 'next/link';
-
-const indicators = [
-  { value: '119.213', label: 'População Total' },
-  { value: '16.540', label: 'Empregados Formais' },
-  { value: '7.158', label: 'Estudantes de Ensino Superior' },
-  { value: '7.546', label: 'Empresas Ativas' },
-];
+import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
 
 export function EconomicIndicators() {
   return (
@@ -21,7 +15,7 @@ export function EconomicIndicators() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {indicators.map((item, i) => (
+          {HOME_ECONOMIC_INDICATORS.map((item, i) => (
             <div
               key={i}
               className="p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all text-center"

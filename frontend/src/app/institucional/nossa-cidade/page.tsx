@@ -1,29 +1,10 @@
 import Link from 'next/link';
 import { PontosTuristicosSection } from '@/components/institucional/PontosTuristicosSection';
-
-async function getPage() {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) return null;
-  try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/api/pages/nossa-cidade`, { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-const economicIndicators = [
-  { label: 'População Total', value: '119.213', description: 'Estimativa 2024', icon: '👥' },
-  { label: 'Empregados Formais', value: '16.540', description: 'RAIS', icon: '💼' },
-  { label: 'Estudantes de Ensino Superior', value: '7.158', description: 'INEP', icon: '🎓' },
-  { label: 'Empresas Ativas', value: '7.546', description: 'RFB', icon: '🏢' },
-  { label: 'PIB per capita', value: 'R$ 33.262,53', description: '2021 - IBGE', icon: '💰' },
-  { label: 'IDH', value: '0,674', description: '2010 - PNUD', icon: '📊' },
-];
+import { NOSSA_CIDADE_ECONOMIC_INDICATORS } from '@/constants/nossa-cidade-economic-indicators';
+import { getNossaCidadeInstitutionalPayload } from '@/lib/nossa-cidade-institutional-data';
 
 export default async function NossaCidadePage() {
-  const page = await getPage();
+  const { excerptDisplay, showHtmlBlock, pontosCms } = await getNossaCidadeInstitutionalPayload();
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
       <div className="container-cdl max-w-5xl">
@@ -32,9 +13,9 @@ export default async function NossaCidadePage() {
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
             Nossa Cidade
           </h1>
-          {page?.excerpt ? (
+          {excerptDisplay ? (
             <p className="text-lg sm:text-xl text-cdl-gray-text max-w-3xl mx-auto">
-              {page.excerpt}
+              {excerptDisplay}
             </p>
           ) : (
             <p className="text-lg sm:text-xl text-cdl-gray-text max-w-3xl mx-auto">
@@ -45,8 +26,8 @@ export default async function NossaCidadePage() {
 
         {/* Descrição sobre a Cidade */}
         <section className="mb-16">
-          {page?.content ? (
-            <div className="prose prose-cdl max-w-none" dangerouslySetInnerHTML={{ __html: page.content }} />
+          {showHtmlBlock ? (
+            <div className="prose prose-cdl max-w-none" dangerouslySetInnerHTML={{ __html: showHtmlBlock }} />
           ) : (
             <div className="prose prose-cdl max-w-none">
               <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
@@ -75,7 +56,7 @@ export default async function NossaCidadePage() {
           )}
         </section>
 
-        <PontosTuristicosSection />
+        <PontosTuristicosSection pontosCms={pontosCms} />
 
         {/* Indicadores Econômicos */}
         <section className="mb-12">
@@ -90,13 +71,13 @@ export default async function NossaCidadePage() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {economicIndicators.map((indicator, i) => (
+            {NOSSA_CIDADE_ECONOMIC_INDICATORS.map((indicator, i) => (
               <div
                 key={i}
                 className="p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-3xl">{indicator.icon}</div>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex shrink-0">{indicator.icon}</div>
                   <div className="text-right">
                     <p className="text-2xl sm:text-3xl font-bold text-cdl-blue">{indicator.value}</p>
                   </div>

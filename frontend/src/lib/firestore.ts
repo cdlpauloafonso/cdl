@@ -937,6 +937,61 @@ export async function setAbout(data: AboutItem): Promise<void> {
   });
 }
 
+// ---- Nossa Cidade / página institucional (Firestore: texto + pontos turísticos) ----
+const NOSSA_CIDADE_DOC_ID = 'main';
+
+export type PontoTuristicoIconKind =
+  | 'church'
+  | 'hydro'
+  | 'bridge'
+  | 'nature'
+  | 'museum'
+  | 'craft'
+  | 'boat';
+
+export type PontoTuristicoCMS = {
+  id: string;
+  nome: string;
+  descricaoCurta: string;
+  detalhes: string;
+  iconKind: PontoTuristicoIconKind;
+  imageSrc: string;
+  imageAlt: string;
+  order?: number;
+};
+
+export type NossaCidadeCMS = {
+  excerpt: string;
+  content: string;
+  pontosTuristicos: PontoTuristicoCMS[];
+};
+
+export async function getNossaCidadeCMS(): Promise<NossaCidadeCMS | null> {
+  const db = getDb();
+  const ref = doc(db, 'nossaCidade', NOSSA_CIDADE_DOC_ID);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  const pontosRaw = data?.pontosTuristicos;
+  const pontosTuristicos = Array.isArray(pontosRaw) ? (pontosRaw as PontoTuristicoCMS[]) : [];
+  return {
+    excerpt: typeof data?.excerpt === 'string' ? data.excerpt : '',
+    content: typeof data?.content === 'string' ? data.content : '',
+    pontosTuristicos,
+  };
+}
+
+export async function setNossaCidadeCMS(data: NossaCidadeCMS): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'nossaCidade', NOSSA_CIDADE_DOC_ID);
+  await setDoc(ref, {
+    excerpt: data.excerpt ?? '',
+    content: data.content ?? '',
+    pontosTuristicos: data.pontosTuristicos ?? [],
+    updatedAt: serverTimestamp(),
+  });
+}
+
 /** Índice público: id = 14 dígitos do CNPJ; permite checar inscrição sem expor `associados`. */
 const ASSOCIADOS_CNPJ_INDEX = 'associadosCnpjIndex';
 

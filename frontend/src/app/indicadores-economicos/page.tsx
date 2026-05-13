@@ -1,20 +1,13 @@
 import Link from 'next/link';
+import {
+  INDICADORES_CAPITAL_HUMANO,
+  INDICADORES_HIGHLIGHTS,
+  INDICADORES_PIB_PER_CAPITA_ROWS,
+  INDICADORES_RENDIMENTO_DOMICILIAR_ROWS,
+  INDICADORES_TABELA_COMPLETA,
+} from '@/constants/indicadores-economicos-data';
 
 export const dynamic = 'force-static';
-
-const highlights = [
-  { label: 'IDH', value: '0,674', year: '2010', source: 'PNUD' },
-  { label: 'População', value: '119.213', year: 'Estimativa 2024', source: 'IBGE' },
-  { label: 'PIB per capita', value: 'R$ 33.262,53', year: '2021', source: 'IBGE' },
-  { label: 'Taxa de Escolarização', value: '95,5%', year: '6 a 14 anos (2022)', source: 'IBGE' },
-];
-
-const capitalHumano = [
-  { value: '119.213', label: 'População Total' },
-  { value: '16.540', label: 'Empregados Formais' },
-  { value: '7.158', label: 'Estudantes de Ensino Superior' },
-  { value: '7.546', label: 'Empresas Ativas' },
-];
 
 export default function IndicadoresEconomicosPage() {
   return (
@@ -36,7 +29,7 @@ export default function IndicadoresEconomicosPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Indicadores em Destaque</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {highlights.map((item, i) => (
+            {INDICADORES_HIGHLIGHTS.map((item, i) => (
               <div
                 key={i}
                 className="p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all"
@@ -62,9 +55,9 @@ export default function IndicadoresEconomicosPage() {
               Profissionais qualificados para impulsionar sua empresa
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {capitalHumano.map((item, i) => (
+            {INDICADORES_CAPITAL_HUMANO.map((item, i) => (
               <div
                 key={i}
                 className="p-6 rounded-xl border border-gray-200 bg-white hover:border-cdl-blue/30 hover:shadow-md transition-all text-center"
@@ -87,33 +80,20 @@ export default function IndicadoresEconomicosPage() {
             <div className="p-6 rounded-xl border border-gray-200 bg-white">
               <h3 className="font-semibold text-gray-900 mb-4">PIB per capita (2021)</h3>
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Paulo Afonso</span>
-                    <span className="font-medium text-gray-900">R$ 33.262,53</span>
+                {INDICADORES_PIB_PER_CAPITA_ROWS.map((row) => (
+                  <div key={row.city}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-cdl-gray-text">{row.city}</span>
+                      <span className="font-medium text-gray-900">{row.value}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${row.city === 'Paulo Afonso' ? 'bg-cdl-blue' : 'bg-gray-400'}`}
+                        style={{ width: `${row.widthPct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-cdl-blue h-2 rounded-full" style={{ width: '100%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Juazeiro</span>
-                    <span className="font-medium text-gray-900">R$ 28.145,20</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '85%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Teixeira de Freitas</span>
-                    <span className="font-medium text-gray-900">R$ 25.890,10</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '78%' }}></div>
-                  </div>
-                </div>
+                ))}
               </div>
               <p className="text-xs text-cdl-gray-text mt-4">Fonte: IBGE</p>
             </div>
@@ -121,33 +101,20 @@ export default function IndicadoresEconomicosPage() {
             <div className="p-6 rounded-xl border border-gray-200 bg-white">
               <h3 className="font-semibold text-gray-900 mb-4">Rendimento Domiciliar per capita (2022)</h3>
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Paulo Afonso</span>
-                    <span className="font-medium text-gray-900">R$ 1.245,00</span>
+                {INDICADORES_RENDIMENTO_DOMICILIAR_ROWS.map((row) => (
+                  <div key={row.city}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-cdl-gray-text">{row.city}</span>
+                      <span className="font-medium text-gray-900">{row.value}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${row.city === 'Paulo Afonso' ? 'bg-cdl-blue' : 'bg-gray-400'}`}
+                        style={{ width: `${row.widthPct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-cdl-blue h-2 rounded-full" style={{ width: '100%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Juazeiro</span>
-                    <span className="font-medium text-gray-900">R$ 1.180,00</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '95%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-cdl-gray-text">Teixeira de Freitas</span>
-                    <span className="font-medium text-gray-900">R$ 1.100,00</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-gray-400 h-2 rounded-full" style={{ width: '88%' }}></div>
-                  </div>
-                </div>
+                ))}
               </div>
               <p className="text-xs text-cdl-gray-text mt-4">Fonte: IBGE</p>
             </div>
@@ -169,55 +136,15 @@ export default function IndicadoresEconomicosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">População (2024)</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">119.213</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">218.162</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">162.438</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">IBGE</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">PIB per capita (2021)</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">R$ 33.262,53</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">R$ 28.145,20</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">R$ 25.890,10</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">IBGE</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">IDH (2010)</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">0,674</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">0,677</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">0,682</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">PNUD</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">Taxa de Escolarização 6-14 anos (2022)</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">95,5%</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">94,2%</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">93,8%</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">IBGE</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">Empregados Formais</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">16.540</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">28.450</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">22.180</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">RAIS</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">Estudantes de Ensino Superior</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">7.158</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">12.450</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">9.820</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">INEP</td>
-                </tr>
-                <tr className="hover:bg-cdl-gray/50">
-                  <td className="px-6 py-4 text-sm text-gray-900">Empresas Ativas</td>
-                  <td className="px-6 py-4 text-sm font-medium text-cdl-blue">7.546</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">13.280</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">10.450</td>
-                  <td className="px-6 py-4 text-sm text-cdl-gray-text">RFB</td>
-                </tr>
+                {INDICADORES_TABELA_COMPLETA.map((row) => (
+                  <tr key={row.indicator} className="hover:bg-cdl-gray/50">
+                    <td className="px-6 py-4 text-sm text-gray-900">{row.indicator}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-cdl-blue">{row.pauloAfonso}</td>
+                    <td className="px-6 py-4 text-sm text-cdl-gray-text">{row.juazeiro}</td>
+                    <td className="px-6 py-4 text-sm text-cdl-gray-text">{row.teixeira}</td>
+                    <td className="px-6 py-4 text-sm text-cdl-gray-text">{row.fonte}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

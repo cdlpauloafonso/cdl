@@ -22,6 +22,7 @@ const adminNav = [
   { href: '/admin/eventos', label: 'Eventos' },
   { href: '/admin/beneficios-associados', label: 'Benefícios' },
   { href: '/admin/cdl-paulo-afonso', label: 'CDL Paulo Afonso' },
+  { href: '/admin/nossa-cidade', label: 'Nossa cidade' },
   { href: '/admin/diretoria', label: 'Diretoria' },
   { href: '/admin/informativos', label: 'Informativos' },
   { href: '/admin/livro-caixa', label: 'Livro Caixa' },

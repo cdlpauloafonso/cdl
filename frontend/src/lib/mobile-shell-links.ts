@@ -88,8 +88,10 @@ function canonicalizeInternalPathForWebview(pathWithSearch: string): string {
 const APP_SHELL_EXACT_ROUTES = new Set([
   '/servicos',
   '/institucional/campanhas',
+  '/institucional/nossa-cidade',
   '/area-associado',
   '/atendimento',
+  '/indicadores-economicos',
 ]);
 
 /** Prefixos dentro do shell (associações e páginas filhas declaradas no app). */

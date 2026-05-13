@@ -115,6 +115,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Página institucional Nossa Cidade (texto + pontos turísticos)
+    match /nossaCidade/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     match /settings/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();

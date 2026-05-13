@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { getMarketingSiteHomeAbsoluteUrl, resolveAppShellHref, segmentFromMobilePathname, shouldUseNativeAnchorForMobileNav, coerceToAppRelativePath } from '@/lib/mobile-shell-links';
 import { HOME_PAGE_STATS } from '@/constants/home-stats';
+import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
 import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore } from '@/lib/firestore';
 import { MobileHeroHeaderBackdrop } from '@/components/mobile-web/MobileHeroHeaderBackdrop';
 
@@ -64,7 +65,7 @@ const QUICK_TILES = [
     subtitle: 'Catálogo',
     gradient: 'from-blue-600/90 to-blue-900/95',
     icon: (
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
       </svg>
     ),
@@ -75,7 +76,7 @@ const QUICK_TILES = [
     subtitle: 'Parceiros',
     gradient: 'from-indigo-500/85 to-blue-950/95',
     icon: (
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -91,7 +92,7 @@ const QUICK_TILES = [
     subtitle: 'Eventos',
     gradient: 'from-slate-600/95 to-slate-900',
     icon: (
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -101,23 +102,58 @@ const QUICK_TILES = [
       </svg>
     ),
   },
-  {
-    href: '/atendimento',
-    title: 'Fale conosco',
-    subtitle: 'Contato',
-    gradient: 'from-cyan-600/85 to-blue-950/98',
-    icon: (
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-  },
 ] as const;
+
+/** Imagem de destaque Paulo Afonso (ponte metálica / São Francisco) — mesmo ficheiro usado nos pontos turísticos. */
+const APP_HOME_NOSSA_CIDADE_IMAGE =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Gleidson_Santos_-_Ponte_Metalica_-_Liga_os_Estados_da_Bahia_e_Alagoas_Paulo_Afonso_BA_%2839151930800%29.jpg/960px-Gleidson_Santos_-_Ponte_Metalica_-_Liga_os_Estados_da_Bahia_e_Alagoas_Paulo_Afonso_BA_%2839151930800%29.jpg';
+
+/** Miniaturas da secção home — mesma ordem que `HOME_ECONOMIC_INDICATORS`. */
+const APP_HOME_ECONOMIC_TILE_ICONS = [
+  (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+      />
+    </svg>
+  ),
+  (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+      />
+    </svg>
+  ),
+  (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+      />
+    </svg>
+  ),
+  (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+      />
+    </svg>
+  ),
+] as const;
+
+/** Mesmo degradê do atalho «Serviços» nos acessos rápidos (`QUICK_TILES`). */
+const ECONOMIC_INDICATOR_HOME_GRADIENT = 'from-blue-600/90 to-blue-900/95';
 
 function slideVmFromFirestore(s: CarouselSlide): HeroSlideVM {
   const fromBtn =
@@ -324,32 +360,24 @@ export function MobileCDLHome() {
 
       <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
         <div className="flex flex-1 flex-col">
-        <div className="mx-auto mb-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-slate-200" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Acesso rápido</p>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           {QUICK_TILES.map((tile) => (
             <Link
               key={tile.href}
               href={mobileAppShellHref(tile.href)}
               prefetch={false}
-              className={`group relative overflow-hidden rounded-2xl border border-white/40 bg-gradient-to-br ${tile.gradient} p-4 shadow-lg shadow-slate-900/15`}
+              className={`group flex min-h-0 items-center gap-1.5 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${tile.gradient} px-2 py-2 shadow-md shadow-slate-900/12 sm:gap-2 sm:px-2.5`}
             >
-              <div className="flex flex-col gap-7">
-                <span className="inline-flex rounded-lg bg-black/25 p-2 text-white">{tile.icon}</span>
-                <div>
-                  <p className="text-sm font-bold text-white">{tile.title}</p>
-                  <p className="text-[11px] text-white/85">{tile.subtitle}</p>
-                </div>
+              <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{tile.icon}</span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="text-xs font-bold text-white">{tile.title}</p>
+                <p className="text-[10px] text-white/85">{tile.subtitle}</p>
               </div>
               <span
-                className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur group-hover:bg-white/25"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm group-hover:border-white/35 group-hover:bg-black/50"
                 aria-hidden
               >
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </span>
@@ -418,6 +446,47 @@ export function MobileCDLHome() {
           </div>
         </section>
 
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between gap-2 px-0.5">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Economia local</p>
+              <h3 className="text-base font-bold text-slate-900">Indicadores econômicos</h3>
+            </div>
+            <Link
+              href={mobileAppShellHref('/indicadores-economicos')}
+              prefetch={false}
+              className="text-xs font-semibold text-cdl-blue hover:underline"
+            >
+              Ver mais
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {HOME_ECONOMIC_INDICATORS.map((item, i) => (
+              <Link
+                key={item.label}
+                href={mobileAppShellHref('/indicadores-economicos')}
+                prefetch={false}
+                className={`group flex min-h-0 items-center gap-2 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${ECONOMIC_INDICATOR_HOME_GRADIENT} px-2.5 py-2 shadow-md shadow-slate-900/12 transition-[transform,filter] duration-200 hover:brightness-[1.06] active:scale-[0.99]`}
+              >
+                <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{APP_HOME_ECONOMIC_TILE_ICONS[i]}</span>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="text-xs font-bold tabular-nums tracking-tight text-white">{item.value}</p>
+                  <p className="text-[10px] leading-snug text-white/85">{item.label}</p>
+                </div>
+                <span
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm group-hover:border-white/35 group-hover:bg-black/50"
+                  aria-hidden
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-inner shadow-slate-200/70">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Área do associado</p>
           <p className="mt-2 text-sm font-semibold text-slate-900">Centralize pendências e oportunidades</p>
@@ -438,6 +507,32 @@ export function MobileCDLHome() {
               className="flex items-center justify-center rounded-xl border-2 border-cdl-blue py-3 text-xs font-semibold text-cdl-blue hover:bg-cdl-blue/5"
             >
               Associe-se
+            </Link>
+          </div>
+        </section>
+
+        <section className="mt-8 flex flex-row items-stretch overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md shadow-slate-900/[0.06]">
+          <div className="relative min-h-[5.25rem] w-[34%] min-w-[6.75rem] max-w-[9rem] shrink-0 self-stretch bg-slate-200 sm:max-w-[10rem] sm:min-h-[5.5rem]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={APP_HOME_NOSSA_CIDADE_IMAGE}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-[center_42%]"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-slate-900/25" />
+          </div>
+          <div className="flex min-h-[5.25rem] min-w-0 flex-1 flex-col justify-center gap-1 py-2 pl-2.5 pr-3 sm:min-h-[5.5rem] sm:pl-3 sm:pr-3.5">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">Conheça nossa cidade</p>
+            <h3 className="text-sm font-bold leading-tight text-slate-900">Paulo Afonso</h3>
+            <p className="line-clamp-2 text-[10px] leading-snug text-slate-600">
+              História no São Francisco, turismo e dados locais no app.
+            </p>
+            <Link
+              href={mobileAppShellHref('/institucional/nossa-cidade')}
+              prefetch={false}
+              className="mt-1 flex min-h-[34px] w-full items-center justify-center rounded-lg bg-[#172554] px-2 text-[11px] font-semibold text-white shadow-sm shadow-blue-900/20 hover:bg-[#131c48] sm:min-h-[36px] sm:text-xs"
+            >
+              Explorar cidade
             </Link>
           </div>
         </section>

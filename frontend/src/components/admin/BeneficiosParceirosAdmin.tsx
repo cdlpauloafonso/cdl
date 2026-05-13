@@ -120,7 +120,7 @@ function PartnerEditor({
         partner.active ? 'border-gray-200' : 'border-dashed border-slate-400 bg-slate-50'
       }`}
     >
-      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
         <label className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-gray-800">
           <input
             type="checkbox"
@@ -143,50 +143,11 @@ function PartnerEditor({
           />
           Ativo
         </label>
-        <div className="flex flex-wrap items-center gap-0.5">
-          {!partner.active && (
-            <span className="mr-1 rounded px-1 py-px text-[9px] font-semibold uppercase text-slate-600 ring-1 ring-slate-300">
-              Off
-            </span>
-          )}
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            onClick={() => save()}
-            className="rounded bg-cdl-blue px-2 py-px text-[10px] font-semibold leading-5 text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:py-0.5 sm:text-[11px]"
-          >
-            {saving ? '…' : 'Salvar'}
-          </button>
-          <button
-            type="button"
-            disabled={removing}
-            onClick={() => remove()}
-            className="rounded border border-red-200 px-2 py-px text-[10px] font-medium leading-5 text-red-700 hover:bg-red-50 sm:py-0.5 sm:text-[11px]"
-          >
-            Excluir
-          </button>
-          <span className="mx-0.5 hidden h-4 w-px bg-gray-200 sm:inline" aria-hidden />
-          <div className="flex overflow-hidden rounded border border-gray-300">
-            <button
-              type="button"
-              disabled={moving}
-              onClick={() => move('up')}
-              className="bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
-              title="Subir"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              disabled={moving}
-              onClick={() => move('down')}
-              className="border-l border-gray-300 bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
-              title="Descer"
-            >
-              ↓
-            </button>
-          </div>
-        </div>
+        {!partner.active && (
+          <span className="rounded px-1 py-px text-[9px] font-semibold uppercase text-slate-600 ring-1 ring-slate-300">
+            Off
+          </span>
+        )}
       </div>
 
       <div className="flex gap-2 sm:items-start">
@@ -270,6 +231,46 @@ function PartnerEditor({
           {error && <p className="text-[10px] text-red-600">{error}</p>}
         </div>
       </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-1 gap-y-1 border-t border-gray-100 pt-1.5 sm:gap-1">
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={() => save()}
+          className="rounded bg-cdl-blue px-2 py-px text-[10px] font-semibold leading-5 text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:py-0.5 sm:text-[11px]"
+        >
+          {saving ? '…' : 'Salvar'}
+        </button>
+        <button
+          type="button"
+          disabled={removing}
+          onClick={() => remove()}
+          className="rounded border border-red-200 px-2 py-px text-[10px] font-medium leading-5 text-red-700 hover:bg-red-50 sm:py-0.5 sm:text-[11px]"
+        >
+          Excluir
+        </button>
+        <span className="mx-0.5 hidden h-4 w-px bg-gray-200 sm:inline" aria-hidden />
+        <div className="flex overflow-hidden rounded border border-gray-300">
+          <button
+            type="button"
+            disabled={moving}
+            onClick={() => move('up')}
+            className="bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
+            title="Subir"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            disabled={moving}
+            onClick={() => move('down')}
+            className="border-l border-gray-300 bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
+            title="Descer"
+          >
+            ↓
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -332,25 +333,15 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> }) {
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-800 sm:normal-case sm:text-xs sm:tracking-normal">
           Novo parceiro
         </h3>
-        <div className="flex items-center gap-1">
-          <label className="flex cursor-pointer items-center gap-1 text-[10px] text-gray-700">
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              className="h-3 w-3 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
-            />
-            Ativo
-          </label>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => submit()}
-            className="rounded bg-cdl-blue px-2 py-px text-[10px] font-semibold leading-5 text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:text-[11px]"
-          >
-            {saving ? '…' : 'Adicionar'}
-          </button>
-        </div>
+        <label className="flex cursor-pointer items-center gap-1 text-[10px] text-gray-700">
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+            className="h-3 w-3 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+          />
+          Ativo
+        </label>
       </div>
 
       <div className="flex gap-2 sm:items-start">
@@ -405,6 +396,17 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> }) {
           />
           {error && <p className="text-[10px] text-red-600">{error}</p>}
         </div>
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1 border-t border-gray-100 pt-1.5">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => submit()}
+          className="rounded bg-cdl-blue px-2 py-px text-[10px] font-semibold leading-5 text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:py-0.5 sm:text-[11px]"
+        >
+          {saving ? '…' : 'Adicionar'}
+        </button>
       </div>
     </div>
   );

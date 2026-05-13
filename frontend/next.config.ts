@@ -10,10 +10,12 @@ const nextConfig: NextConfig = {
     ? {
         webpack: (config) => {
           // Evita timeouts ao carregar chunks durante compilações lentas no `next dev`.
-          // Nunca substituir `output` inteiro por spread (se `output` ainda for undefined,
-          // `{ ...undefined }` vira `{}` e quebra o runtime dos módulos — TypeError `.call`).
-          if (!config.output) config.output = {};
-          config.output.chunkLoadTimeout = 300000;
+          // Nunca atribuir `config.output = {}`: um objeto vazio (ou só `{ chunkLoadTimeout }`)
+          // substitui o `output` que o Next já montou e pode quebrar o runtime Webpack
+          // (`undefined … .call` / `originalFactory.call` ao carregar módulos).
+          if (config.output && typeof config.output === 'object') {
+            config.output.chunkLoadTimeout = 300000;
+          }
           return config;
         },
       }
@@ -23,6 +25,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'i.ibb.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org', pathname: '/wikipedia/**' },
     ],
   },
 };
