@@ -8,6 +8,11 @@ import { MobileWebviewShellChrome } from '@/components/mobile-web/MobileWebviewS
  * Zona segura inferior no wrapper; topo fica ao critério de cada página (fundo/fixos até ao notch, conteúdo com `safe-area-inset-top`).
  */
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 };
 

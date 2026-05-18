@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getNewsBySlug, type NewsItemFirestore, type NewsLink } from '@/lib/firestore';
+import { getNewsBySlug, incrementNewsViewCount, type NewsItemFirestore, type NewsLink } from '@/lib/firestore';
 import { shareNewsArticle } from '@/lib/share-news';
 import { formatNewsPublishedDate } from '@/lib/news-date';
 import { isProbablyHtml } from '@/lib/news-content-format';
@@ -33,6 +33,20 @@ export function NoticiaDetailClient({
       .then((n) => setNews(n ?? null))
       .catch(() => setNews(null));
   }, [slug]);
+
+  useEffect(() => {
+    if (!news?.id || !news.published) return;
+    if (slug === 'not-found') return;
+    const dedupeKey = `news_view_dedupe_${news.id}`;
+    try {
+      const prev = Number(sessionStorage.getItem(dedupeKey) || '0');
+      if (prev && Date.now() - prev < 2500) return;
+      sessionStorage.setItem(dedupeKey, String(Date.now()));
+    } catch {
+      /* modo privado / sessionStorage indisponível */
+    }
+    void incrementNewsViewCount(news.id).catch(() => {});
+  }, [news, slug]);
 
   async function handleShare() {
     const n = news;

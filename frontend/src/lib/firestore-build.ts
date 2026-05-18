@@ -75,6 +75,30 @@ export async function listNewsIdsAtBuild(): Promise<string[]> {
   }
 }
 
+/** IDs de histórias (admin) para generateStaticParams (output: export). */
+export async function listHistoriaIdsAtBuild(): Promise<string[]> {
+  if (typeof window !== 'undefined') return [];
+  try {
+    const admin = await import('firebase-admin');
+    if (!admin.apps.length) {
+      const creds = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+      if (creds) {
+        const parsed = JSON.parse(creds) as Record<string, unknown>;
+        admin.initializeApp({ credential: admin.credential.cert(parsed) });
+      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        admin.initializeApp();
+      } else {
+        return [];
+      }
+    }
+    const db = admin.firestore();
+    const snap = await db.collection('historias').get();
+    return snap.docs.map((d) => d.id);
+  } catch {
+    return [];
+  }
+}
+
 /** Slugs de notícias publicadas para generateStaticParams (output: export). */
 export async function listNewsSlugsAtBuild(): Promise<string[]> {
   if (typeof window !== 'undefined') return [];
@@ -150,6 +174,10 @@ export async function getNewsBySlugAtBuild(slug: string): Promise<NewsItemFirest
       published: Boolean(data.published),
       publishedAt: isoFromAdminField(data.publishedAt),
       createdAt: isoFromAdminField(data.createdAt ?? data.publishedAt),
+      viewCount:
+        typeof data.viewCount === 'number' && Number.isFinite(data.viewCount)
+          ? Math.max(0, Math.floor(data.viewCount))
+          : 0,
     };
   } catch {
     return null;

@@ -49,6 +49,7 @@ const adminNav = [
     ],
   },
   { href: '/admin/noticias', label: 'Notícias' },
+  { href: '/admin/historias', label: 'Histórias' },
   { href: '/admin/contato', label: 'Mensagens' },
   { href: '/admin/configuracoes', label: 'Configurações' },
 ];
@@ -227,7 +228,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <nav className={`${sidebarCollapsed ? 'lg:hidden' : ''} flex-1 space-y-0.5 overflow-y-auto p-2.5`}>
+        <nav
+          className={`admin-sidebar-nav-scroll ${sidebarCollapsed ? 'lg:hidden' : ''} flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2.5`}
+        >
           {adminNav.map((item) =>
             'children' in item ? (
               <div key={item.label} className="mb-0.5">
@@ -281,7 +284,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     ? pathname.startsWith('/admin/eventos')
                     : item.href === '/admin/beneficios-associados'
                       ? pathname.startsWith('/admin/beneficios-associados')
-                      : pathname === item.href)
+                      : item.href === '/admin/historias'
+                        ? pathname.startsWith('/admin/historias')
+                        : item.href === '/admin/nossa-cidade'
+                          ? pathname.startsWith('/admin/nossa-cidade')
+                          : pathname === item.href)
                     ? 'border border-cyan-500/70 bg-cyan-500/20 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.25)]'
                     : 'border border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/80 hover:text-slate-100'
                 }`}

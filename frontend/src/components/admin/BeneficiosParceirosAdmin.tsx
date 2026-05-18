@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addBeneficioParceiro,
   deleteBeneficioParceiro,
@@ -22,257 +23,6 @@ async function uploadImageToImgbb(file: File): Promise<string> {
   const json = await res.json();
   if (!json.success) throw new Error(json.error?.message || 'Erro no upload');
   return json.data.url as string;
-}
-
-function PartnerEditor({
-  partner,
-  onReload,
-}: {
-  partner: BeneficioParceiro;
-  onReload: () => Promise<void>;
-}) {
-  const [name, setName] = useState(partner.name);
-  const [description, setDescription] = useState(partner.description);
-  const [details, setDetails] = useState(partner.details);
-  const [photo, setPhoto] = useState<string | null>(partner.photo);
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [moving, setMoving] = useState(false);
-  const [activeUpdating, setActiveUpdating] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setName(partner.name);
-    setDescription(partner.description);
-    setDetails(partner.details);
-    setPhoto(partner.photo);
-  }, [partner.id, partner.name, partner.description, partner.details, partner.photo]);
-
-  const dirty =
-    name !== partner.name ||
-    description !== partner.description ||
-    details !== partner.details ||
-    photo !== partner.photo;
-
-  async function save() {
-    setSaving(true);
-    setError('');
-    try {
-      await updateBeneficioParceiro(partner.id, {
-        name,
-        description,
-        details,
-        photo,
-      });
-      await onReload();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao salvar');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function remove() {
-    if (!confirm(`Remover o parceiro "${partner.name}"?`)) return;
-    setRemoving(true);
-    setError('');
-    try {
-      await deleteBeneficioParceiro(partner.id);
-      await onReload();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao remover');
-    } finally {
-      setRemoving(false);
-    }
-  }
-
-  async function move(dir: 'up' | 'down') {
-    setMoving(true);
-    setError('');
-    try {
-      await moveBeneficioParceiro(partner.id, dir);
-      await onReload();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao reordenar');
-    } finally {
-      setMoving(false);
-    }
-  }
-
-  async function onPickImage(file?: File | null) {
-    if (!file) return;
-    setUploading(true);
-    setError('');
-    try {
-      const url = await uploadImageToImgbb(file);
-      setPhoto(url);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro no upload');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div
-      className={`rounded-md border bg-white p-1.5 shadow-sm sm:p-2 ${
-        partner.active ? 'border-gray-200' : 'border-dashed border-slate-400 bg-slate-50'
-      }`}
-    >
-      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <label className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-gray-800">
-          <input
-            type="checkbox"
-            checked={partner.active}
-            disabled={activeUpdating}
-            onChange={async (e) => {
-              const v = e.target.checked;
-              setActiveUpdating(true);
-              setError('');
-              try {
-                await updateBeneficioParceiro(partner.id, { active: v });
-                await onReload();
-              } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Erro ao atualizar status');
-              } finally {
-                setActiveUpdating(false);
-              }
-            }}
-            className="h-3 w-3 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
-          />
-          Ativo
-        </label>
-        {!partner.active && (
-          <span className="rounded px-1 py-px text-[9px] font-semibold uppercase text-slate-600 ring-1 ring-slate-300">
-            Off
-          </span>
-        )}
-      </div>
-
-      <div className="flex gap-2 sm:items-start">
-        <div className="mx-auto w-[72px] shrink-0 sm:mx-0 sm:w-20">
-          {photo ? (
-            <div className="relative">
-              <img src={photo} alt="" className="aspect-square w-full rounded border border-gray-200 object-cover" />
-              <div className="absolute bottom-0.5 left-0.5 right-0.5 flex gap-px">
-                <label className="flex-1 cursor-pointer truncate rounded bg-white/95 px-px py-px text-center text-[9px] font-medium text-gray-800 shadow">
-                  Alt.
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => onPickImage(e.target.files?.[0])}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setPhoto(null)}
-                  className="rounded bg-red-600 px-1 py-px text-[9px] font-bold leading-none text-white hover:bg-red-700"
-                  title="Remover foto"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ) : (
-            <label className="flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-[9px] leading-tight text-gray-500">
-              Img
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => onPickImage(e.target.files?.[0])}
-              />
-            </label>
-          )}
-          {uploading && <p className="mt-px text-center text-[9px] text-gray-500">…</p>}
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-1">
-          <div>
-            <label className="mb-px block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:normal-case sm:tracking-normal">
-              Nome
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-gray-300 px-1.5 py-px text-[11px] leading-6 sm:py-0.5 sm:text-xs"
-            />
-          </div>
-          <div>
-            <label className="mb-px block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:normal-case sm:tracking-normal">
-              Descrição
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full resize-y rounded border border-gray-300 px-1.5 py-0.5 text-[11px] leading-snug sm:text-xs"
-            />
-          </div>
-          <div>
-            <label className="mb-px block text-[10px] font-medium text-gray-500">
-              Detalhes{' '}
-              <span className="hidden font-normal text-gray-400 sm:inline">(→ Saiba mais)</span>
-            </label>
-            <textarea
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              rows={2}
-              placeholder="Modal…"
-              className="w-full resize-y rounded border border-gray-300 px-1.5 py-0.5 text-[11px] leading-snug sm:text-xs"
-            />
-          </div>
-
-          {error && <p className="text-[10px] text-red-600">{error}</p>}
-        </div>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-1 gap-y-1 border-t border-gray-100 pt-1.5 sm:gap-1">
-        <button
-          type="button"
-          disabled={!dirty || saving}
-          onClick={() => save()}
-          className="rounded bg-cdl-blue px-2 py-px text-[10px] font-semibold leading-5 text-white hover:bg-cdl-blue-dark disabled:opacity-50 sm:py-0.5 sm:text-[11px]"
-        >
-          {saving ? '…' : 'Salvar'}
-        </button>
-        <button
-          type="button"
-          disabled={removing}
-          onClick={() => remove()}
-          className="rounded border border-red-200 px-2 py-px text-[10px] font-medium leading-5 text-red-700 hover:bg-red-50 sm:py-0.5 sm:text-[11px]"
-        >
-          Excluir
-        </button>
-        <span className="mx-0.5 hidden h-4 w-px bg-gray-200 sm:inline" aria-hidden />
-        <div className="flex overflow-hidden rounded border border-gray-300">
-          <button
-            type="button"
-            disabled={moving}
-            onClick={() => move('up')}
-            className="bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
-            title="Subir"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            disabled={moving}
-            onClick={() => move('down')}
-            className="border-l border-gray-300 bg-white px-1.5 py-px text-[11px] leading-5 hover:bg-gray-50 disabled:opacity-40"
-            title="Descer"
-          >
-            ↓
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> }) {
@@ -416,6 +166,8 @@ export function BeneficiosParceirosAdmin() {
   const [partners, setPartners] = useState<BeneficioParceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [seedHint, setSeedHint] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const list = await listBeneficiosParceiros();
@@ -444,6 +196,47 @@ export function BeneficiosParceirosAdmin() {
     };
   }, []);
 
+  const stats = useMemo(() => {
+    const total = partners.length;
+    const ativos = partners.filter((p) => p.active).length;
+    const inativos = total - ativos;
+    return { total, ativos, inativos };
+  }, [partners]);
+
+  async function removePartner(p: BeneficioParceiro) {
+    if (!confirm(`Excluir o parceiro "${p.name}"?`)) return;
+    try {
+      await deleteBeneficioParceiro(p.id);
+      await reload();
+    } catch {
+      alert('Erro ao excluir parceiro.');
+    }
+  }
+
+  async function toggleActive(p: BeneficioParceiro) {
+    try {
+      setTogglingId(p.id);
+      await updateBeneficioParceiro(p.id, { active: !p.active });
+      await reload();
+    } catch {
+      alert('Erro ao atualizar status.');
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  async function movePartner(p: BeneficioParceiro, dir: 'up' | 'down') {
+    try {
+      setMovingId(p.id);
+      await moveBeneficioParceiro(p.id, dir);
+      await reload();
+    } catch {
+      alert('Erro ao reordenar.');
+    } finally {
+      setMovingId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4 text-xs text-gray-500">Carregando parceiros…</div>
@@ -451,24 +244,200 @@ export function BeneficiosParceirosAdmin() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div>
         <h2 className="text-base font-semibold text-gray-900">Parceiros e Convênios</h2>
         <p className="mt-px text-[11px] leading-snug text-cdl-gray-text sm:text-xs">
-          Lista compacta. <strong>Detalhes</strong> geram <strong>Saiba mais</strong> no site.
+          Lista de parceiros. Use <strong>Detalhes</strong> no editor para o texto de <strong>Saiba mais</strong> no site.
         </p>
         {seedHint && (
           <p className="mt-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800">{seedHint}</p>
         )}
       </div>
 
-      <div className="space-y-1.5">
-        {partners.map((p) => (
-          <PartnerEditor key={p.id} partner={p} onReload={reload} />
-        ))}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-cdl-gray-text">Total</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{stats.total}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-green-700">Ativos</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-green-800">{stats.ativos}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:col-span-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Inativos</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-gray-800">{stats.inativos}</p>
+        </div>
       </div>
 
       <NewPartnerForm onCreated={reload} />
+
+      <div className="space-y-2 md:hidden">
+        {partners.length === 0 ? (
+          <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-cdl-gray-text">
+            Nenhum parceiro cadastrado.
+          </p>
+        ) : (
+          partners.map((p, index) => (
+            <article
+              key={p.id}
+              className={`rounded-xl border bg-white p-3 ${p.active ? 'border-gray-200' : 'border-dashed border-slate-300 bg-slate-50/80'}`}
+            >
+              <div className="flex gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                  {p.photo ? (
+                    <img src={p.photo} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">—</div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">{p.name}</h3>
+                  {p.description ? (
+                    <p className="mt-0.5 line-clamp-2 text-xs text-cdl-gray-text">{p.description}</p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        p.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {p.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <span className="text-[11px] text-cdl-gray-text">Ordem {index + 1}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={togglingId === p.id}
+                  onClick={() => void toggleActive(p)}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    p.active ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                >
+                  {togglingId === p.id ? '…' : p.active ? 'Desativar' : 'Ativar'}
+                </button>
+                <button
+                  type="button"
+                  disabled={movingId === p.id || index === 0}
+                  onClick={() => void movePartner(p, 'up')}
+                  className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  Subir
+                </button>
+                <button
+                  type="button"
+                  disabled={movingId === p.id || index >= partners.length - 1}
+                  onClick={() => void movePartner(p, 'down')}
+                  className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  Descer
+                </button>
+                <Link
+                  href={`/admin/beneficios-associados/parceiros/${p.id}`}
+                  className="rounded-md bg-cdl-blue/10 px-2.5 py-1.5 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15"
+                >
+                  Editar
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void removePartner(p)}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white md:block">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-cdl-gray">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-700">Parceiro</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-700">Ordem</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-700">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {partners.map((p, index) => (
+              <tr key={p.id} className={p.active ? '' : 'bg-slate-50/80'}>
+                <td className="px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100">
+                      {p.photo ? (
+                        <img src={p.photo} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">—</div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900">{p.name}</p>
+                      {p.description ? (
+                        <p className="line-clamp-1 max-w-md text-xs text-cdl-gray-text">{p.description}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      p.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {p.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm tabular-nums text-gray-700">{index + 1}</td>
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    type="button"
+                    disabled={togglingId === p.id}
+                    onClick={() => void toggleActive(p)}
+                    className={`mr-2 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                      p.active ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}
+                  >
+                    {togglingId === p.id ? '…' : p.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={movingId === p.id || index === 0}
+                    onClick={() => void movePartner(p, 'up')}
+                    className="mr-1 rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                    title="Subir"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    disabled={movingId === p.id || index >= partners.length - 1}
+                    onClick={() => void movePartner(p, 'down')}
+                    className="mr-3 rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                    title="Descer"
+                  >
+                    ↓
+                  </button>
+                  <Link href={`/admin/beneficios-associados/parceiros/${p.id}`} className="mr-3 text-cdl-blue hover:underline">
+                    Editar
+                  </Link>
+                  <button type="button" onClick={() => void removePartner(p)} className="text-red-600 hover:underline">
+                    Excluir
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {partners.length === 0 && (
+          <p className="p-8 text-center text-cdl-gray-text">Nenhum parceiro cadastrado.</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -80,11 +80,40 @@ service cloud.firestore {
       }
     }
 
+    // Incremento público de viewCount em notícia publicada (uma unidade por update).
+    function publicNewsViewCountIncrement() {
+      let oldV = resource.data.get('viewCount', 0);
+      let newV = request.resource.data.viewCount;
+      return resource.data.published == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && (newV is int || newV is float)
+        && (oldV is int || oldV is float)
+        && newV == oldV + 1;
+    }
+
     // Notícias: leitura só publicadas (ou admin vê tudo)
     match /news/{newsId} {
       allow get, list: if resource.data.published == true || isAdmin();
       allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || publicNewsViewCountIncrement();
+      allow delete: if isAdmin();
+    }
+
+    function publicHistoriaViewCountIncrement() {
+      let oldV = resource.data.get('viewCount', 0);
+      let newV = request.resource.data.viewCount;
+      return resource.data.published == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && (newV is int || newV is float)
+        && (oldV is int || oldV is float)
+        && newV == oldV + 1;
+    }
+
+    match /historias/{historiaId} {
+      allow get, list: if resource.data.published == true || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || publicHistoriaViewCountIncrement();
+      allow delete: if isAdmin();
     }
 
     // Carrossel / hero: leitura pública; escrita admin

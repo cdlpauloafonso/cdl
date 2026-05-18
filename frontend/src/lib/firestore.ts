@@ -356,16 +356,34 @@ export type NewsItemFirestore = {
   published: boolean;
   publishedAt: string;
   createdAt?: string;
+  /** Contagem de aberturas da página da notícia no site (incremento público +1). */
+  viewCount?: number;
 };
 
 function newsToPayload(data: Partial<NewsItemFirestore>): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
-  const keys: (keyof NewsItemFirestore)[] = ['title', 'slug', 'excerpt', 'content', 'image', 'links', 'published', 'publishedAt', 'createdAt'];
+  // `viewCount` é só via incremento público — nunca gravar pelo formulário admin.
+  const keys: (keyof NewsItemFirestore)[] = [
+    'title',
+    'slug',
+    'excerpt',
+    'content',
+    'image',
+    'links',
+    'published',
+    'publishedAt',
+    'createdAt',
+  ];
   keys.forEach((k) => {
     const v = data[k];
     if (v !== undefined) payload[k] = v;
   });
   return payload;
+}
+
+function parseNewsViewCount(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.floor(v));
+  return 0;
 }
 
 export async function listNews(onlyPublished: boolean, limitCount: number = 100): Promise<NewsItemFirestore[]> {
@@ -389,6 +407,7 @@ export async function listNews(onlyPublished: boolean, limitCount: number = 100)
       published: data.published ?? false,
       publishedAt: isoFromFirestoreDate(data.publishedAt),
       createdAt: isoFromFirestoreDate(data.createdAt ?? data.publishedAt),
+      viewCount: parseNewsViewCount(data.viewCount),
     };
   });
   if (onlyPublished) {
@@ -415,6 +434,7 @@ export async function getNewsById(id: string): Promise<NewsItemFirestore | null>
     published: data.published ?? false,
     publishedAt: data.publishedAt ?? new Date().toISOString(),
     createdAt: data.createdAt ?? new Date().toISOString(),
+    viewCount: parseNewsViewCount(data.viewCount),
   };
 }
 
@@ -437,6 +457,7 @@ export async function getNewsBySlug(slug: string): Promise<NewsItemFirestore | n
     published: data.published ?? false,
     publishedAt: data.publishedAt ?? new Date().toISOString(),
     createdAt: data.createdAt ?? new Date().toISOString(),
+    viewCount: parseNewsViewCount(data.viewCount),
   };
 }
 
@@ -444,7 +465,7 @@ export async function createNews(data: NewsItemFirestore): Promise<string> {
   const db = getDb();
   const col = collection(db, 'news');
   const createdAt = new Date().toISOString();
-  const payload = { ...newsToPayload(data), createdAt };
+  const payload = { ...newsToPayload(data), createdAt, viewCount: 0 };
   const ref = await addDoc(col, payload);
   return ref.id;
 }
@@ -459,6 +480,122 @@ export async function deleteNews(id: string): Promise<void> {
   const db = getDb();
   const ref = doc(db, 'news', id);
   await deleteDoc(ref);
+}
+
+/** Incrementa visualizações ao abrir a página pública da notícia (publicado). */
+export async function incrementNewsViewCount(id: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'news', id);
+  await updateDoc(ref, { viewCount: increment(1) });
+}
+
+// ---- Histórias (Firestore) — mesmo esquema que notícias, coleção `historias` ----
+
+export type HistoriaItemFirestore = NewsItemFirestore;
+
+function historiaToPayload(data: Partial<HistoriaItemFirestore>): Record<string, unknown> {
+  return newsToPayload(data);
+}
+
+export async function listHistorias(onlyPublished: boolean, limitCount: number = 100): Promise<HistoriaItemFirestore[]> {
+  const db = getDb();
+  const col = collection(db, 'historias');
+  const q = onlyPublished
+    ? query(col, where('published', '==', true))
+    : query(col, orderBy('publishedAt', 'desc'), limit(limitCount));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      title: data.title ?? '',
+      slug: data.slug ?? '',
+      excerpt: data.excerpt ?? '',
+      content: data.content ?? '',
+      image: data.image ?? null,
+      links: data.links ?? null,
+      published: data.published ?? false,
+      publishedAt: isoFromFirestoreDate(data.publishedAt),
+      createdAt: isoFromFirestoreDate(data.createdAt ?? data.publishedAt),
+      viewCount: parseNewsViewCount(data.viewCount),
+    };
+  });
+  if (onlyPublished) {
+    items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    return items.slice(0, limitCount);
+  }
+  return items;
+}
+
+export async function getHistoriaById(id: string): Promise<HistoriaItemFirestore | null> {
+  const db = getDb();
+  const ref = doc(db, 'historias', id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return {
+    id: snap.id,
+    title: data.title ?? '',
+    slug: data.slug ?? '',
+    excerpt: data.excerpt ?? '',
+    content: data.content ?? '',
+    image: data.image ?? null,
+    links: data.links ?? null,
+    published: data.published ?? false,
+    publishedAt: data.publishedAt ?? new Date().toISOString(),
+    createdAt: data.createdAt ?? new Date().toISOString(),
+    viewCount: parseNewsViewCount(data.viewCount),
+  };
+}
+
+export async function getHistoriaBySlug(slug: string): Promise<HistoriaItemFirestore | null> {
+  const db = getDb();
+  const col = collection(db, 'historias');
+  const q = query(col, where('slug', '==', slug), where('published', '==', true), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  const data = d.data();
+  return {
+    id: d.id,
+    title: data.title ?? '',
+    slug: data.slug ?? '',
+    excerpt: data.excerpt ?? '',
+    content: data.content ?? '',
+    image: data.image ?? null,
+    links: data.links ?? null,
+    published: data.published ?? false,
+    publishedAt: data.publishedAt ?? new Date().toISOString(),
+    createdAt: data.createdAt ?? new Date().toISOString(),
+    viewCount: parseNewsViewCount(data.viewCount),
+  };
+}
+
+export async function createHistoria(data: HistoriaItemFirestore): Promise<string> {
+  const db = getDb();
+  const col = collection(db, 'historias');
+  const createdAt = new Date().toISOString();
+  const payload = { ...historiaToPayload(data), createdAt, viewCount: 0 };
+  const ref = await addDoc(col, payload);
+  return ref.id;
+}
+
+export async function updateHistoria(id: string, data: Partial<HistoriaItemFirestore>): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'historias', id);
+  await updateDoc(ref, historiaToPayload(data) as Record<string, unknown>);
+}
+
+export async function deleteHistoria(id: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'historias', id);
+  await deleteDoc(ref);
+}
+
+export async function incrementHistoriaViewCount(id: string): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'historias', id);
+  await updateDoc(ref, { viewCount: increment(1) });
 }
 
 // ---- Carousel / Hero slides (Firestore) ----
@@ -741,11 +878,10 @@ const BENEFICIOS_PARCEIROS_SEED: Omit<BeneficioParceiro, 'id' | 'createdAt'>[] =
   { name: 'Oralface', description: 'Convênio especial para associados', details: '', photo: null, order: 11, active: true },
 ];
 
-function mapBeneficioParceiroDoc(d: QueryDocumentSnapshot): BeneficioParceiro {
-  const data = d.data();
+function mapBeneficioParceiroData(id: string, data: DocumentData): BeneficioParceiro {
   const ord = data.order;
   return {
-    id: d.id,
+    id,
     name: typeof data.name === 'string' ? data.name : '',
     description: typeof data.description === 'string' ? data.description : '',
     details: typeof data.details === 'string' ? data.details : '',
@@ -754,6 +890,17 @@ function mapBeneficioParceiroDoc(d: QueryDocumentSnapshot): BeneficioParceiro {
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
     active: data.active !== false,
   };
+}
+
+function mapBeneficioParceiroDoc(d: QueryDocumentSnapshot): BeneficioParceiro {
+  return mapBeneficioParceiroData(d.id, d.data());
+}
+
+export async function getBeneficioParceiro(id: string): Promise<BeneficioParceiro | null> {
+  const db = getDb();
+  const snap = await getDoc(doc(db, BENEFICIOS_PARCEIROS_COLLECTION, id));
+  if (!snap.exists()) return null;
+  return mapBeneficioParceiroData(snap.id, snap.data() as DocumentData);
 }
 
 export async function listBeneficiosParceiros(): Promise<BeneficioParceiro[]> {

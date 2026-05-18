@@ -80,6 +80,38 @@ body {
   }
 }
 
+/* Barra de rolagem do menu lateral admin — alinhada ao visual slate/cyan do painel */
+.admin-sidebar-nav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105 / 0.9) rgb(15 23 42 / 0.35);
+}
+
+.admin-sidebar-nav-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.admin-sidebar-nav-scroll::-webkit-scrollbar-track {
+  margin: 4px 0;
+  background: rgb(15 23 42 / 0.4);
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgb(51 65 85 / 0.45);
+}
+
+.admin-sidebar-nav-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgb(71 85 105 / 0.95), rgb(51 65 85 / 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgb(148 163 184 / 0.2),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.admin-sidebar-nav-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgb(34 211 238 / 0.42), rgb(6 182 212 / 0.5));
+  box-shadow:
+    inset 0 0 0 1px rgb(103 232 249 / 0.35),
+    0 1px 2px rgb(0 0 0 / 0.2);
+}
+
 /* Ajustes de legibilidade do calendário de agendamentos no mobile */
 @media (max-width: 767px) {
   .admin-calendar .fc .fc-toolbar-title {
@@ -154,6 +186,7 @@ html.mobile-shell-app,
 html.mobile-shell-app body {
   background-color: #0b1224;
   background-image: none;
+  touch-action: manipulation;
 }
 
 html:has([data-mobile-shell]) body {

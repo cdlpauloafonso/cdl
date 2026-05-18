@@ -585,44 +585,44 @@ export default function AdminAssociadosPage() {
         </div>
       </div>
 
-      <div className="mb-5 space-y-3 sm:mb-6 sm:space-y-4">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="text-xs text-cdl-gray-text uppercase tracking-wide">Total cadastrados</p>
-                <p className="text-lg font-semibold text-gray-900 sm:text-xl">{statusResumo.total}</p>
+      <div className="mb-4 space-y-2.5 sm:mb-5 sm:space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2">
+              <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2 sm:px-3 sm:py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-cdl-gray-text">Total cadastrados</p>
+                <p className="text-base font-semibold tabular-nums text-gray-900 sm:text-lg">{statusResumo.total}</p>
               </div>
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="text-xs text-green-700 uppercase tracking-wide">Ativo</p>
-                <p className="text-lg font-semibold text-green-900 sm:text-xl">{statusResumo.ativo}</p>
+              <div className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-2 sm:px-3 sm:py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-green-700">Ativo</p>
+                <p className="text-base font-semibold tabular-nums text-green-900 sm:text-lg">{statusResumo.ativo}</p>
               </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="text-xs text-amber-700 uppercase tracking-wide">Em negociação</p>
-                <p className="text-lg font-semibold text-amber-900 sm:text-xl">{statusResumo.emNegociacao}</p>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 sm:px-3 sm:py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Em negociação</p>
+                <p className="text-base font-semibold tabular-nums text-amber-900 sm:text-lg">{statusResumo.emNegociacao}</p>
               </div>
-              <div className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="text-xs text-gray-700 uppercase tracking-wide">Desativado</p>
-                <p className="text-lg font-semibold text-gray-900 sm:text-xl">{statusResumo.desativado}</p>
+              <div className="rounded-lg border border-gray-300 bg-gray-50 px-2.5 py-2 sm:px-3 sm:py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-700">Desativado</p>
+                <p className="text-base font-semibold tabular-nums text-gray-900 sm:text-lg">{statusResumo.desativado}</p>
               </div>
             </div>
             <div className="relative">
               <input
                 type="text"
-                placeholder="Buscar por nome, empresa, aniversariante, razão social, CNPJ ou email..."
+                placeholder="Buscar por nome, empresa, CNPJ, email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue sm:h-11 sm:px-4 sm:py-3 sm:pl-10"
+                className="h-9 w-full rounded-md border border-gray-300 py-1.5 pl-8 pr-2.5 text-xs focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:h-9 sm:pl-9 sm:text-sm"
               />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                <svg className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
+                <svg className="h-3.5 w-3.5 text-gray-400 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 lg:gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-x-2 lg:gap-y-2">
               <select
                 value={selectedPlano}
                 onChange={(e) => setSelectedPlano(e.target.value)}
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs leading-tight focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:text-[13px]"
               >
                 <option value="todos">Todos os planos</option>
                 {planos.map((plano) => (
@@ -632,7 +632,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={selectedCidade}
                 onChange={(e) => setSelectedCidade(e.target.value)}
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs leading-tight focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:text-[13px]"
               >
                 <option value="todas">Todas as cidades</option>
                 {cidades.map((cidade) => (
@@ -646,7 +646,7 @@ export default function AdminAssociadosPage() {
                     e.target.value as 'todos' | 'ativo' | 'desativado' | 'em_negociacao'
                   )
                 }
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs leading-tight focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:text-[13px]"
               >
                 <option value="todos">Todos os status</option>
                 <option value="ativo">Ativo</option>
@@ -656,7 +656,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'nome' | 'empresa' | 'plano' | 'cidade')}
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs leading-tight focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:text-[13px]"
               >
                 <option value="nome">Ordenar por Nome</option>
                 <option value="empresa">Ordenar por Empresa</option>
@@ -666,7 +666,7 @@ export default function AdminAssociadosPage() {
               <select
                 value={sortDirection}
                 onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs leading-tight focus:border-cdl-blue focus:outline-none focus:ring-1 focus:ring-cdl-blue sm:text-[13px]"
               >
                 <option value="asc">Ordem: A-Z</option>
                 <option value="desc">Ordem: Z-A</option>
@@ -683,33 +683,34 @@ export default function AdminAssociadosPage() {
                   setOnlyPendingRequired(false);
                   router.replace(pathname);
                 }}
-                className="h-9 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50 lg:h-10 lg:px-3 lg:py-2"
+                className="h-8 min-h-0 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium leading-tight text-gray-700 hover:bg-gray-50 sm:text-[13px]"
               >
                 Limpar filtros
               </button>
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-700 sm:text-sm">
+            <label className="flex cursor-pointer items-start gap-2 text-[11px] leading-snug text-gray-700 sm:items-center sm:text-xs">
               <input
                 type="checkbox"
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 sm:mt-0"
                 checked={onlyPendingRequired}
                 onChange={(e) => setOnlyPendingRequired(e.target.checked)}
               />
-              Auditoria: exibir apenas cadastros com campos obrigatórios pendentes
+              <span>Auditoria: apenas cadastros com campos obrigatórios pendentes</span>
             </label>
             {associadosEmNegociacaoCount > 0 &&
               (selectedStatus === 'em_negociacao' ? (
                 <div
                   role="status"
-                  className="flex w-full flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-amber-950 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                  className="flex w-full flex-col gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-amber-950 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 >
-                  <p className="text-xs sm:text-sm">
+                  <p className="text-[11px] leading-snug sm:text-xs">
                     <span className="font-semibold">Filtro ativo:</span> exibindo apenas associados{' '}
                     <span className="font-medium">em negociação</span> ({filteredAssociados.length} na lista).
                   </p>
                   <button
                     type="button"
                     onClick={() => limparFiltroStatusNegociacao()}
-                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 sm:text-sm"
+                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-md border border-amber-400 bg-white px-2 py-1.5 text-[11px] font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 sm:px-2.5 sm:text-xs"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -721,36 +722,37 @@ export default function AdminAssociadosPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedStatus('em_negociacao')}
-                  className="flex w-full text-left rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 hover:bg-amber-100 sm:w-fit sm:px-3 sm:text-sm"
+                  className="flex w-full text-left rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900 hover:bg-amber-100 sm:w-fit sm:text-xs"
                 >
                   Existem associados em negociação ({associadosEmNegociacaoCount}). Clique para visualizar.
                 </button>
               ))}
-            <div className="rounded-lg border border-gray-200 bg-white p-2.5 sm:p-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-gray-900">Campos visíveis na tabela</p>
-                <div className="flex gap-2">
+            <div className="rounded-md border border-gray-200 bg-white p-2 sm:p-2.5">
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1.5">
+                <p className="text-xs font-medium text-gray-900">Campos visíveis na tabela</p>
+                <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={() => setVisibleFieldKeys([...allFieldKeys])}
-                    className="rounded-md border border-gray-300 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 sm:px-2.5 sm:py-1.5 sm:text-xs"
+                    className="rounded border border-gray-300 px-1.5 py-0.5 text-[10px] text-gray-700 hover:bg-gray-50 sm:px-2 sm:py-1 sm:text-[11px]"
                   >
                     Marcar todos
                   </button>
                   <button
                     type="button"
                     onClick={() => setVisibleFieldKeys([])}
-                    className="rounded-md border border-gray-300 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 sm:px-2.5 sm:py-1.5 sm:text-xs"
+                    className="rounded border border-gray-300 px-1.5 py-0.5 text-[10px] text-gray-700 hover:bg-gray-50 sm:px-2 sm:py-1 sm:text-[11px]"
                   >
                     Limpar
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1.5 sm:gap-x-4 sm:gap-y-2">
+              <div className="flex flex-wrap gap-x-2 gap-y-1 sm:gap-x-2.5 sm:gap-y-1">
                 {allFieldKeys.map((k) => (
-                  <label key={k} className="inline-flex items-center gap-1.5 text-xs text-gray-700 sm:gap-2 sm:text-sm">
+                  <label key={k} className="inline-flex min-w-0 max-w-full items-center gap-1 text-[11px] text-gray-700 sm:gap-1.5 sm:text-xs">
                     <input
                       type="checkbox"
+                      className="h-3.5 w-3.5 shrink-0 rounded border-gray-300"
                       checked={visibleFieldKeys.includes(k)}
                       onChange={(e) =>
                         setVisibleFieldKeys((prev) =>
