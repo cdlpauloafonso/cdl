@@ -6,9 +6,17 @@ import { useEffect, useState } from 'react';
 import { getCampaign, updateCampaign, countEventInscriptions, Campaign } from '@/lib/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
-import { getEffectiveRegistration } from '@/lib/event-registration-fields';
+import { getEffectiveRegistration, resolveInscriptionDocumentMode } from '@/lib/event-registration-fields';
+import type { InscriptionDocumentMode } from '@/lib/firestore';
 import { parsePositiveInscriptionLimit } from '@/lib/inscription-limit';
 import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
+import type { CampaignPaymentProvider } from '@/lib/firestore';
+import {
+  buildCampaignPaymentConfigFromAdmin,
+  loadPaymentAdminStateFromConfig,
+  parsePaymentAmountInput,
+} from '@/lib/campaign-payment-admin';
+import { campaignPublicPageUrl } from '@/lib/campaign-preview';
 
 // imgbb upload key
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -29,8 +37,12 @@ export default function AdminCampanhaEditByQueryPage() {
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
   const [associadosOnly, setAssociadosOnly] = useState(false);
+  const [inscriptionDocumentMode, setInscriptionDocumentMode] = useState<InscriptionDocumentMode | null>(null);
   const [inscriptionLimit, setInscriptionLimit] = useState<number | null>(null);
-  const [wantsPixPayment, setWantsPixPayment] = useState(false);
+  const [wantsEventPayment, setWantsEventPayment] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<CampaignPaymentProvider>('asaas');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDescription, setPaymentDescription] = useState('');
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [pixObservationText, setPixObservationText] = useState('');
@@ -68,6 +80,7 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
       setAssociadosOnly(false);
+      setInscriptionDocumentMode(null);
       setInscriptionLimit(null);
     } else if (eff.kind === 'external') {
       setWantsRegistrationLink(true);
@@ -76,6 +89,7 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationFieldKeys([]);
       setRegistrationObservationText('');
       setAssociadosOnly(false);
+      setInscriptionDocumentMode(null);
       setInscriptionLimit(null);
     } else {
       setWantsRegistrationLink(true);
@@ -83,6 +97,9 @@ export default function AdminCampanhaEditByQueryPage() {
       setRegistrationExternalUrl('');
       setRegistrationFieldKeys(eff.keys);
       setRegistrationObservationText(eff.observationText ?? '');
+      setInscriptionDocumentMode(
+        formCfg?.type === 'form' ? resolveInscriptionDocumentMode(formCfg) : 'cnpj_only'
+      );
       const lim = formCfg?.type === 'form' ? parsePositiveInscriptionLimit(formCfg.inscriptionLimit) : null;
       setInscriptionLimit(lim);
     }
@@ -90,13 +107,15 @@ export default function AdminCampanhaEditByQueryPage() {
 
   useEffect(() => {
     if (!campanha?.id) return;
-    const p = campanha.paymentConfig;
-    const has = Boolean(p?.pixImageUrl?.trim() || p?.pixCopyPaste?.trim());
-    setWantsPixPayment(has);
-    setPixImageUrl(p?.pixImageUrl ?? '');
-    setPixCopyPaste(p?.pixCopyPaste ?? '');
-    setPixObservationText(p?.pixObservationText ?? '');
-  }, [campanha?.id]);
+    const loaded = loadPaymentAdminStateFromConfig(campanha.paymentConfig);
+    setWantsEventPayment(loaded.enabled);
+    setPaymentProvider(loaded.provider);
+    setPaymentAmount(loaded.amount);
+    setPaymentDescription(loaded.description);
+    setPixImageUrl(loaded.pixImageUrl);
+    setPixCopyPaste(loaded.pixCopyPaste);
+    setPixObservationText(loaded.pixObservationText);
+  }, [campanha?.id, campanha?.paymentConfig]);
 
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
   if (!id) {
@@ -131,15 +150,44 @@ export default function AdminCampanhaEditByQueryPage() {
         setError('Configure a inscrição ou desative a opção.');
         return;
       }
-    }
-    if (wantsPixPayment) {
-      const hasImg = Boolean(pixImageUrl.trim());
-      const hasCode = Boolean(pixCopyPaste.trim());
-      if (!hasImg && !hasCode) {
-        setError('Pagamentos PIX: envie a foto do QR ou o código copia e cola, ou desmarque a opção.');
+      if (registrationMode === 'form' && !inscriptionDocumentMode) {
+        setError('Configure a inscrição: selecione se é apenas CNPJ ou se permite CPF.');
+        return;
+      }
+      if (
+        registrationMode === 'form' &&
+        inscriptionDocumentMode === 'cnpj_only' &&
+        !registrationFieldKeys.includes('cnpj')
+      ) {
+        setError('Para inscrição apenas por CNPJ, inclua o campo CNPJ na configuração.');
         return;
       }
     }
+    if (wantsEventPayment) {
+      if (paymentProvider === 'asaas') {
+        if (parsePaymentAmountInput(paymentAmount) == null) {
+          setError('Pagamento Asaas: informe o valor da inscrição em reais, ou desmarque a opção.');
+          return;
+        }
+      } else {
+        const hasImg = Boolean(pixImageUrl.trim());
+        const hasCode = Boolean(pixCopyPaste.trim());
+        if (!hasImg && !hasCode) {
+          setError('PIX manual: envie a foto do QR ou o código copia e cola, ou desmarque a opção.');
+          return;
+        }
+      }
+    }
+
+    const paymentConfig = buildCampaignPaymentConfigFromAdmin({
+      enabled: wantsEventPayment,
+      provider: paymentProvider,
+      amount: paymentAmount,
+      description: paymentDescription,
+      pixImageUrl,
+      pixCopyPaste,
+      pixObservationText,
+    });
     setSaving(true);
     setError('');
     try {
@@ -178,6 +226,7 @@ export default function AdminCampanhaEditByQueryPage() {
                 registrationConfig: {
                   type: 'form' as const,
                   fieldKeys: registrationFieldKeys,
+                  documentMode: inscriptionDocumentMode ?? 'cnpj_only',
                   associadosOnly,
                   ...(registrationObservationText.trim()
                     ? { observationText: registrationObservationText.trim() }
@@ -189,15 +238,7 @@ export default function AdminCampanhaEditByQueryPage() {
                 registrationUrl: null,
               }
           : { registrationConfig: null, registrationUrl: null }),
-        ...(wantsPixPayment && (pixImageUrl.trim() || pixCopyPaste.trim())
-          ? {
-              paymentConfig: {
-                ...(pixImageUrl.trim() ? { pixImageUrl: pixImageUrl.trim() } : {}),
-                ...(pixCopyPaste.trim() ? { pixCopyPaste: pixCopyPaste.trim() } : {}),
-                ...(pixObservationText.trim() ? { pixObservationText: pixObservationText.trim() } : {}),
-              },
-            }
-          : { paymentConfig: null }),
+        paymentConfig: paymentConfig ?? null,
       });
       router.push('/admin/eventos');
     } catch {
@@ -301,7 +342,24 @@ export default function AdminCampanhaEditByQueryPage() {
       <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">← Voltar aos eventos</Link>
 
       <div className="mt-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Editar evento</h1>
+        <div className="mb-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Editar evento</h1>
+          {campanha.published === false && (
+            <>
+              <span className="rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                Rascunho
+              </span>
+              {campanha.id && (
+                <Link
+                  href={campaignPublicPageUrl(campanha.id, { preview: true })}
+                  className="inline-flex items-center rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-900"
+                >
+                  Ver rascunho
+                </Link>
+              )}
+            </>
+          )}
+        </div>
         <p className="text-cdl-gray-text mb-6">Visualização e edição do evento</p>
 
         <div className="space-y-6">
@@ -341,6 +399,7 @@ export default function AdminCampanhaEditByQueryPage() {
                     setRegistrationFieldKeys([]);
                     setRegistrationObservationText('');
                     setAssociadosOnly(false);
+                    setInscriptionDocumentMode('cnpj_only');
                     setInscriptionLimit(null);
                   }
                 }}
@@ -356,10 +415,18 @@ export default function AdminCampanhaEditByQueryPage() {
                 onAssociadosOnlyChange={setAssociadosOnly}
                 inscriptionLimit={inscriptionLimit}
                 onInscriptionLimitChange={setInscriptionLimit}
+                documentMode={inscriptionDocumentMode}
+                onDocumentModeChange={setInscriptionDocumentMode}
               />
               <EventPaymentSection
-                enabled={wantsPixPayment}
-                onEnabledChange={setWantsPixPayment}
+                enabled={wantsEventPayment}
+                onEnabledChange={setWantsEventPayment}
+                provider={paymentProvider}
+                onProviderChange={setPaymentProvider}
+                amount={paymentAmount}
+                onAmountChange={setPaymentAmount}
+                paymentDescription={paymentDescription}
+                onPaymentDescriptionChange={setPaymentDescription}
                 pixImageUrl={pixImageUrl}
                 onPixImageUrlChange={setPixImageUrl}
                 pixCopyPaste={pixCopyPaste}
@@ -435,11 +502,21 @@ export default function AdminCampanhaEditByQueryPage() {
 
           <div className="flex flex-wrap gap-4">
             <button onClick={handleSave} disabled={saving} className="btn-primary">{saving ? 'Salvando...' : 'Salvar'}</button>
-            {campanha.published !== false && (
-              <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(campanha.id ?? '')}`} target="_blank" className="btn-secondary">
-                Ver página pública
-              </Link>
-            )}
+            {campanha.id &&
+              (campanha.published !== false ? (
+                <Link
+                  href={campaignPublicPageUrl(campanha.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
+                >
+                  Ver página pública
+                </Link>
+              ) : (
+                <Link href={campaignPublicPageUrl(campanha.id, { preview: true })} className="btn-secondary">
+                  Ver rascunho
+                </Link>
+              ))}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

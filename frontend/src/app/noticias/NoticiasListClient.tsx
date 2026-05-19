@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { listNews, type NewsItemFirestore } from '@/lib/firestore';
 import { formatNewsPublishedDate } from '@/lib/news-date';
-import { resolveAppShellHref } from '@/lib/mobile-shell-links';
+import { newsDetailHrefForAppShell, resolveAppShellHref } from '@/lib/mobile-shell-links';
 
 export type NoticiasListClientProps = {
   mobileShell?: boolean;
@@ -27,7 +27,9 @@ export function NoticiasListClient({
   }, []);
 
   const detailHrefFor = (s: string) =>
-    resolveAppShellHref(shellSegment, `/noticias/${encodeURIComponent(s)}`);
+    mobileShell && shellSegment ?
+      newsDetailHrefForAppShell(shellSegment, s)
+    : `/noticias/${encodeURIComponent(s)}`;
 
   if (loading) {
     return (

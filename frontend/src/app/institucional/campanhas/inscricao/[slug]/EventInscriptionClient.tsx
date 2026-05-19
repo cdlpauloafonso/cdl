@@ -8,6 +8,8 @@ import {
   getSettings,
   isInscriptionLimitReachedError,
   isRegistrationClosedError,
+  isFirestorePermissionDenied,
+  INSCRIPTION_PERMISSION_DENIED_ERROR,
   isCnpjCadastradoComoAssociado,
   type Campaign,
 } from '@/lib/firestore';
@@ -19,21 +21,31 @@ import {
 import { mergeInscriptionValuesFromCnpjPatch } from '@/lib/cnpj-prefill-inscription';
 import {
   EXTRA_INSCRIPTION_FIELDS,
+  buildEventInscriptionFieldsPayload,
   getEffectiveRegistration,
   isInscriptionSoldOut,
   inscriptionFieldInputKind,
+  isEmpresaInscriptionFieldKey,
   isInscriptionFieldOptional,
   labelForInscriptionField,
+  canOfferInscricaoComCpf,
+  needsCnpjInscriptionStep,
   PADRAO_INSCRIPTION_FIELDS,
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
-import { getEffectivePayment } from '@/lib/event-payment-fields';
+import { formatPaymentAmountBrl, getEffectivePayment } from '@/lib/event-payment-fields';
+import { createAsaasInscriptionPayment } from '@/lib/asaas-api';
 import {
   applyInscriptionFieldMask,
   hasInscriptionFieldMask,
 } from '@/lib/input-masks-br';
 import { PixPaymentPublicBlock } from '@/components/PixPaymentPublicBlock';
+import { AsaasPaymentPublicBlock } from '@/components/AsaasPaymentPublicBlock';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { isCurrentUserAdmin } from '@/lib/admin-auth';
+import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
+import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
+import { initFirebase } from '@/lib/firebase';
 
 const PADRAO_IDS = new Set<string>(PADRAO_INSCRIPTION_FIELDS.map((f) => f.id));
 const EXTRA_IDS = new Set<string>(EXTRA_INSCRIPTION_FIELDS.map((f) => f.id));
@@ -87,6 +99,7 @@ function FieldRow({
   cnpjLookup,
   observationText,
   inscricaoAssociadosOnly,
+  inscricaoViaCpf,
 }: {
   fieldKey: string;
   values: Record<string, string>;
@@ -95,12 +108,13 @@ function FieldRow({
   observationText?: string;
   /** Evento restrito a associados (configuração do admin). */
   inscricaoAssociadosOnly?: boolean;
+  inscricaoViaCpf?: boolean;
 }) {
   const kind = inscriptionFieldInputKind(fieldKey);
   const label = labelForInscriptionField(fieldKey);
   const base = 'mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2';
 
-  const optional = isInscriptionFieldOptional(fieldKey);
+  const optional = isInscriptionFieldOptional(fieldKey, { inscricaoViaCpf });
 
   if (kind === 'textarea') {
     const observationHint =
@@ -143,6 +157,7 @@ function FieldRow({
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {label}
+        {optional && <span className="font-normal text-cdl-gray-text"> (opcional)</span>}
         {isCnpjApi && (
           <span className="font-normal text-cdl-gray-text block mt-1 text-xs leading-snug">
             {inscricaoAssociadosOnly
@@ -186,7 +201,13 @@ function FieldRow({
   );
 }
 
-export function EventInscriptionClient({ slug }: { slug: string }) {
+export function EventInscriptionClient({
+  slug,
+  previewRequested = false,
+}: {
+  slug: string;
+  previewRequested?: boolean;
+}) {
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -196,11 +217,32 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const [pixStepActive, setPixStepActive] = useState(false);
+  const [asaasInvoiceUrl, setAsaasInvoiceUrl] = useState<string | null>(null);
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [cnpjRejeitadoNaoAssociado, setCnpjRejeitadoNaoAssociado] = useState(false);
+  /** Participante optou por pular a etapa de CNPJ e preencher o formulário com CPF. */
+  const [inscricaoViaCpf, setInscricaoViaCpf] = useState(false);
   const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
   const cnpjLookupReq = useRef(0);
+  const [previewAdminOk, setPreviewAdminOk] = useState(false);
+  const [previewAuthChecked, setPreviewAuthChecked] = useState(!previewRequested);
+
+  useEffect(() => {
+    if (!previewRequested) return;
+    initFirebase();
+    let mounted = true;
+    (async () => {
+      const ok = await isCurrentUserAdmin();
+      if (mounted) {
+        setPreviewAdminOk(ok);
+        setPreviewAuthChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [previewRequested]);
 
   useEffect(() => {
     let mounted = true;
@@ -209,7 +251,8 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
       try {
         const c = await getCampaign(slug);
         if (!mounted) return;
-        if (c?.published === false) {
+        const allowDraft = previewRequested && previewAdminOk;
+        if (c?.published === false && !allowDraft) {
           setCampanha(null);
         } else {
           setCampanha(c);
@@ -223,7 +266,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, previewRequested, previewAdminOk]);
 
   useEffect(() => {
     if (!campanha?.title) return;
@@ -260,7 +303,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     };
   }, [campanha?.title]);
 
-  if (loading) {
+  const isDraftPreview = previewRequested && previewAdminOk && campanha?.published === false;
+
+  if (loading || (previewRequested && !previewAuthChecked)) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30 min-h-[50vh]">
         <div className="container-cdl max-w-2xl animate-pulse">
@@ -276,6 +321,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   }
 
   if (!campanha) {
+    if (previewRequested && previewAuthChecked && !previewAdminOk) {
+      return <CampaignPreviewAccessDenied />;
+    }
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
         <div className="container-cdl max-w-2xl">
@@ -394,13 +442,17 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   const userInputKeys = fieldKeys.filter((k) => k !== 'observacoes');
   const padraoKeys = userInputKeys.filter((k) => PADRAO_IDS.has(k));
   const associadoKeys = userInputKeys.filter((k) => !PADRAO_IDS.has(k) && !EXTRA_IDS.has(k));
+  const empresaKeys = associadoKeys;
+  const empresaSectionTitle = inscricaoViaCpf ? 'Dados da empresa' : 'Dados de associado';
   const extraKeys = userInputKeys.filter((k) => EXTRA_IDS.has(k));
   const adminObservationText =
     fieldKeys.includes('observacoes') && reg.observationText?.trim()
       ? reg.observationText.trim()
       : '';
   const payment = getEffectivePayment(campanha);
-  const needsCnpjValidationStep = userInputKeys.includes('cnpj');
+  const inscriptionDocumentMode = reg.kind === 'form' ? reg.documentMode : 'cpf_allowed';
+  const needsCnpjValidationStep = needsCnpjInscriptionStep(inscriptionDocumentMode, userInputKeys);
+  const podeInscreverComCpf = canOfferInscricaoComCpf(inscriptionDocumentMode, userInputKeys);
   const inscricaoAssociadosOnly =
     campanha.registrationConfig?.type === 'form' &&
     campanha.registrationConfig.associadosOnly === true;
@@ -484,25 +536,24 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         return false;
       }
     }
-    if (userInputKeys.includes('cnpj')) {
+    if (userInputKeys.includes('cnpj') && !inscricaoViaCpf) {
       const d = onlyDigitsCnpj(values.cnpj ?? '');
-      if (d.length === 14) {
-        // Se o evento for aberto para todos, permite CNPJ não associado
-        if (!inscricaoAssociadosOnly) {
-          // Evento aberto: permite qualquer CNPJ
-          // Não faz validação de associado
-        } else {
-          // Se for exclusivo para associados, valida mesmo que não seja associado
-          const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
-          if (!ok) {
-            setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
-            setCnpjRejeitadoNaoAssociado(true);
-            return false;
-          }
+      if (d.length !== 14) {
+        setError('Informe um CNPJ válido para continuar.');
+        return false;
+      }
+      if (inscricaoAssociadosOnly) {
+        const ok = await isCnpjCadastradoComoAssociado(values.cnpj ?? '');
+        if (!ok) {
+          setError(`${MSG_CNPJ_NAO_ASSOCIADO} Não é possível enviar a inscrição.`);
+          setCnpjRejeitadoNaoAssociado(true);
+          return false;
         }
       }
     }
     for (const key of userInputKeys) {
+      if (inscricaoViaCpf && isEmpresaInscriptionFieldKey(key)) continue;
+      if (inscriptionDocumentMode === 'cpf_allowed' && key === 'cnpj' && !values.cnpj?.trim()) continue;
       if (!values[key]?.trim()) {
         setError(`Preencha o campo: ${labelForInscriptionField(key)}`);
         return false;
@@ -521,10 +572,14 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     }
     setSubmitting(true);
     try {
-      const fields: Record<string, string> = {};
-      userInputKeys.forEach((k) => {
-        fields[k] = values[k]?.trim() ?? '';
+      const fields = buildEventInscriptionFieldsPayload(userInputKeys, values, {
+        viaCpf: inscricaoViaCpf,
+        documentMode: inscriptionDocumentMode,
       });
+      if (Object.keys(fields).length === 0) {
+        setError('Preencha os campos obrigatórios antes de enviar.');
+        return;
+      }
       const fresh = await getCampaign(slug);
       if (fresh && isInscriptionSoldOut(fresh)) {
         setCampanha(fresh);
@@ -534,7 +589,13 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
         setCampanha(fresh);
         return;
       }
-      await createEventInscription(slug, fields);
+      const inscriptionId = await createEventInscription(slug, fields);
+
+      if (payment.kind === 'asaas') {
+        const { invoiceUrl } = await createAsaasInscriptionPayment(slug, inscriptionId);
+        setAsaasInvoiceUrl(invoiceUrl);
+      }
+
       setDone(true);
     } catch (err) {
       if (isInscriptionLimitReachedError(err)) {
@@ -551,6 +612,24 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
           if (again) setCampanha(again);
         } catch {
           /* ignore */
+        }
+      } else if (
+        isFirestorePermissionDenied(err) ||
+        (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR)
+      ) {
+        setError(
+          'Não foi possível registrar a inscrição (permissão negada). Publique as regras atualizadas do Firestore (coleção campaigns/…/inscricoes) e tente novamente.'
+        );
+      } else if (err instanceof Error) {
+        const msg = err.message;
+        if (msg === 'CUSTOMER_DOCUMENT_REQUIRED') {
+          setError('Informe CPF ou CNPJ válido no formulário para gerar o link de pagamento.');
+        } else if (msg.includes('Asaas não configurado') || msg === 'ASAAS_NOT_CONFIGURED') {
+          setError('Pagamento online indisponível no momento. Entre em contato com a CDL.');
+        } else if (msg.includes('Não foi possível gerar o link')) {
+          setError(msg);
+        } else {
+          setError('Não foi possível enviar. Tente novamente.');
         }
       } else {
         setError('Não foi possível enviar. Tente novamente.');
@@ -577,17 +656,63 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
     setCnpjStepDone(true);
   }
 
+  function handleInscreverComCpf() {
+    setInscricaoViaCpf(true);
+    setCnpjStepDone(true);
+    setError('');
+    setCnpjLookupHint(null);
+    setCnpjRejeitadoNaoAssociado(false);
+    setCnpjStepValue('');
+    setValues((prev) => {
+      const next = { ...prev };
+      delete next.cnpj;
+      return next;
+    });
+  }
+
   if (done) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-lg text-center">
-          <div className="rounded-xl border border-green-200 bg-green-50 px-6 py-10">
-            <p className="text-sm font-medium text-green-800 mb-2">Inscrição registrada</p>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
-            <p className="text-cdl-gray-text mb-6">
-              Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.
+        <div className="container-cdl max-w-lg">
+          <div
+            className={`rounded-xl border px-6 py-10 text-center ${
+              payment.kind === 'asaas' && asaasInvoiceUrl
+                ? 'border-cdl-blue/25 bg-white'
+                : 'border-green-200 bg-green-50'
+            }`}
+          >
+            <p
+              className={`text-sm font-medium mb-2 ${
+                payment.kind === 'asaas' && asaasInvoiceUrl ? 'text-cdl-blue' : 'text-green-800'
+              }`}
+            >
+              {payment.kind === 'asaas' && asaasInvoiceUrl
+                ? 'Inscrição registrada — finalize o pagamento'
+                : 'Inscrição registrada'}
             </p>
-            <Link href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`} className="btn-primary inline-block">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
+            {payment.kind === 'asaas' && asaasInvoiceUrl ? (
+              <>
+                <p className="text-cdl-gray-text mb-6 text-left sm:text-center">
+                  Seus dados foram salvos. Para confirmar a participação, conclua o pagamento de{' '}
+                  <strong>{formatPaymentAmountBrl(payment.amount)}</strong> pelo link abaixo.
+                </p>
+                <AsaasPaymentPublicBlock
+                  amount={payment.amount}
+                  description={payment.description}
+                  invoiceUrl={asaasInvoiceUrl}
+                  className="text-left mb-6"
+                />
+              </>
+            ) : (
+              <p className="text-cdl-gray-text mb-6">
+                Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.
+              </p>
+            )}
+            <Link
+              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              className="btn-primary inline-block"
+            >
               Voltar ao evento
             </Link>
           </div>
@@ -599,9 +724,10 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
       <div className="container-cdl max-w-2xl">
+        {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
         <nav className="mb-8">
           <Link
-            href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+            href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${isDraftPreview ? '&preview=1' : ''}`}
             className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
           >
             <span aria-hidden>←</span> Voltar ao evento
@@ -695,41 +821,47 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                   </div>
                 </div>
               )}
-              <button type="submit" disabled={cnpjLookupLoading} className="btn-primary w-full sm:w-auto min-w-[220px]">
-                {cnpjLookupLoading ? 'Validando...' : 'Validar CNPJ e continuar'}
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <button type="submit" disabled={cnpjLookupLoading} className="btn-primary w-full sm:w-auto min-w-[220px]">
+                  {cnpjLookupLoading ? 'Validando...' : 'Validar CNPJ e continuar'}
+                </button>
+              </div>
+              {podeInscreverComCpf && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
+                  <p className="text-sm font-medium text-gray-900">Não tem CNPJ?</p>
+                  <p className="mt-1 text-xs text-cdl-gray-text leading-relaxed">
+                    Você pode se inscrever informando seu CPF e os demais dados pessoais no próximo passo.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleInscreverComCpf}
+                    disabled={cnpjLookupLoading}
+                    className="btn-secondary mt-3 w-full sm:w-auto min-w-[200px]"
+                  >
+                    Inscrever com CPF
+                  </button>
+                </div>
+              )}
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-8">
               {!(payment.kind === 'pix' && pixStepActive) ? (
               <>
+                {inscricaoViaCpf && (
+                  <section className="rounded-lg border border-cdl-blue/20 bg-cdl-blue/5 px-4 py-3">
+                    <p className="text-sm font-medium text-cdl-blue">Inscrição com CPF</p>
+                    <p className="mt-1 text-sm text-cdl-gray-text">
+                      Preencha primeiro o cadastro padrão (obrigatório). Os dados da empresa, se quiser informar, são opcionais.
+                    </p>
+                  </section>
+                )}
                 {adminObservationText && (
                   <section className="rounded-lg border border-cdl-blue/20 bg-cdl-blue/5 px-4 py-3">
                     <p className="text-sm font-medium text-cdl-blue">Observações da organização</p>
                     <p className="mt-1 text-sm text-cdl-gray-text">{adminObservationText}</p>
                   </section>
                 )}
-                {associadoKeys.length > 0 && (
-                  <section className="space-y-4">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 pb-2">
-                      Dados de associado
-                    </h3>
-                    <div className="space-y-4">
-                      {associadoKeys.map((key) => (
-                        <FieldRow
-                          key={key}
-                          fieldKey={key}
-                          values={values}
-                          setValues={setValues}
-                          cnpjLookup={key === 'cnpj' ? cnpjLookupUi : undefined}
-                          observationText={reg.kind === 'form' ? reg.observationText : undefined}
-                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-                {padraoKeys.length > 0 && (
+                {inscricaoViaCpf && padraoKeys.length > 0 && (
                   <section className="space-y-4">
                     <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 pb-2">
                       Cadastro padrão
@@ -743,6 +875,72 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                           setValues={setValues}
                           observationText={reg.kind === 'form' ? reg.observationText : undefined}
                           inscricaoAssociadosOnly={inscricaoAssociadosOnly}
+                          inscricaoViaCpf={inscricaoViaCpf}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {inscricaoViaCpf && empresaKeys.length > 0 && (
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 pb-2">
+                      {empresaSectionTitle}
+                    </h3>
+                    <p className="text-xs text-cdl-gray-text -mt-2">
+                      Preencha se tiver empresa; todos os campos abaixo são opcionais.
+                    </p>
+                    <div className="space-y-4">
+                      {empresaKeys.map((key) => (
+                        <FieldRow
+                          key={key}
+                          fieldKey={key}
+                          values={values}
+                          setValues={setValues}
+                          cnpjLookup={key === 'cnpj' ? cnpjLookupUi : undefined}
+                          observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
+                          inscricaoViaCpf={inscricaoViaCpf}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {!inscricaoViaCpf && empresaKeys.length > 0 && (
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 pb-2">
+                      {empresaSectionTitle}
+                    </h3>
+                    <div className="space-y-4">
+                      {empresaKeys.map((key) => (
+                        <FieldRow
+                          key={key}
+                          fieldKey={key}
+                          values={values}
+                          setValues={setValues}
+                          cnpjLookup={key === 'cnpj' ? cnpjLookupUi : undefined}
+                          observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
+                          inscricaoViaCpf={inscricaoViaCpf}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {!inscricaoViaCpf && padraoKeys.length > 0 && (
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 pb-2">
+                      Cadastro padrão
+                    </h3>
+                    <div className="space-y-4">
+                      {padraoKeys.map((key) => (
+                        <FieldRow
+                          key={key}
+                          fieldKey={key}
+                          values={values}
+                          setValues={setValues}
+                          observationText={reg.kind === 'form' ? reg.observationText : undefined}
+                          inscricaoAssociadosOnly={inscricaoAssociadosOnly}
+                          inscricaoViaCpf={inscricaoViaCpf}
                         />
                       ))}
                     </div>
@@ -762,6 +960,7 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                           setValues={setValues}
                           observationText={reg.kind === 'form' ? reg.observationText : undefined}
                           inscricaoAssociadosOnly={inscricaoAssociadosOnly}
+                          inscricaoViaCpf={inscricaoViaCpf}
                         />
                       ))}
                     </div>
@@ -800,13 +999,14 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                   type="button"
                   onClick={() => {
                     setCnpjStepDone(false);
+                    setInscricaoViaCpf(false);
                     setPixStepActive(false);
                     setError('');
                   }}
                   disabled={submitting}
                   className="btn-secondary"
                 >
-                  Alterar CNPJ
+                  {inscricaoViaCpf ? 'Voltar à validação por CNPJ' : 'Alterar CNPJ'}
                 </button>
               )}
               <button
@@ -820,7 +1020,9 @@ export function EventInscriptionClient({ slug }: { slug: string }) {
                     ? pixStepActive
                       ? 'Confirmar pagamento e enviar inscrição'
                       : 'Validar dados e ir para pagamento PIX'
-                    : 'Confirmar inscrição'}
+                    : payment.kind === 'asaas'
+                      ? 'Confirmar inscrição e pagar'
+                      : 'Confirmar inscrição'}
               </button>
             </div>
             </form>

@@ -81,7 +81,23 @@ function canonicalizeInternalPathForWebview(pathWithSearch: string): string {
     }
   }
 
+  // Detalhe de notícia: `/noticias/{slug}` → `/noticias/ver?slug=` (export estático / app WebView).
+  if (segs.length === 2 && segs[0] === 'noticias' && segs[1] !== 'ver') {
+    const slug = safeDecodePathSegment(segs[1]!);
+    const sp = new URLSearchParams(search.replace(/^\?/, ''));
+    if (!sp.has('slug')) sp.set('slug', slug);
+    const q = sp.toString();
+    return `/noticias/ver${q ? `?${q}` : ''}`;
+  }
+
   return pathname + search;
+}
+
+/** Caminho de detalhe de notícia no app WebView (página única `ver`, slug na query). */
+export function newsDetailHrefForAppShell(segment: string, slug: string): string {
+  const s = slug.trim();
+  if (!s) return `${segment}/noticias`;
+  return `${segment}/noticias/ver?slug=${encodeURIComponent(s)}`;
 }
 
 /** Rotas absolutas dentro do shell (path completo, sem subtrees genéricos). */

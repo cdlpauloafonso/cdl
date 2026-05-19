@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { resolveAdminPostLoginPath } from '@/lib/admin-auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -31,14 +32,7 @@ export default function AdminLoginPage() {
         localStorage.setItem('cdl_admin_token', idToken);
         
         // Verifica se veio da página /agendamentos
-        const redirectTo = searchParams.get('redirect');
-        console.log('Redirect parameter:', redirectTo); // Debug
-        
-        if (redirectTo === '/agendamentos' || redirectTo === 'agendamentos') {
-          router.push('/agendamentos');
-        } else {
-          router.push('/admin');
-        }
+        router.push(resolveAdminPostLoginPath(searchParams.get('redirect')));
         return;
       }
 
@@ -50,14 +44,7 @@ export default function AdminLoginPage() {
         localStorage.setItem('cdl_admin_token', idToken);
         
         // Verifica se veio da página /agendamentos
-        const redirectTo = searchParams.get('redirect');
-        console.log('Redirect parameter (fallback):', redirectTo); // Debug
-        
-        if (redirectTo === '/agendamentos' || redirectTo === 'agendamentos') {
-          router.push('/agendamentos');
-        } else {
-          router.push('/admin');
-        }
+        router.push(resolveAdminPostLoginPath(searchParams.get('redirect')));
         return;
       }
 

@@ -194,6 +194,11 @@ html:has([data-mobile-shell]) body {
   min-height: -webkit-fill-available;
 }
 
+/* Home: degradê azul fixo em MobileHomeFixedBlueBackdrop; evita duplicar o tapete do shell. */
+html:has([data-mobile-home]) [data-mobile-shell-viewport-backdrop] {
+  display: none;
+}
+
 /* `overflow-x-hidden` no body raiz (layout global) às vezes interfere com o rubber-band vertical no iOS. */
 html:has([data-mobile-shell]) body,
 html.mobile-shell-app body {

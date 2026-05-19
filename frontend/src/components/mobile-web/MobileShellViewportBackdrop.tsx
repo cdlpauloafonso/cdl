@@ -7,6 +7,7 @@ import { MOBILE_SHELL_CANVAS_FALLBACK, MOBILE_SHELL_VIEWPORT_GRADIENT } from '@/
 export function MobileShellViewportBackdrop() {
   return (
     <div
+      data-mobile-shell-viewport-backdrop
       aria-hidden
       className="pointer-events-none fixed inset-0 z-0 min-h-[100dvh] w-full"
       style={{

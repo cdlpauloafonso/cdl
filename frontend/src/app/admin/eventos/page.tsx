@@ -7,6 +7,7 @@ import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { campaignPublicPageUrl } from '@/lib/campaign-preview';
 
 /** Ordenação decrescente pela data do evento (mais recentes primeiro); texto livre não parseável usa createdAt. */
 function millisFromCreatedAt(v: unknown): number {
@@ -209,9 +210,19 @@ export default function AdminEventosPage() {
                         <h3 className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-gray-900">
                           <span className="truncate">{ev.title}</span>
                           {ev.published === false && (
-                            <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
-                              Rascunho
-                            </span>
+                            <>
+                              <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
+                                Rascunho
+                              </span>
+                              {ev.id && (
+                                <Link
+                                  href={campaignPublicPageUrl(ev.id, { preview: true })}
+                                  className="shrink-0 rounded-md bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-gray-900"
+                                >
+                                  Ver rascunho
+                                </Link>
+                              )}
+                            </>
                           )}
                         </h3>
                         {ev.description && (
@@ -351,9 +362,19 @@ export default function AdminEventosPage() {
                             <span className="flex flex-wrap items-center gap-2 font-medium text-gray-900">
                               <span>{ev.title}</span>
                               {ev.published === false && (
-                                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
-                                  Rascunho
-                                </span>
+                                <>
+                                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">
+                                    Rascunho
+                                  </span>
+                                  {ev.id && (
+                                    <Link
+                                      href={campaignPublicPageUrl(ev.id, { preview: true })}
+                                      className="rounded-md bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-gray-900"
+                                    >
+                                      Ver rascunho
+                                    </Link>
+                                  )}
+                                </>
                               )}
                             </span>
                             {ev.description && (

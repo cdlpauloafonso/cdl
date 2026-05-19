@@ -10,6 +10,10 @@ import {
   isInscriptionSoldOut,
 } from '@/lib/event-registration-fields';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { isCurrentUserAdmin } from '@/lib/admin-auth';
+import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
+import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
+import { initFirebase } from '@/lib/firebase';
 
 const SOLD_OUT_TOAST_MS = 6000;
 
@@ -19,12 +23,15 @@ export function CampaignPageClient({
   associeHref = '/associe-se',
   atendimentoHref = '/atendimento',
   fillAppShellViewport = false,
+  previewRequested = false,
 }: {
   slug: string;
   campanhasIndexHref?: string;
   associeHref?: string;
   atendimentoHref?: string;
   fillAppShellViewport?: boolean;
+  /** `?preview=1` — exibe rascunho se o visitante for admin logado. */
+  previewRequested?: boolean;
 }) {
   const router = useRouter();
   const [campanha, setCampanha] = useState<Campaign | null>(null);
@@ -33,6 +40,8 @@ export function CampaignPageClient({
   const soldOutToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [registrationClosedNotification, setRegistrationClosedNotification] = useState(false);
   const closedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewAdminOk, setPreviewAdminOk] = useState(false);
+  const [previewAuthChecked, setPreviewAuthChecked] = useState(!previewRequested);
 
   const showSoldOutToast = () => {
     setSoldOutNotification(true);
@@ -77,9 +86,40 @@ export function CampaignPageClient({
     };
   }, [slug]);
 
-  if (loading) return <p className="p-8 text-cdl-gray-text">Carregando...</p>;
-  if (!campanha) notFound();
-  if (campanha.published === false) notFound();
+  useEffect(() => {
+    if (!previewRequested) return;
+    initFirebase();
+    let mounted = true;
+    (async () => {
+      const ok = await isCurrentUserAdmin();
+      if (mounted) {
+        setPreviewAdminOk(ok);
+        setPreviewAuthChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [previewRequested]);
+
+  const isDraftPreview = previewRequested && previewAdminOk && campanha?.published === false;
+
+  if (loading || (previewRequested && !previewAuthChecked)) {
+    return <p className="p-8 text-cdl-gray-text">Carregando...</p>;
+  }
+  if (!campanha) {
+    if (previewRequested) {
+      return <CampaignPreviewAccessDenied />;
+    }
+    notFound();
+  }
+
+  if (campanha.published === false && !isDraftPreview) {
+    if (previewRequested && previewAuthChecked && !previewAdminOk) {
+      return <CampaignPreviewAccessDenied />;
+    }
+    notFound();
+  }
 
   const registration = getEffectiveRegistration(campanha);
   const ingressosEsgotados =
@@ -101,9 +141,13 @@ export function CampaignPageClient({
         showSoldOutToast();
         return;
       }
-      router.push(`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`);
+      const inscricaoQs = new URLSearchParams({ slug });
+      if (isDraftPreview) inscricaoQs.set('preview', '1');
+      router.push(`/institucional/campanhas/inscricao?${inscricaoQs.toString()}`);
     } catch {
-      router.push(`/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`);
+      const inscricaoQs = new URLSearchParams({ slug });
+      if (isDraftPreview) inscricaoQs.set('preview', '1');
+      router.push(`/institucional/campanhas/inscricao?${inscricaoQs.toString()}`);
     }
   }
 
@@ -141,6 +185,7 @@ export function CampaignPageClient({
       )}
 
       <div className={`container-cdl max-w-4xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+        {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
         <Link href={campanhasIndexHref} prefetch={false} className="mb-6 inline-block text-sm text-cdl-blue hover:underline">
           ← Voltar às campanhas
         </Link>

@@ -16,64 +16,103 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    // ---- Eventos / campanhas: inscrição (registrationConfig + documentMode) ----
+
+    function isValidExternalRegistrationConfig(rc) {
+      return rc is map
+        && rc.type == 'external'
+        && rc.url is string
+        && rc.url.size() >= 8;
+    }
+
+    function isValidFormRegistrationConfig(rc) {
+      return rc is map
+        && rc.type == 'form'
+        && rc.fieldKeys is list
+        && rc.fieldKeys.size() >= 1
+        && rc.fieldKeys.size() <= 25
+        && (
+          !('documentMode' in rc)
+          || rc.documentMode == 'cnpj_only'
+          || rc.documentMode == 'cpf_allowed'
+        );
+    }
+
+    function isValidRegistrationConfig(rc) {
+      return rc == null || isValidExternalRegistrationConfig(rc) || isValidFormRegistrationConfig(rc);
+    }
+
+    // Só valida registrationConfig quando o campo entra no write (create ou update parcial).
+    function campaignRegistrationConfigValidOnWrite() {
+      return !request.resource.data.keys().hasAny(['registrationConfig'])
+        || isValidRegistrationConfig(request.resource.data.registrationConfig);
+    }
+
+    function numericFieldPositive(v) {
+      return (v is int || v is float) && v > 0;
+    }
+
+    function numericFieldNonNegative(v) {
+      return (v is int || v is float) && v >= 0;
+    }
+
+    function campaignInscriptionCount(d) {
+      let n = d.get('inscriptionWebCount', 0);
+      return numericFieldNonNegative(n) ? n : 0;
+    }
+
+    function campaignHasInscriptionLimit(cfg) {
+      return cfg is map && numericFieldPositive(cfg.get('inscriptionLimit', 0));
+    }
+
+    // Uma leitura do evento: publicação, formulário ativo, limite e formato do payload.
+    // CPF/CNPJ validados no cliente; regras só exigem mapa fields com 1–25 chaves string.
+    function publicInscriptionCreateAllowed(campaignId) {
+      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
+      let cfg = camp.get('registrationConfig', null);
+      let n = campaignInscriptionCount(camp);
+      let lim = cfg is map ? cfg.get('inscriptionLimit', 0) : 0;
+      let withinLimit = !campaignHasInscriptionLimit(cfg) || n < lim;
+      return camp.get('published', true) != false
+        && camp.get('registrationClosed', false) != true
+        && cfg is map
+        && cfg.get('type', '') == 'form'
+        && withinLimit
+        && request.resource.data.keys().hasOnly(['createdAt', 'fields'])
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() >= 10
+        && request.resource.data.fields is map
+        && request.resource.data.fields.size() >= 1
+        && request.resource.data.fields.size() <= 25;
+    }
+
     // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
     // na inscrição pública quando há limite (transação com criação em inscricoes/).
     // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
     function publicInscriptionWebCountIncrement() {
-      let oldCount = resource.data.get('inscriptionWebCount', 0);
-      let newCount = request.resource.data.inscriptionWebCount;
-      let lim = resource.data.registrationConfig.inscriptionLimit;
+      let cfg = resource.data.get('registrationConfig', null);
+      let oldN = campaignInscriptionCount(resource.data);
+      let newRaw = request.resource.data.inscriptionWebCount;
+      let newN = numericFieldNonNegative(newRaw) ? newRaw : -1;
       return request.auth == null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
-        && (newCount is int || newCount is float)
-        && (oldCount is int || oldCount is float)
-        && newCount == oldCount + 1
-        && resource.data.registrationConfig is map
-        && resource.data.registrationConfig.type == 'form'
-        && (lim is int || lim is float)
-        && lim > 0
-        && newCount <= lim;
-    }
-
-    // Limite de inscrições: só permite criar doc em inscricoes se ainda houver vaga (n < limite).
-    function campaignDocAllowsAnotherInscription(d) {
-      let cfg = d.get('registrationConfig', null);
-      let lim = cfg.inscriptionLimit;
-      let n = d.get('inscriptionWebCount', 0);
-      return !(
-        (cfg is map) &&
-        cfg.get('type', '') == 'form' &&
-        (lim is int || lim is float) &&
-        lim > 0
-      ) || n < lim;
-    }
-
-    function campaignAllowsAnotherPublicInscription(campaignId) {
-      let snap = get(/databases/$(database)/documents/campaigns/$(campaignId));
-      return snap.exists && campaignDocAllowsAnotherInscription(snap.data);
-    }
-
-    function campaignPublicInscriptionNotClosed(campaignId) {
-      return get(/databases/$(database)/documents/campaigns/$(campaignId)).data.get('registrationClosed', false) != true;
+        && cfg is map
+        && cfg.get('type', '') == 'form'
+        && numericFieldPositive(cfg.get('inscriptionLimit', 0))
+        && newN == oldN + 1
+        && newN <= cfg.get('inscriptionLimit', 0);
     }
 
     match /campaigns/{campaignId} {
       allow get, list: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || publicInscriptionWebCountIncrement();
+      allow create: if isAdmin() && campaignRegistrationConfigValidOnWrite();
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && campaignRegistrationConfigValidOnWrite()) || publicInscriptionWebCountIncrement();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público).
       // Leitura pública somente para exibição da lista compartilhável (somente leitura).
       match /inscricoes/{inscriptionId} {
-        allow create: if
-          campaignAllowsAnotherPublicInscription(campaignId) &&
-          campaignPublicInscriptionNotClosed(campaignId) &&
-          request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
-          request.resource.data.createdAt is string &&
-          request.resource.data.createdAt.size() >= 10 &&
-          request.resource.data.fields is map &&
-          request.resource.data.fields.size() >= 1 &&
-          request.resource.data.fields.size() <= 20;
+        allow create: if publicInscriptionCreateAllowed(campaignId);
 
         allow get, list: if true;
         allow update, delete: if isAdmin();

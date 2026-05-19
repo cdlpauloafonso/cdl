@@ -117,6 +117,22 @@ export function LatestNews() {
                               <p className="mb-3 line-clamp-4 text-sm text-gray-600 sm:line-clamp-3">
                                 {informativo.descricao}
                               </p>
+                              {informativo.links && informativo.links.length > 0 && (
+                                <div className="mb-3 flex flex-col gap-2">
+                                  {informativo.links.map((link, linkIndex) => (
+                                    <a
+                                      key={linkIndex}
+                                      href={link.url}
+                                      target={link.type === 'external' ? '_blank' : undefined}
+                                      rel={link.type === 'external' ? 'noopener noreferrer' : undefined}
+                                      download={link.type === 'download' ? true : undefined}
+                                      className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-cdl-blue/30 bg-white px-3 py-2 text-center text-sm font-semibold text-cdl-blue transition-colors hover:border-cdl-blue hover:bg-slate-50"
+                                    >
+                                      {link.label}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <svg
                                   className="h-4 w-4"

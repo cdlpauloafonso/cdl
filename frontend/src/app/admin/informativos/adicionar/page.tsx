@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createInformativo, type Informativo } from '@/lib/firestore-informativos';
+import { createInformativo, type Informativo, type InformativoLink } from '@/lib/firestore-informativos';
 
 export default function AdicionarInformativoPage() {
   const router = useRouter();
@@ -15,7 +15,8 @@ export default function AdicionarInformativoPage() {
     status: 'ativo' as Informativo['status'],
     data_publicacao: new Date(),
     data_expiracao: undefined as Date | undefined,
-    autor: 'Administrador'
+    autor: 'Administrador',
+    links: [] as InformativoLink[],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +29,15 @@ export default function AdicionarInformativoPage() {
 
     setLoading(true);
     try {
-      await createInformativo(formData);
+      const links =
+        formData.links.length > 0
+          ? formData.links.filter((link) => link.label.trim() && link.url.trim())
+          : [];
+      const { links: _links, ...rest } = formData;
+      await createInformativo({
+        ...rest,
+        links: links.length > 0 ? links : null,
+      });
       router.push('/admin/informativos');
     } catch (error) {
       console.error('Erro ao criar informativo:', error);
@@ -89,6 +98,108 @@ export default function AdicionarInformativoPage() {
               placeholder="Digite a descrição detalhada do informativo..."
               required
             />
+          </div>
+
+          {/* Links */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Links relacionados</label>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    links: [...prev.links, { label: '', url: '', type: 'external' as const }],
+                  }))
+                }
+                className="text-sm text-cdl-blue hover:text-cdl-blue-dark font-medium"
+              >
+                + Adicionar link
+              </button>
+            </div>
+            <div className="space-y-3">
+              {formData.links.map((link, index) => (
+                <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Texto do link</label>
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => {
+                          const updated = [...formData.links];
+                          updated[index] = { ...updated[index], label: e.target.value };
+                          setFormData((prev) => ({ ...prev, links: updated }));
+                        }}
+                        placeholder="Ex: Baixar PDF"
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">URL</label>
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...formData.links];
+                          updated[index] = { ...updated[index], url: e.target.value };
+                          setFormData((prev) => ({ ...prev, links: updated }));
+                        }}
+                        placeholder="https://exemplo.com/arquivo.pdf"
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name={`informativo-link-type-${index}`}
+                          checked={link.type === 'external'}
+                          onChange={() => {
+                            const updated = [...formData.links];
+                            updated[index] = { ...updated[index], type: 'external' as const };
+                            setFormData((prev) => ({ ...prev, links: updated }));
+                          }}
+                          className="text-cdl-blue focus:ring-cdl-blue"
+                        />
+                        Link externo
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name={`informativo-link-type-${index}`}
+                          checked={link.type === 'download'}
+                          onChange={() => {
+                            const updated = [...formData.links];
+                            updated[index] = { ...updated[index], type: 'download' as const };
+                            setFormData((prev) => ({ ...prev, links: updated }));
+                          }}
+                          className="text-cdl-blue focus:ring-cdl-blue"
+                        />
+                        Download
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = formData.links.filter((_, i) => i !== index);
+                        setFormData((prev) => ({ ...prev, links: updated }));
+                      }}
+                      className="text-sm text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {formData.links.length === 0 && (
+                <p className="text-sm text-cdl-gray-text italic py-4 text-center border border-dashed border-gray-300 rounded-lg">
+                  Nenhum link adicionado. Clique em &quot;Adicionar link&quot; para incluir links para PDFs, sites externos, etc.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Tipo */}

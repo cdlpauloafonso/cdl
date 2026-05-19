@@ -8,8 +8,11 @@ import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
+import type { InscriptionDocumentMode } from '@/lib/firestore';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
 import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
+import type { CampaignPaymentProvider } from '@/lib/firestore';
+import { buildCampaignPaymentConfigFromAdmin, parsePaymentAmountInput } from '@/lib/campaign-payment-admin';
 
 type CreateCampaignFormProps = {
   variant: 'campaign' | 'event';
@@ -49,8 +52,14 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [registrationFieldKeys, setRegistrationFieldKeys] = useState<string[]>([]);
   const [registrationObservationText, setRegistrationObservationText] = useState('');
   const [associadosOnly, setAssociadosOnly] = useState(false);
+  const [inscriptionDocumentMode, setInscriptionDocumentMode] = useState<InscriptionDocumentMode | null>(
+    'cnpj_only'
+  );
   const [inscriptionLimit, setInscriptionLimit] = useState<number | null>(null);
-  const [wantsPixPayment, setWantsPixPayment] = useState(false);
+  const [wantsEventPayment, setWantsEventPayment] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<CampaignPaymentProvider>('asaas');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDescription, setPaymentDescription] = useState('');
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [pixObservationText, setPixObservationText] = useState('');
@@ -97,17 +106,52 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
           setLoading(false);
           return;
         }
-      }
-
-      if (variant === 'event' && wantsPixPayment) {
-        const hasImg = Boolean(pixImageUrl.trim());
-        const hasCode = Boolean(pixCopyPaste.trim());
-        if (!hasImg && !hasCode) {
-          setError('Pagamentos PIX: envie a foto do QR ou informe o código copia e cola, ou desmarque a opção.');
+        if (registrationMode === 'form' && !inscriptionDocumentMode) {
+          setError('Configure a inscrição: selecione se é apenas CNPJ ou se permite CPF.');
+          setLoading(false);
+          return;
+        }
+        if (
+          registrationMode === 'form' &&
+          inscriptionDocumentMode === 'cnpj_only' &&
+          !registrationFieldKeys.includes('cnpj')
+        ) {
+          setError('Para inscrição apenas por CNPJ, inclua o campo CNPJ na configuração.');
           setLoading(false);
           return;
         }
       }
+
+      if (variant === 'event' && wantsEventPayment) {
+        if (paymentProvider === 'asaas') {
+          if (parsePaymentAmountInput(paymentAmount) == null) {
+            setError('Pagamento Asaas: informe o valor da inscrição em reais, ou desmarque a opção.');
+            setLoading(false);
+            return;
+          }
+        } else {
+          const hasImg = Boolean(pixImageUrl.trim());
+          const hasCode = Boolean(pixCopyPaste.trim());
+          if (!hasImg && !hasCode) {
+            setError('PIX manual: envie a foto do QR ou o código copia e cola, ou desmarque a opção.');
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      const paymentConfig =
+        variant === 'event'
+          ? buildCampaignPaymentConfigFromAdmin({
+              enabled: wantsEventPayment,
+              provider: paymentProvider,
+              amount: paymentAmount,
+              description: paymentDescription,
+              pixImageUrl,
+              pixCopyPaste,
+              pixObservationText,
+            })
+          : null;
 
       await createCampaign({
         title,
@@ -125,6 +169,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                   : {
                       type: 'form',
                       fieldKeys: registrationFieldKeys,
+                      documentMode: inscriptionDocumentMode ?? 'cnpj_only',
                       associadosOnly,
                       ...(registrationObservationText.trim()
                         ? { observationText: registrationObservationText.trim() }
@@ -135,15 +180,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                     },
             }
           : {}),
-        ...(variant === 'event' && wantsPixPayment && (pixImageUrl.trim() || pixCopyPaste.trim())
-          ? {
-              paymentConfig: {
-                ...(pixImageUrl.trim() ? { pixImageUrl: pixImageUrl.trim() } : {}),
-                ...(pixCopyPaste.trim() ? { pixCopyPaste: pixCopyPaste.trim() } : {}),
-                ...(pixObservationText.trim() ? { pixObservationText: pixObservationText.trim() } : {}),
-              },
-            }
-          : {}),
+        ...(paymentConfig ? { paymentConfig } : {}),
       });
       router.push(c.successPath);
     } catch (err: unknown) {
@@ -319,6 +356,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                 if (!value) {
                   setRegistrationObservationText('');
                   setInscriptionLimit(null);
+                  setInscriptionDocumentMode('cnpj_only');
                 }
               }}
               mode={registrationMode}
@@ -333,11 +371,19 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
               onAssociadosOnlyChange={setAssociadosOnly}
               inscriptionLimit={inscriptionLimit}
               onInscriptionLimitChange={setInscriptionLimit}
+              documentMode={inscriptionDocumentMode}
+              onDocumentModeChange={setInscriptionDocumentMode}
               pixPayment={
                 wantsRegistrationLink
                   ? {
-                      enabled: wantsPixPayment,
-                      onEnabledChange: setWantsPixPayment,
+                      enabled: wantsEventPayment,
+                      onEnabledChange: setWantsEventPayment,
+                      provider: paymentProvider,
+                      onProviderChange: setPaymentProvider,
+                      amount: paymentAmount,
+                      onAmountChange: setPaymentAmount,
+                      paymentDescription,
+                      onPaymentDescriptionChange: setPaymentDescription,
                       pixImageUrl,
                       onPixImageUrlChange: setPixImageUrl,
                       pixCopyPaste,
@@ -350,8 +396,14 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
             />
             {!wantsRegistrationLink && (
               <EventPaymentSection
-                enabled={wantsPixPayment}
-                onEnabledChange={setWantsPixPayment}
+                enabled={wantsEventPayment}
+                onEnabledChange={setWantsEventPayment}
+                provider={paymentProvider}
+                onProviderChange={setPaymentProvider}
+                amount={paymentAmount}
+                onAmountChange={setPaymentAmount}
+                paymentDescription={paymentDescription}
+                onPaymentDescriptionChange={setPaymentDescription}
                 pixImageUrl={pixImageUrl}
                 onPixImageUrlChange={setPixImageUrl}
                 pixCopyPaste={pixCopyPaste}

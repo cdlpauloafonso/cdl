@@ -8,17 +8,33 @@ import {
   listCarouselSlides,
   listAgendamentos,
   getAssociados,
+  listCampaigns,
+  listBeneficiosParceiros,
   type Agendamento,
   type Associado,
+  type Campaign,
 } from '@/lib/firestore';
+import { getEffectiveRegistration, isEventInscriptionOpen } from '@/lib/event-registration-fields';
+import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { campaignPublicPageUrl } from '@/lib/campaign-preview';
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ pages: number; directors: number; services: number; news: number; messages: number; associates: number; emNegociacao: number } | null>(null);
+  const [stats, setStats] = useState<{
+    pages: number;
+    directors: number;
+    parceiros: number;
+    news: number;
+    newsViews: number;
+    messages: number;
+    associates: number;
+    emNegociacao: number;
+  } | null>(null);
   const [proximosAgendamentos, setProximosAgendamentos] = useState<Agendamento[]>([]);
   const [proximosAniversarios, setProximosAniversarios] = useState<{ nome: string; empresa: string; data: string; foto?: string }[]>([]);
   const [associadosBusca, setAssociadosBusca] = useState<Associado[]>([]);
   const [buscaAssociado, setBuscaAssociado] = useState('');
   const [selectedAssociado, setSelectedAssociado] = useState<Associado | null>(null);
+  const [eventosInscricaoAberta, setEventosInscricaoAberta] = useState<Campaign[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('cdl_admin_token');
@@ -26,7 +42,12 @@ export default function AdminDashboardPage() {
 
     // Páginas (carrossel) e notícias usam Firestore
     const pagesPromise = listCarouselSlides().then((items) => items.length).catch(() => 0);
-    const newsPromise = listNews(false, 500).then((items) => items.length).catch(() => 0);
+    const newsPromise = listNews(false, 500)
+      .then((items) => ({
+        count: items.length,
+        totalViews: items.reduce((acc, n) => acc + (n.viewCount ?? 0), 0),
+      }))
+      .catch(() => ({ count: 0, totalViews: 0 }));
 
     // Próximos agendamentos do auditório
     const agendamentosPromise = listAgendamentos()
@@ -108,40 +129,79 @@ export default function AdminDashboardPage() {
       .catch(() => ({ ativos: 0, emNegociacao: 0, desativados: 0, total: 0, proximosAniversarios: [] as { nome: string; empresa: string; data: string; foto?: string }[] }));
 
     // API para diretoria, serviços, mensagens
+    const eventosPromise = listCampaigns()
+      .then((list) => {
+        const abertos = list.filter(isEventInscriptionOpen);
+        abertos.sort((a, b) => {
+          const da = (a.date ?? '').localeCompare(b.date ?? '', 'pt-BR');
+          if (da !== 0) return da;
+          return (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR');
+        });
+        return abertos;
+      })
+      .catch(() => [] as Campaign[]);
+
+    const parceirosPromise = listBeneficiosParceiros()
+      .then((items) => items.length)
+      .catch(() => 0);
+
     const apiPromise = Promise.all([
       apiGet<unknown[]>('/directors', token).catch(() => []),
-      apiGet<unknown[]>('/services', token).catch(() => []),
       apiGet<unknown[]>('/contact', token).catch(() => []),
-    ]).then(([directors, services, messages]) => ({
+    ]).then(([directors, messages]) => ({
       directors: (directors as unknown[]).length,
-      services: (services as unknown[]).length,
       messages: (messages as unknown[]).length,
     }));
 
-    Promise.all([apiPromise, pagesPromise, newsPromise, agendamentosPromise, associadosPromise])
-      .then(([apiStats, pagesCount, newsCount, agendamentos, associadosCount]) => {
+    Promise.all([
+      apiPromise,
+      pagesPromise,
+      newsPromise,
+      agendamentosPromise,
+      associadosPromise,
+      eventosPromise,
+      parceirosPromise,
+    ])
+      .then(([apiStats, pagesCount, newsStats, agendamentos, associadosCount, eventosAbertos, parceirosCount]) => {
         setStats({
           ...apiStats,
           pages: pagesCount,
-          news: newsCount,
+          parceiros: parceirosCount,
+          news: newsStats.count,
+          newsViews: newsStats.totalViews,
           associates: associadosCount.ativos,
           emNegociacao: associadosCount.emNegociacao,
         });
         setProximosAgendamentos(agendamentos);
         setProximosAniversarios(associadosCount.proximosAniversarios);
+        setEventosInscricaoAberta(eventosAbertos);
       })
       .catch(() => {
-        setStats({ pages: 0, directors: 0, services: 0, news: 0, messages: 0, associates: 0, emNegociacao: 0 });
+        setStats({
+          pages: 0,
+          directors: 0,
+          parceiros: 0,
+          news: 0,
+          newsViews: 0,
+          messages: 0,
+          associates: 0,
+          emNegociacao: 0,
+        });
         setProximosAgendamentos([]);
         setProximosAniversarios([]);
+        setEventosInscricaoAberta([]);
       });
   }, []);
 
   const cards = [
     { label: 'Páginas', value: stats?.pages ?? '—', href: '/admin/paginas' },
     { label: 'Diretoria', value: stats?.directors ?? '—', href: '/admin/diretoria' },
-    { label: 'Serviços', value: stats?.services ?? '—', href: '/admin/servicos' },
-    { label: 'Benefícios', value: 'Editar', href: '/admin/beneficios-associados' },
+    { label: 'Parceiros', value: stats?.parceiros ?? '—', href: '/admin/beneficios-associados' },
+    {
+      label: 'Visualizações',
+      value: stats?.newsViews != null ? stats.newsViews.toLocaleString('pt-BR') : '—',
+      href: '/admin/noticias',
+    },
     { label: 'Notícias', value: stats?.news ?? '—', href: '/admin/noticias' },
     { label: 'Mensagens', value: stats?.messages ?? '—', href: '/admin/contato' },
   ];
@@ -335,7 +395,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {cards.map((c) => (
           <Link
-            key={c.href}
+            key={c.label}
             href={c.href}
             className="block rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-cdl-blue/30 hover:shadow-md sm:p-6"
           >
@@ -343,6 +403,91 @@ export default function AdminDashboardPage() {
             <p className="mt-1 text-xl font-bold text-gray-900 sm:mt-2 sm:text-2xl">{c.value}</p>
           </Link>
         ))}
+      </div>
+
+      {/* Eventos com inscrição aberta */}
+      <div className="mt-5 sm:mt-8">
+        <div className="mb-3 flex items-center justify-between sm:mb-4">
+          <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Eventos com inscrição aberta</h2>
+          <Link
+            href="/admin/eventos"
+            className="text-xs font-medium text-cdl-blue hover:text-cdl-blue-dark sm:text-sm"
+          >
+            Ver todos
+          </Link>
+        </div>
+
+        {eventosInscricaoAberta.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-5 text-center sm:p-8">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 sm:mb-4 sm:h-12 sm:w-12">
+              <svg className="h-5 w-5 text-gray-400 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-gray-500">Nenhum evento com inscrição aberta no momento</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Publicados no site, com formulário ou link de inscrição e sem encerramento manual.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div className="divide-y divide-gray-100">
+              {eventosInscricaoAberta.map((ev) => {
+                const reg = getEffectiveRegistration(ev);
+                const tipoInscricao =
+                  reg.kind === 'form' ? 'Formulário no site' : reg.kind === 'external' ? 'Link externo' : '—';
+                return (
+                  <div key={ev.id} className="p-2.5 transition-colors hover:bg-gray-50 sm:p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-medium text-gray-900">{ev.title}</h3>
+                          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                            Inscrição aberta
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-gray-600">
+                          {ev.date ? formatEventDateForDisplay(ev.date) : 'Sem data'}
+                          {ev.category ? ` · ${ev.category}` : ''}
+                          {' · '}
+                          {tipoInscricao}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-1.5">
+                        {reg.kind === 'form' && ev.id && (
+                          <Link
+                            href={`/admin/eventos/inscritos?eventId=${encodeURIComponent(ev.id)}`}
+                            className="inline-flex h-8 items-center rounded-md bg-emerald-50 px-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100/80 hover:bg-emerald-100"
+                          >
+                            Inscritos
+                          </Link>
+                        )}
+                        {ev.id && (
+                          <>
+                            <Link
+                              href={campaignPublicPageUrl(ev.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex h-8 items-center rounded-md bg-gray-100 px-2 text-xs font-medium text-gray-800 ring-1 ring-gray-200 hover:bg-gray-200"
+                            >
+                              Ver página
+                            </Link>
+                            <Link
+                              href={`/admin/campanhas/edit?id=${encodeURIComponent(ev.id)}`}
+                              className="inline-flex h-8 items-center rounded-md bg-cdl-blue px-2 text-xs font-medium text-white hover:bg-cdl-blue-dark"
+                            >
+                              Editar
+                            </Link>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Próximos Agendamentos do Auditório */}

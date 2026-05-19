@@ -8,7 +8,7 @@ import { getMarketingSiteHomeAbsoluteUrl, resolveAppShellHref, segmentFromMobile
 import { HOME_PAGE_STATS } from '@/constants/home-stats';
 import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
 import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore } from '@/lib/firestore';
-import { MobileHeroHeaderBackdrop } from '@/components/mobile-web/MobileHeroHeaderBackdrop';
+import { MobileHomeFixedBlueBackdrop } from '@/components/mobile-web/MobileHomeFixedBlueBackdrop';
 
 type HeroSlideVM = {
   id: string;
@@ -253,8 +253,11 @@ export function MobileCDLHome() {
   }, [news]);
 
   return (
-    <div className="relative isolate flex min-h-0 flex-1 flex-col text-slate-100">
-      <MobileHeroHeaderBackdrop variant="home" />
+    <div
+      data-mobile-home
+      className="relative isolate flex min-h-0 flex-1 flex-col text-slate-100"
+    >
+      <MobileHomeFixedBlueBackdrop />
       <header className="relative z-10 shrink-0 px-5 pb-28 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
         <div className="relative flex items-center pt-1">
           <div className="relative min-h-[44px] min-w-0 flex-1">

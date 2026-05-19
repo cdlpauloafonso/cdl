@@ -58,20 +58,33 @@ function millisFromFirestore(v: unknown): number {
   return 0;
 }
 
+/** Como o participante se identifica na inscrição por formulário. */
+export type InscriptionDocumentMode = 'cnpj_only' | 'cpf_allowed';
+
 /** Inscrição em evento: link externo ou formulário com campos do cadastro de associados. */
 export type CampaignRegistrationConfig =
   | { type: 'external'; url: string }
   | {
       type: 'form';
       fieldKeys: string[];
+      /** Obrigatório em novas configurações: CNPJ com validação inicial ou permite CPF sem essa etapa. */
+      documentMode?: InscriptionDocumentMode;
       observationText?: string;
       associadosOnly?: boolean;
       /** Máximo de inscrições aceitas pelo site; ausente ou inválido = sem limite. */
       inscriptionLimit?: number;
     };
 
-/** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
+export type CampaignPaymentProvider = 'manual_pix' | 'asaas';
+
+/** Pagamento na inscrição do evento: PIX manual ou cobrança Asaas. */
 export type CampaignPaymentConfig = {
+  provider?: CampaignPaymentProvider;
+  /** Valor em reais (Asaas). */
+  amount?: number;
+  /** Descrição na fatura Asaas. */
+  description?: string;
+  /** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
   pixImageUrl?: string;
   pixCopyPaste?: string;
   pixObservationText?: string;
@@ -111,6 +124,8 @@ export type Campaign = {
 };
 
 /** Informativos: comunicados e avisos importantes */
+export type InformativoLink = { label: string; url: string; type: 'download' | 'external' };
+
 export type Informativo = {
   id?: string;
   createdAt?: string;
@@ -122,6 +137,7 @@ export type Informativo = {
   data_publicacao?: string;
   data_expiracao?: string;
   autor?: string;
+  links?: InformativoLink[] | null;
 };
 
 export async function getInformativos(maxResults = 10): Promise<Informativo[]> {
@@ -212,13 +228,17 @@ export async function updateCampaign(
 }
 
 /** Inscrição em `campaigns/{campaignId}/inscricoes/{docId}` (o id do evento é o caminho). */
-export type EventInscriptionPaymentStatus = 'pending' | 'paid';
+export type EventInscriptionPaymentStatus = 'pending' | 'paid' | 'cancelled' | 'expired';
 
 export type EventInscriptionRecord = {
   createdAt: string;
   /** Valores preenchidos (chaves = ids dos campos configurados). */
   fields: Record<string, string>;
   paymentStatus?: EventInscriptionPaymentStatus;
+  paymentProvider?: CampaignPaymentProvider;
+  asaasPaymentId?: string;
+  asaasInvoiceUrl?: string;
+  asaasCustomerId?: string;
 };
 
 /** Limite atingido (UI e transação). */
@@ -242,46 +262,71 @@ export function isRegistrationClosedError(err: unknown): boolean {
   return false;
 }
 
-export async function createEventInscription(campaignId: string, fields: Record<string, string>): Promise<string> {
+export const INSCRIPTION_PERMISSION_DENIED_ERROR = 'INSCRIPTION_PERMISSION_DENIED';
+
+export function isFirestorePermissionDenied(err: unknown): boolean {
+  if (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR) return true;
+  if (typeof err === 'object' && err !== null && 'code' in err) {
+    return String((err as { code?: unknown }).code) === 'permission-denied';
+  }
+  const s = err instanceof Error ? err.message : String(err);
+  return s.includes('permission-denied') || s.includes('Missing or insufficient permissions');
+}
+
+export async function createEventInscription(
+  campaignId: string,
+  fields: Record<string, string>,
+  options?: { paymentStatus?: EventInscriptionPaymentStatus; paymentProvider?: CampaignPaymentProvider }
+): Promise<string> {
   const db = getDb();
   const campaignRef = doc(db, 'campaigns', campaignId);
   const inscricoesCol = collection(db, 'campaigns', campaignId, 'inscricoes');
 
-  return runTransaction(db, async (transaction) => {
-    const campSnap = await transaction.get(campaignRef);
-    if (!campSnap.exists()) {
-      throw new Error('CAMPAIGN_NOT_FOUND');
-    }
-    const camp = campSnap.data() as Campaign;
-    if (camp.published === false) {
-      throw new Error('CAMPAIGN_NOT_PUBLISHED');
-    }
-    if (camp.registrationClosed === true) {
-      throw new Error(REGISTRATION_CLOSED_ERROR);
-    }
-    const cfg = camp.registrationConfig;
-    const limit =
-      cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;
+  const campSnap = await getDoc(campaignRef);
+  if (!campSnap.exists()) {
+    throw new Error('CAMPAIGN_NOT_FOUND');
+  }
+  const camp = campSnap.data() as Campaign;
+  if (camp.published === false) {
+    throw new Error('CAMPAIGN_NOT_PUBLISHED');
+  }
+  if (camp.registrationClosed === true) {
+    throw new Error(REGISTRATION_CLOSED_ERROR);
+  }
+  const cfg = camp.registrationConfig;
+  const limit = cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;
+  const current = parseInscriptionWebCountField(camp.inscriptionWebCount);
 
-    const current = parseInscriptionWebCountField(camp.inscriptionWebCount);
+  if (limit != null && current >= limit) {
+    throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
+  }
 
-    if (limit != null && current >= limit) {
-      throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
+  const newInscRef = doc(inscricoesCol);
+  const record: EventInscriptionRecord = {
+    createdAt: new Date().toISOString(),
+    fields,
+    ...(options?.paymentStatus ? { paymentStatus: options.paymentStatus } : {}),
+    ...(options?.paymentProvider ? { paymentProvider: options.paymentProvider } : {}),
+  };
+
+  try {
+    await setDoc(newInscRef, record);
+  } catch (err) {
+    if (isFirestorePermissionDenied(err)) {
+      throw new Error('INSCRIPTION_PERMISSION_DENIED');
     }
+    throw err;
+  }
 
-    const newInscRef = doc(inscricoesCol);
-    transaction.set(newInscRef, {
-      createdAt: new Date().toISOString(),
-      fields,
-    } satisfies EventInscriptionRecord);
-
-    // increment(1) é atômico no servidor (evita erro de “current + 1” no cliente).
-    if (limit != null) {
-      transaction.update(campaignRef, { inscriptionWebCount: increment(1) });
+  if (limit != null) {
+    try {
+      await updateDoc(campaignRef, { inscriptionWebCount: current + 1 });
+    } catch {
+      // Inscrição já gravada; contador pode ser ressincronizado no admin.
     }
+  }
 
-    return newInscRef.id;
-  });
+  return newInscRef.id;
 }
 
 /** Lista inscrições de um evento (painel admin / relatórios). */

@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 
 // ---- Informativos (Firestore: collection) ----
+export type InformativoLink = { label: string; url: string; type: 'download' | 'external' };
+
 export type Informativo = {
   id: string;
   titulo: string;
@@ -22,6 +24,7 @@ export type Informativo = {
   data_publicacao: any;
   data_expiracao?: any;
   autor: string;
+  links?: InformativoLink[] | null;
   created_at: any;
   updated_at: any;
 };

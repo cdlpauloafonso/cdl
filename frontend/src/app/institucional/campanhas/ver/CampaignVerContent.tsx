@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CampaignPageClient } from '../[slug]/CampaignPageClient';
+import { isCampaignPreviewRequested } from '@/lib/campaign-preview';
 
 export type CampaignVerContentProps = {
   campanhasIndexHref?: string;
@@ -21,6 +22,7 @@ function CampaignVerInner({
 }: CampaignVerContentProps) {
   const searchParams = useSearchParams();
   const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
+  const previewRequested = isCampaignPreviewRequested(searchParams.get('preview'));
 
   if (!slug) {
     return (
@@ -49,6 +51,7 @@ function CampaignVerInner({
       associeHref={associeHref}
       atendimentoHref={atendimentoHref}
       fillAppShellViewport={fillAppShellViewport}
+      previewRequested={previewRequested}
     />
   );
 }

@@ -460,14 +460,16 @@ export default function AdminNoticiaEditPage() {
         <button type="submit" disabled={saving} className="btn-primary">
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
-        <button
-          type="button"
-          onClick={() => void shareNews()}
-          disabled={sharing || !(news.slug ?? '').trim()}
-          className="ml-2 rounded-lg border border-cdl-blue px-4 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/5 disabled:opacity-50"
-        >
-          {sharing ? 'Compartilhando...' : 'Compartilhar'}
-        </button>
+        {!isNew && (
+          <button
+            type="button"
+            onClick={() => void shareNews()}
+            disabled={sharing || !(news.slug ?? '').trim()}
+            className="ml-2 rounded-lg border border-cdl-blue px-4 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/5 disabled:opacity-50"
+          >
+            {sharing ? 'Compartilhando...' : 'Compartilhar'}
+          </button>
+        )}
       </form>
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

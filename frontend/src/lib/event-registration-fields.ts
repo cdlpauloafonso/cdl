@@ -1,5 +1,56 @@
-import type { Campaign } from './firestore';
+import type { Campaign, InscriptionDocumentMode } from './firestore';
 import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
+
+export type { InscriptionDocumentMode };
+
+export function labelInscriptionDocumentMode(mode: InscriptionDocumentMode): string {
+  return mode === 'cnpj_only' ? 'Apenas CNPJ' : 'Permitir inscrição com CPF';
+}
+
+/** Compatível com eventos antigos sem `documentMode` no Firestore. */
+export function resolveInscriptionDocumentMode(cfg: {
+  fieldKeys?: string[];
+  documentMode?: InscriptionDocumentMode;
+}): InscriptionDocumentMode {
+  if (cfg.documentMode === 'cnpj_only' || cfg.documentMode === 'cpf_allowed') {
+    return cfg.documentMode;
+  }
+  return cfg.fieldKeys?.includes('cnpj') ? 'cnpj_only' : 'cpf_allowed';
+}
+
+/** Etapa inicial de validação de CNPJ (quando o campo CNPJ está no formulário). */
+export function needsCnpjInscriptionStep(_documentMode: InscriptionDocumentMode, fieldKeys: string[]): boolean {
+  return fieldKeys.includes('cnpj');
+}
+
+/** Atalho «Inscrever com CPF» na etapa de validação (config «Permitir inscrição com CPF»). */
+export function canOfferInscricaoComCpf(documentMode: InscriptionDocumentMode, fieldKeys: string[]): boolean {
+  return documentMode === 'cpf_allowed' && fieldKeys.includes('cpf');
+}
+
+/** Monta o mapa `fields` enviado ao Firestore (somente chaves preenchidas; CNPJ/CPF só dígitos). */
+export function buildEventInscriptionFieldsPayload(
+  keys: string[],
+  values: Record<string, string>,
+  options: { viaCpf?: boolean; documentMode?: InscriptionDocumentMode }
+): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const key of keys) {
+    if (options.viaCpf && key === 'cnpj' && !values.cnpj?.trim()) continue;
+    if (options.documentMode === 'cpf_allowed' && key === 'cnpj' && !values.cnpj?.trim()) continue;
+    const raw = values[key]?.trim() ?? '';
+    if (!raw) continue;
+    if (key === 'cpf' || key === 'cnpj') {
+      const digits = raw.replace(/\D/g, '');
+      const normalized = key === 'cpf' ? digits.slice(0, 11) : digits.slice(0, 14);
+      if (!normalized) continue;
+      fields[key] = normalized;
+    } else {
+      fields[key] = raw;
+    }
+  }
+  return fields;
+}
 
 /** Campos alinhados ao cadastro de associados (admin) — subconjunto para inscrição em eventos. */
 export const ASSOCIADO_INSCRIPTION_FIELDS = [
@@ -48,9 +99,23 @@ export function labelForInscriptionField(id: string): string {
   return LEGACY_INSCRIPTION_LABELS[id] ?? id;
 }
 
-/** Campos exibidos no formulário vêm só de `fieldKeys`; todos são obrigatórios ao enviar. */
-export function isInscriptionFieldOptional(_id: string): boolean {
-  return false;
+const ASSOCIADO_FIELD_IDS = new Set<string>(ASSOCIADO_INSCRIPTION_FIELDS.map((f) => f.id));
+
+/** Campo de empresa / associado (não é cadastro padrão nem complementar). */
+export function isEmpresaInscriptionFieldKey(id: string): boolean {
+  if (id === 'observacoes') return false;
+  if (ASSOCIADO_FIELD_IDS.has(id)) return true;
+  const inPadrao = PADRAO_INSCRIPTION_FIELDS.some((f) => f.id === id);
+  const inExtra = EXTRA_INSCRIPTION_FIELDS.some((f) => f.id === id);
+  return !inPadrao && !inExtra;
+}
+
+/** Campos exibidos no formulário vêm só de `fieldKeys`; obrigatórios ao enviar, exceto empresa no fluxo CPF. */
+export function isInscriptionFieldOptional(
+  id: string,
+  options?: { inscricaoViaCpf?: boolean }
+): boolean {
+  return Boolean(options?.inscricaoViaCpf && isEmpresaInscriptionFieldKey(id));
 }
 
 /** Tipo de controle na página pública de inscrição. */
@@ -79,7 +144,7 @@ export function sortInscriptionFieldKeys(keys: string[]): string[] {
 export type EffectiveRegistration =
   | { kind: 'none' }
   | { kind: 'external'; url: string }
-  | { kind: 'form'; keys: string[]; observationText?: string };
+  | { kind: 'form'; keys: string[]; documentMode: InscriptionDocumentMode; observationText?: string };
 
 /** Une `registrationConfig` e legado `registrationUrl`. */
 /** Limite positivo configurado no admin, ou `null` se não houver teto. */
@@ -99,6 +164,21 @@ export function isInscriptionSoldOut(
   return count >= limit;
 }
 
+/** Evento publicado, com inscrição configurada, não encerrada pelo admin e sem esgotar vagas. */
+export function isEventInscriptionOpen(
+  c: Pick<
+    Campaign,
+    'registrationConfig' | 'registrationUrl' | 'registrationClosed' | 'inscriptionWebCount' | 'published'
+  >
+): boolean {
+  if (c.published === false) return false;
+  if (c.registrationClosed === true) return false;
+  const reg = getEffectiveRegistration(c);
+  if (reg.kind === 'none') return false;
+  if (reg.kind === 'form' && isInscriptionSoldOut(c)) return false;
+  return true;
+}
+
 export function getEffectiveRegistration(
   c: Pick<Campaign, 'registrationConfig' | 'registrationUrl' | 'registrationClosed'>,
   options?: { ignoreRegistrationClosed?: boolean }
@@ -108,7 +188,12 @@ export function getEffectiveRegistration(
   if (cfg?.type === 'external' && cfg.url?.trim()) return { kind: 'external', url: cfg.url.trim() };
   if (cfg?.type === 'form' && cfg.fieldKeys?.length) {
     const observationText = cfg.observationText?.trim();
-    return { kind: 'form', keys: [...cfg.fieldKeys], ...(observationText ? { observationText } : {}) };
+    return {
+      kind: 'form',
+      keys: [...cfg.fieldKeys],
+      documentMode: resolveInscriptionDocumentMode(cfg),
+      ...(observationText ? { observationText } : {}),
+    };
   }
   if (c.registrationUrl?.trim()) return { kind: 'external', url: c.registrationUrl.trim() };
   return { kind: 'none' };

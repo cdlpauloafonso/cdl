@@ -1,5 +1,4 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -17,54 +16,143 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    // ---- Eventos / campanhas: inscrição (registrationConfig + documentMode) ----
+
+    function isValidExternalRegistrationConfig(rc) {
+      return rc is map
+        && rc.type == 'external'
+        && rc.url is string
+        && rc.url.size() >= 8;
+    }
+
+    function isValidFormRegistrationConfig(rc) {
+      return rc is map
+        && rc.type == 'form'
+        && rc.fieldKeys is list
+        && rc.fieldKeys.size() >= 1
+        && rc.fieldKeys.size() <= 25
+        && (
+          !('documentMode' in rc)
+          || rc.documentMode == 'cnpj_only'
+          || rc.documentMode == 'cpf_allowed'
+        );
+    }
+
+    function isValidRegistrationConfig(rc) {
+      return rc == null || isValidExternalRegistrationConfig(rc) || isValidFormRegistrationConfig(rc);
+    }
+
+    // Só valida registrationConfig quando o campo entra no write (create ou update parcial).
+    function campaignRegistrationConfigValidOnWrite() {
+      return !request.resource.data.keys().hasAny(['registrationConfig'])
+        || isValidRegistrationConfig(request.resource.data.registrationConfig);
+    }
+
+    function numericFieldPositive(v) {
+      return (v is int || v is float) && v > 0;
+    }
+
+    function numericFieldNonNegative(v) {
+      return (v is int || v is float) && v >= 0;
+    }
+
+    function campaignInscriptionCount(d) {
+      let n = d.get('inscriptionWebCount', 0);
+      return numericFieldNonNegative(n) ? n : 0;
+    }
+
+    function campaignHasInscriptionLimit(cfg) {
+      return cfg is map && numericFieldPositive(cfg.get('inscriptionLimit', 0));
+    }
+
+    // Uma leitura do evento: publicação, formulário ativo, limite e formato do payload.
+    // CPF/CNPJ validados no cliente; regras só exigem mapa fields com 1–25 chaves string.
+    function publicInscriptionCreateAllowed(campaignId) {
+      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
+      let cfg = camp.get('registrationConfig', null);
+      let n = campaignInscriptionCount(camp);
+      let lim = cfg is map ? cfg.get('inscriptionLimit', 0) : 0;
+      let withinLimit = !campaignHasInscriptionLimit(cfg) || n < lim;
+      return camp.get('published', true) != false
+        && camp.get('registrationClosed', false) != true
+        && cfg is map
+        && cfg.get('type', '') == 'form'
+        && withinLimit
+        && request.resource.data.keys().hasOnly(['createdAt', 'fields'])
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() >= 10
+        && request.resource.data.fields is map
+        && request.resource.data.fields.size() >= 1
+        && request.resource.data.fields.size() <= 25;
+    }
+
     // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
     // na inscrição pública quando há limite (transação com criação em inscricoes/).
     // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
     function publicInscriptionWebCountIncrement() {
-      let oldCount = resource.data.get('inscriptionWebCount', 0);
-      let newCount = request.resource.data.inscriptionWebCount;
-      let lim = resource.data.registrationConfig.inscriptionLimit;
+      let cfg = resource.data.get('registrationConfig', null);
+      let oldN = campaignInscriptionCount(resource.data);
+      let newRaw = request.resource.data.inscriptionWebCount;
+      let newN = numericFieldNonNegative(newRaw) ? newRaw : -1;
       return request.auth == null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
-        && (newCount is int || newCount is float)
-        && (oldCount is int || oldCount is float)
-        && newCount == oldCount + 1
-        && resource.data.registrationConfig is map
-        && resource.data.registrationConfig.type == 'form'
-        && (lim is int || lim is float)
-        && lim > 0
-        && newCount <= lim;
-    }
-
-    function campaignPublicInscriptionNotClosed(campaignId) {
-      return get(/databases/$(database)/documents/campaigns/$(campaignId)).data.get('registrationClosed', false) != true;
+        && cfg is map
+        && cfg.get('type', '') == 'form'
+        && numericFieldPositive(cfg.get('inscriptionLimit', 0))
+        && newN == oldN + 1
+        && newN <= cfg.get('inscriptionLimit', 0);
     }
 
     match /campaigns/{campaignId} {
       allow get, list: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || publicInscriptionWebCountIncrement();
+      allow create: if isAdmin() && campaignRegistrationConfigValidOnWrite();
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && campaignRegistrationConfigValidOnWrite()) || publicInscriptionWebCountIncrement();
 
-      // Inscrições por evento: subcoleção inscricoes (formulário público); leitura/gestão só admin
+      // Inscrições por evento: subcoleção inscricoes (formulário público).
+      // Leitura pública somente para exibição da lista compartilhável (somente leitura).
       match /inscricoes/{inscriptionId} {
-        allow create: if
-          campaignPublicInscriptionNotClosed(campaignId) &&
-          request.resource.data.keys().hasOnly(['createdAt', 'fields']) &&
-          request.resource.data.createdAt is string &&
-          request.resource.data.createdAt.size() >= 10 &&
-          request.resource.data.fields is map &&
-          request.resource.data.fields.size() >= 1 &&
-          request.resource.data.fields.size() <= 20;
+        allow create: if publicInscriptionCreateAllowed(campaignId);
 
-        allow get, list, update, delete: if isAdmin();
+        allow get, list: if true;
+        allow update, delete: if isAdmin();
       }
+    }
+
+    // Incremento público de viewCount em notícia publicada (uma unidade por update).
+    function publicNewsViewCountIncrement() {
+      let oldV = resource.data.get('viewCount', 0);
+      let newV = request.resource.data.viewCount;
+      return resource.data.published == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && (newV is int || newV is float)
+        && (oldV is int || oldV is float)
+        && newV == oldV + 1;
     }
 
     // Notícias: leitura só publicadas (ou admin vê tudo)
     match /news/{newsId} {
       allow get, list: if resource.data.published == true || isAdmin();
       allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || publicNewsViewCountIncrement();
+      allow delete: if isAdmin();
+    }
+
+    function publicHistoriaViewCountIncrement() {
+      let oldV = resource.data.get('viewCount', 0);
+      let newV = request.resource.data.viewCount;
+      return resource.data.published == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && (newV is int || newV is float)
+        && (oldV is int || oldV is float)
+        && newV == oldV + 1;
+    }
+
+    match /historias/{historiaId} {
+      allow get, list: if resource.data.published == true || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || publicHistoriaViewCountIncrement();
+      allow delete: if isAdmin();
     }
 
     // Carrossel / hero: leitura pública; escrita admin
@@ -95,12 +183,24 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Página institucional Nossa Cidade (texto + pontos turísticos)
+    match /nossaCidade/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     match /settings/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
     match /beneficiosAssociados/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Parceiros / convênios da página de benefícios (cards gerenciáveis no admin)
+    match /beneficiosParceiros/{docId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
@@ -299,110 +399,6 @@ service cloud.firestore {
 
       allow get, list: if isAdmin() || resource.data.status == 'aprovada';
       allow update, delete: if isAdmin();
-    }
-
-    // Helper functions para validação do Livro Caixa
-    function isValidEmail(email) {
-      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
-    }
-    
-    function isValidCNPJ(cnpj) {
-      return cnpj.matches('^\\d{14}$');
-    }
-    
-    function isValidPhone(phone) {
-      return phone.matches('^\\d{10,11}$');
-    }
-    
-    function isValidDate(date) {
-      return date.matches('^\\d{2}/\\d{2}/\\d{4}$');
-    }
-    
-    function isValidMoney(value) {
-      return value is number && value > 0;
-    }
-    
-    function isValidPaymentMethod(method) {
-      return method in ['pix', 'cartao', 'dinheiro'];
-    }
-    
-    function isValidTransactionType(type) {
-      return type in ['entrada', 'saida'];
-    }
-    
-    function isValidTransactionStatus(status) {
-      return status in ['confirmado', 'pendente'];
-    }
-
-    // Regras para a coleção de categorias do livro caixa
-    match /categorias_livro_caixa/{categoriaId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-        request.resource.data.keys().hasAll(['nome', 'created_at', 'updated_at']) &&
-        request.resource.data.nome is string &&
-        request.resource.data.nome.size() > 0 &&
-        request.resource.data.nome.size() <= 50;
-      
-      allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
-        (!('nome' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         (request.resource.data.nome is string &&
-          request.resource.data.nome.size() > 0 &&
-          request.resource.data.nome.size() <= 50));
-      
-      allow delete: if isAdmin();
-    }
-
-    // Regras para a coleção de transações do livro caixa
-    match /transacoes_livro_caixa/{transacaoId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-        request.resource.data.keys().hasAll([
-          'data', 'descricao', 'categoria', 'tipo', 'valor', 
-          'metodo_pagamento', 'status', 'created_at', 'updated_at'
-        ]) &&
-        isValidDate(request.resource.data.data) &&
-        request.resource.data.descricao is string &&
-        request.resource.data.descricao.size() > 0 &&
-        request.resource.data.descricao.size() <= 200 &&
-        request.resource.data.categoria is string &&
-        request.resource.data.categoria.size() > 0 &&
-        isValidTransactionType(request.resource.data.tipo) &&
-        isValidMoney(request.resource.data.valor) &&
-        isValidPaymentMethod(request.resource.data.metodo_pagamento) &&
-        isValidTransactionStatus(request.resource.data.status);
-      
-      allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasAll(['updated_at']) &&
-        (!('data' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidDate(request.resource.data.data)) &&
-        (!('descricao' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         (request.resource.data.descricao is string &&
-          request.resource.data.descricao.size() > 0 &&
-          request.resource.data.descricao.size() <= 200)) &&
-        (!('categoria' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         (request.resource.data.categoria is string &&
-          request.resource.data.categoria.size() > 0)) &&
-        (!('tipo' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidTransactionType(request.resource.data.tipo)) &&
-        (!('valor' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidMoney(request.resource.data.valor)) &&
-        (!('metodo_pagamento' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidPaymentMethod(request.resource.data.metodo_pagamento)) &&
-        (!('status' in request.resource.data.diff(resource.data).affectedKeys()) || 
-         isValidTransactionStatus(request.resource.data.status));
-      
-      allow delete: if isAdmin();
-    }
-
-    // Índice de CNPJ para associados (para busca rápida)
-    match /associados_cnpj/{cnpj} {
-      allow read, write: if isAdmin();
-    }
-
-    // Regras para usuários (se existir coleção de usuários)
-    match /users/{userId} {
-      allow read, write: if isAdmin() || userId == request.auth.uid;
     }
 
     // Negar o restante

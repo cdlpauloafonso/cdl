@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { InscriptionDocumentMode } from '@/lib/firestore';
 import {
   ASSOCIADO_INSCRIPTION_FIELDS,
   EXTRA_INSCRIPTION_FIELDS,
   PADRAO_INSCRIPTION_FIELDS,
   labelForInscriptionField,
+  labelInscriptionDocumentMode,
 } from '@/lib/event-registration-fields';
 import { EventPaymentSection, type EventPaymentSectionProps } from '@/components/admin/EventPaymentSection';
+import { isPixPaymentSummaryOk } from '@/lib/campaign-payment-admin';
 
 export type RegistrationLinkMode = 'external' | 'form';
 
@@ -30,6 +33,9 @@ export type RegistrationLinkSectionProps = {
   /** Máximo de inscrições pelo site (só formulário); null = sem limite */
   inscriptionLimit: number | null;
   onInscriptionLimitChange: (value: number | null) => void;
+  /** Obrigatório quando o formulário no site está ativo. */
+  documentMode: InscriptionDocumentMode | null;
+  onDocumentModeChange: (value: InscriptionDocumentMode) => void;
 };
 
 export function RegistrationLinkSection({
@@ -48,6 +54,8 @@ export function RegistrationLinkSection({
   onAssociadosOnlyChange,
   inscriptionLimit,
   onInscriptionLimitChange,
+  documentMode,
+  onDocumentModeChange,
 }: RegistrationLinkSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [draftMode, setDraftMode] = useState<RegistrationLinkMode>('form');
@@ -55,6 +63,7 @@ export function RegistrationLinkSection({
   const [draftKeys, setDraftKeys] = useState<string[]>([]);
   const [draftObservationText, setDraftObservationText] = useState('');
   const [draftInscriptionLimit, setDraftInscriptionLimit] = useState('');
+  const [draftDocumentMode, setDraftDocumentMode] = useState<InscriptionDocumentMode | null>(null);
   const [modalError, setModalError] = useState('');
 
   useEffect(() => {
@@ -74,6 +83,7 @@ export function RegistrationLinkSection({
     setDraftInscriptionLimit(
       inscriptionLimit != null && inscriptionLimit > 0 ? String(inscriptionLimit) : ''
     );
+    setDraftDocumentMode(documentMode);
     setModalError('');
     setModalOpen(true);
   }
@@ -99,9 +109,18 @@ export function RegistrationLinkSection({
       onFieldKeysChange([]);
       onObservationTextChange('');
       onInscriptionLimitChange(null);
+      onDocumentModeChange('cnpj_only');
     } else {
+      if (!draftDocumentMode) {
+        setModalError('Selecione se a inscrição é apenas por CNPJ ou se permite CPF.');
+        return;
+      }
       if (draftKeys.length === 0) {
         setModalError('Selecione pelo menos um campo (cadastro padrão, associado ou complementar).');
+        return;
+      }
+      if (draftDocumentMode === 'cnpj_only' && !draftKeys.includes('cnpj')) {
+        setModalError('Para «Apenas CNPJ», marque o campo CNPJ em dados de associado.');
         return;
       }
       if (draftKeys.includes('observacoes') && !draftObservationText.trim()) {
@@ -120,6 +139,7 @@ export function RegistrationLinkSection({
       }
       onModeChange('form');
       onFieldKeysChange(draftKeys);
+      onDocumentModeChange(draftDocumentMode);
       onObservationTextChange(draftKeys.includes('observacoes') ? draftObservationText.trim() : '');
       onExternalUrlChange('');
       onInscriptionLimitChange(parsedLimit);
@@ -129,12 +149,18 @@ export function RegistrationLinkSection({
 
   const summaryConfigured =
     wantsLink &&
-    ((mode === 'external' && externalUrl.trim()) || (mode === 'form' && fieldKeys.length > 0));
+    ((mode === 'external' && externalUrl.trim()) ||
+      (mode === 'form' && fieldKeys.length > 0 && documentMode != null));
 
-  const pixSummaryOk =
+  const paymentSummaryOk =
     Boolean(pixPayment) &&
-    pixPayment!.enabled &&
-    Boolean(pixPayment!.pixImageUrl.trim() || pixPayment!.pixCopyPaste.trim());
+    isPixPaymentSummaryOk({
+      enabled: pixPayment!.enabled,
+      provider: pixPayment!.provider,
+      amount: pixPayment!.amount,
+      pixImageUrl: pixPayment!.pixImageUrl,
+      pixCopyPaste: pixPayment!.pixCopyPaste,
+    });
 
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
@@ -184,6 +210,12 @@ export function RegistrationLinkSection({
                     {fieldKeys.includes('observacoes') && observationText.trim() && (
                       <p className="text-xs text-cdl-gray-text mt-1">Observações padrão: {observationText.trim()}</p>
                     )}
+                    {mode === 'form' && documentMode && (
+                      <p className="text-xs text-cdl-gray-text mt-1">
+                        <span className="font-medium text-gray-800">Identificação:</span>{' '}
+                        {labelInscriptionDocumentMode(documentMode)}
+                      </p>
+                    )}
                     {associadosOnly && (
                       <p className="text-xs text-orange-600 mt-1">
                         <span className="font-medium">Apenas associados:</span> Restrito a membros da CDL
@@ -201,9 +233,10 @@ export function RegistrationLinkSection({
                     </p>
                   </div>
                 )}
-                {pixPayment && pixSummaryOk && (
+                {pixPayment && paymentSummaryOk && (
                   <p className="text-sm text-gray-700 mt-2">
-                    <span className="font-medium text-gray-900">Pagamento PIX:</span> instruções incluídas
+                    <span className="font-medium text-gray-900">Pagamento na inscrição:</span>{' '}
+                    {pixPayment.provider === 'asaas' ? 'Asaas (link automático)' : 'PIX manual'}
                   </p>
                 )}
                 <button type="button" onClick={openModal} className="text-sm font-medium text-cdl-blue hover:underline">
@@ -307,6 +340,41 @@ export function RegistrationLinkSection({
               </div>
             ) : (
               <div className="space-y-5">
+                <div className="space-y-3">
+                  <span className="block text-sm font-medium text-gray-800">
+                    Identificação do participante <span className="text-red-600">*</span>
+                  </span>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name="document-mode"
+                      className="mt-1"
+                      checked={draftDocumentMode === 'cnpj_only'}
+                      onChange={() => setDraftDocumentMode('cnpj_only')}
+                    />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-medium text-gray-900">Apenas CNPJ</span>
+                      <span className="mt-0.5 block text-xs text-cdl-gray-text">
+                        Validação inicial por CNPJ; marque o campo CNPJ em dados de associado.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name="document-mode"
+                      className="mt-1"
+                      checked={draftDocumentMode === 'cpf_allowed'}
+                      onChange={() => setDraftDocumentMode('cpf_allowed')}
+                    />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-medium text-gray-900">Permitir inscrição com CPF</span>
+                      <span className="mt-0.5 block text-xs text-cdl-gray-text">
+                        Mantém a validação por CNPJ, com opção «Inscrever com CPF» na mesma etapa.
+                      </span>
+                    </span>
+                  </label>
+                </div>
                 <div>
                   <span className="block text-sm font-medium text-gray-800 mb-2">Cadastro padrão (pessoa física)</span>
                   <p className="text-xs text-cdl-gray-text mb-2">CPF, nome do representante e demais dados pessoais.</p>

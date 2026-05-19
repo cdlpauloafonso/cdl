@@ -41,6 +41,13 @@
   status = 200
   force = true
 
+# App WebView (`/m/:token/noticias/:slug`): slugs novos não têm HTML estático no build.
+[[redirects]]
+  from = "/m/:token/noticias/:slug"
+  to = "/m/:token/noticias/ver.html"
+  status = 200
+  force = true
+
 # Mesmo padrão: existe `inscricao.html` e a pasta `inscricao/` (rotas dinâmicas); sem index na pasta.
 [[redirects]]
   from = "/institucional/campanhas/inscricao/"

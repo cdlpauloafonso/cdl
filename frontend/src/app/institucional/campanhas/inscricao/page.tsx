@@ -4,10 +4,12 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventInscriptionClient } from './[slug]/EventInscriptionClient';
+import { isCampaignPreviewRequested } from '@/lib/campaign-preview';
 
 function EventInscriptionByQueryContent() {
   const searchParams = useSearchParams();
   const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
+  const previewRequested = isCampaignPreviewRequested(searchParams.get('preview'));
 
   if (!slug) {
     return (
@@ -24,7 +26,7 @@ function EventInscriptionByQueryContent() {
     );
   }
 
-  return <EventInscriptionClient slug={slug} />;
+  return <EventInscriptionClient slug={slug} previewRequested={previewRequested} />;
 }
 
 export default function EventInscriptionByQueryPage() {

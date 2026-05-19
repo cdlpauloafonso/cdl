@@ -13,6 +13,7 @@ import settings from './routes/settings.js';
 import upload from './routes/upload.js';
 import about from './routes/about.js';
 import nossaCidade from './routes/nossa-cidade.js';
+import asaas from './routes/asaas.js';
 
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/contact', contact);
 app.use('/api/settings', settings);
 app.use('/api/upload', upload);
 app.use('/api/about', about);
+app.use('/api/asaas', asaas);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
