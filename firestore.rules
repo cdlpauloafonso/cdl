@@ -65,6 +65,15 @@ service cloud.firestore {
       return cfg is map && numericFieldPositive(cfg.get('inscriptionLimit', 0));
     }
 
+    function inscriptionCreatePayloadValid() {
+      return request.resource.data.keys().hasOnly(['createdAt', 'fields'])
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() >= 10
+        && request.resource.data.fields is map
+        && request.resource.data.fields.size() >= 1
+        && request.resource.data.fields.size() <= 25;
+    }
+
     // Uma leitura do evento: publicação, formulário ativo, limite e formato do payload.
     // CPF/CNPJ validados no cliente; regras só exigem mapa fields com 1–25 chaves string.
     function publicInscriptionCreateAllowed(campaignId) {
@@ -78,12 +87,19 @@ service cloud.firestore {
         && cfg is map
         && cfg.get('type', '') == 'form'
         && withinLimit
-        && request.resource.data.keys().hasOnly(['createdAt', 'fields'])
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() >= 10
-        && request.resource.data.fields is map
-        && request.resource.data.fields.size() >= 1
-        && request.resource.data.fields.size() <= 25;
+        && inscriptionCreatePayloadValid();
+    }
+
+    // Admin autenticado pode testar inscrição em evento em rascunho (published == false).
+    function adminDraftInscriptionCreateAllowed(campaignId) {
+      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
+      let cfg = camp.get('registrationConfig', null);
+      return isAdmin()
+        && camp.get('published', true) == false
+        && camp.get('registrationClosed', false) != true
+        && cfg is map
+        && cfg.get('type', '') == 'form'
+        && inscriptionCreatePayloadValid();
     }
 
     // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
@@ -103,6 +119,43 @@ service cloud.firestore {
         && newN <= cfg.get('inscriptionLimit', 0);
     }
 
+    // Link público de credenciamento: token em adminSecrets/credentialing (só admin).
+    function credentialingSecretTokenMatches(campaignId, token) {
+      let secret = get(/databases/$(database)/documents/campaigns/$(campaignId)/adminSecrets/credentialing);
+      return secret != null
+        && secret.data.get('accessToken', '') is string
+        && token == secret.data.get('accessToken', '');
+    }
+
+    function credentialingGateActive(campaignId, sessionId) {
+      let gatePath = /databases/$(database)/documents/campaigns/$(campaignId)/credentialingGate/$(sessionId);
+      return sessionId is string
+        && sessionId.size() >= 8
+        && exists(gatePath)
+        && request.time < get(gatePath).data.createdAt + duration.value(12, 'h');
+    }
+
+    function publicCredentialingInscriptionUpdateAllowed(campaignId) {
+      let sid = request.resource.data.get('credentialingSessionId', '');
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      let newAt = request.resource.data.get('credentialedAt', null);
+      let atOk = newAt == null || (newAt is string && newAt.size() >= 10 && newAt.size() <= 40);
+      return request.auth == null
+        && credentialingGateActive(campaignId, sid)
+        && keys.hasOnly(['credentialedAt', 'credentialingSessionId'])
+        && request.resource.data.credentialingSessionId == sid
+        && atOk;
+    }
+
+    function isValidCredentialingAccessSecretWrite() {
+      return request.resource.data.keys().hasOnly(['accessToken', 'createdAt'])
+        && request.resource.data.accessToken is string
+        && request.resource.data.accessToken.size() >= 32
+        && request.resource.data.accessToken.size() <= 256
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() >= 10;
+    }
+
     match /campaigns/{campaignId} {
       allow get, list: if true;
       allow create: if isAdmin() && campaignRegistrationConfigValidOnWrite();
@@ -110,12 +163,36 @@ service cloud.firestore {
       allow update: if (isAdmin() && campaignRegistrationConfigValidOnWrite()) || publicInscriptionWebCountIncrement();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público).
-      // Leitura pública somente para exibição da lista compartilhável (somente leitura).
+      // Leitura pública: lista de inscritos e tela de credenciamento (somente leitura).
+      // Escrita pública: create na inscrição; credentialedAt via sessão do link público (credentialingGate).
       match /inscricoes/{inscriptionId} {
-        allow create: if publicInscriptionCreateAllowed(campaignId);
+        allow create: if publicInscriptionCreateAllowed(campaignId)
+          || adminDraftInscriptionCreateAllowed(campaignId);
 
         allow get, list: if true;
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin() || publicCredentialingInscriptionUpdateAllowed(campaignId);
+        allow delete: if isAdmin();
+      }
+
+      // Sessão efêmera do link público (valida token; documento não é legível).
+      match /credentialingGate/{sessionId} {
+        allow create: if request.auth == null
+          && request.resource.data.keys().hasOnly(['token', 'createdAt'])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() >= 32
+          && request.resource.data.token.size() <= 256
+          && request.resource.data.createdAt == request.time
+          && credentialingSecretTokenMatches(campaignId, request.resource.data.token);
+        allow read, update, delete: if false;
+      }
+
+      // Segredos operacionais do evento (não ficam no documento público campaigns/{id}).
+      match /adminSecrets/{secretId} {
+        allow get, list: if isAdmin();
+        allow create, update: if isAdmin()
+          && secretId == 'credentialing'
+          && isValidCredentialingAccessSecretWrite();
+        allow delete: if isAdmin() && secretId == 'credentialing';
       }
     }
 

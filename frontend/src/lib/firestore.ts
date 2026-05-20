@@ -234,6 +234,8 @@ export type EventInscriptionRecord = {
   createdAt: string;
   /** Valores preenchidos (chaves = ids dos campos configurados). */
   fields: Record<string, string>;
+  /** ISO — preenchido no credenciamento (check-in) do participante. */
+  credentialedAt?: string | null;
   paymentStatus?: EventInscriptionPaymentStatus;
   paymentProvider?: CampaignPaymentProvider;
   asaasPaymentId?: string;
@@ -276,7 +278,12 @@ export function isFirestorePermissionDenied(err: unknown): boolean {
 export async function createEventInscription(
   campaignId: string,
   fields: Record<string, string>,
-  options?: { paymentStatus?: EventInscriptionPaymentStatus; paymentProvider?: CampaignPaymentProvider }
+  options?: {
+    paymentStatus?: EventInscriptionPaymentStatus;
+    paymentProvider?: CampaignPaymentProvider;
+    /** Admin testando evento em rascunho (published === false). */
+    allowUnpublished?: boolean;
+  }
 ): Promise<string> {
   const db = getDb();
   const campaignRef = doc(db, 'campaigns', campaignId);
@@ -287,7 +294,8 @@ export async function createEventInscription(
     throw new Error('CAMPAIGN_NOT_FOUND');
   }
   const camp = campSnap.data() as Campaign;
-  if (camp.published === false) {
+  const allowUnpublished = Boolean(options?.allowUnpublished);
+  if (camp.published === false && !allowUnpublished) {
     throw new Error('CAMPAIGN_NOT_PUBLISHED');
   }
   if (camp.registrationClosed === true) {
@@ -297,7 +305,7 @@ export async function createEventInscription(
   const limit = cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;
   const current = parseInscriptionWebCountField(camp.inscriptionWebCount);
 
-  if (limit != null && current >= limit) {
+  if (!allowUnpublished && limit != null && current >= limit) {
     throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
   }
 
@@ -346,6 +354,51 @@ export async function updateEventInscriptionPaymentStatus(
   const db = getDb();
   const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
   await updateDoc(ref, { paymentStatus: status });
+}
+
+/** Marca ou remove credenciamento (check-in) de um inscrito. */
+export async function setEventInscriptionCredentialed(
+  campaignId: string,
+  inscriptionId: string,
+  credentialed: boolean,
+): Promise<void> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  await updateDoc(ref, {
+    credentialedAt: credentialed ? new Date().toISOString() : deleteField(),
+  });
+}
+
+const CREDENTIALING_SECRET_DOC_ID = 'credentialing';
+
+/** Token do link público de credenciamento (somente admin lê/grava). */
+export async function getCredentialingAccessToken(campaignId: string): Promise<string | null> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'adminSecrets', CREDENTIALING_SECRET_DOC_ID);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const token = (snap.data() as { accessToken?: string }).accessToken;
+  return typeof token === 'string' && token.trim() ? token.trim() : null;
+}
+
+export async function ensureCredentialingAccessToken(campaignId: string): Promise<string> {
+  const existing = await getCredentialingAccessToken(campaignId);
+  if (existing) return existing;
+  const { generateCredentialingAccessToken } = await import('@/lib/event-credentialing-access');
+  const token = generateCredentialingAccessToken();
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'adminSecrets', CREDENTIALING_SECRET_DOC_ID);
+  await setDoc(ref, { accessToken: token, createdAt: new Date().toISOString() });
+  return token;
+}
+
+export async function regenerateCredentialingAccessToken(campaignId: string): Promise<string> {
+  const { generateCredentialingAccessToken } = await import('@/lib/event-credentialing-access');
+  const token = generateCredentialingAccessToken();
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'adminSecrets', CREDENTIALING_SECRET_DOC_ID);
+  await setDoc(ref, { accessToken: token, createdAt: new Date().toISOString() });
+  return token;
 }
 
 export async function updateEventInscriptionFields(

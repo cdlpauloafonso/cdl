@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getNewsBySlugAtBuild } from '@/lib/firestore-build';
+import { SITE_ORIGIN, absolutePublicUrl } from '@/lib/site-origin';
 
 const SITE_NAME = 'CDL Paulo Afonso';
 
@@ -33,9 +34,12 @@ export async function buildMetadataForNewsSlug(slug: string): Promise<Metadata> 
   const description = plainExcerpt(news.excerpt || news.title, 160);
   const title = `${news.title} | ${SITE_NAME}`;
   const canonicalPath = `/noticias/${encodeURIComponent(s)}`;
-  const ogImages = news.image
-    ? [{ url: news.image, alt: news.title }]
-    : [{ url: '/logo-site.png', alt: SITE_NAME }];
+  const pageUrl = absolutePublicUrl(canonicalPath) ?? `${SITE_ORIGIN}${canonicalPath}`;
+  const featuredImage = absolutePublicUrl(news.image);
+  const fallbackImage = absolutePublicUrl('/logo-site.png')!;
+  const ogImageUrl = featuredImage ?? fallbackImage;
+
+  const ogImages = [{ url: ogImageUrl, alt: news.title }];
 
   return {
     title,
@@ -45,17 +49,17 @@ export async function buildMetadataForNewsSlug(slug: string): Promise<Metadata> 
       type: 'article',
       locale: 'pt_BR',
       siteName: SITE_NAME,
-      url: canonicalPath,
+      url: pageUrl,
       title: news.title,
       description,
       publishedTime: news.publishedAt,
       images: ogImages,
     },
     twitter: {
-      card: news.image ? 'summary_large_image' : 'summary',
+      card: featuredImage ? 'summary_large_image' : 'summary',
       title: news.title,
       description,
-      images: news.image ? [news.image] : ['/logo-site.png'],
+      images: [ogImageUrl],
     },
   };
 }

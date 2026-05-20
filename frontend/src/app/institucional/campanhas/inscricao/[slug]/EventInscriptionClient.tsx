@@ -32,6 +32,7 @@ import {
   needsCnpjInscriptionStep,
   PADRAO_INSCRIPTION_FIELDS,
   sortInscriptionFieldKeys,
+  inscriptionDisplayLabel,
 } from '@/lib/event-registration-fields';
 import { formatPaymentAmountBrl, getEffectivePayment } from '@/lib/event-payment-fields';
 import { createAsaasInscriptionPayment } from '@/lib/asaas-api';
@@ -45,6 +46,7 @@ import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { isCurrentUserAdmin } from '@/lib/admin-auth';
 import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
 import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
+import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
 import { initFirebase } from '@/lib/firebase';
 
 const PADRAO_IDS = new Set<string>(PADRAO_INSCRIPTION_FIELDS.map((f) => f.id));
@@ -61,6 +63,51 @@ function formatWhatsAppNumber(value: string): string {
   if (digits.startsWith('55')) return digits;
   if (digits.length >= 10) return `55${digits}`;
   return digits;
+}
+
+function inscriptionSubmitErrorMessage(err: unknown): string {
+  if (isInscriptionLimitReachedError(err)) {
+    return 'Ingressos esgotados. O limite de inscrições para este evento foi atingido.';
+  }
+  if (isRegistrationClosedError(err)) {
+    return 'As inscrições para este evento foram encerradas.';
+  }
+  if (
+    isFirestorePermissionDenied(err) ||
+    (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR)
+  ) {
+    return 'Não foi possível registrar a inscrição (permissão negada). Tente novamente em alguns minutos ou fale com a CDL.';
+  }
+  if (!(err instanceof Error)) {
+    return 'Não foi possível enviar. Tente novamente.';
+  }
+  const msg = err.message;
+  if (msg === 'CUSTOMER_DOCUMENT_REQUIRED') {
+    return 'Informe CPF ou CNPJ válido no formulário para gerar o link de pagamento.';
+  }
+  if (
+    msg.includes('Asaas não configurado') ||
+    msg === 'ASAAS_NOT_CONFIGURED' ||
+    msg === 'ASAAS_PAYMENT_INCOMPLETE'
+  ) {
+    return 'Pagamento online indisponível no momento. Entre em contato com a CDL.';
+  }
+  if (msg === 'FIREBASE_ADMIN_NOT_CONFIGURED') {
+    return 'Pagamento online temporariamente indisponível (servidor). Entre em contato com a CDL.';
+  }
+  if (msg === 'CAMPAIGN_NOT_FOUND' || msg === 'INSCRIPTION_NOT_FOUND') {
+    return 'Não foi possível concluir o pagamento. Tente enviar novamente ou fale com a CDL.';
+  }
+  if (msg === 'CAMPAIGN_NOT_PUBLISHED') {
+    return 'Este evento ainda não está publicado. Faça login como administrador para testar a inscrição em rascunho.';
+  }
+  if (msg.includes('Não foi possível gerar o link') || msg.includes('servidor de pagamento')) {
+    return msg;
+  }
+  if (msg.length > 0 && msg.length < 200 && !msg.startsWith('CAMPAIGN_')) {
+    return msg;
+  }
+  return 'Não foi possível enviar. Tente novamente.';
 }
 
 function isValidCpf(value: string): boolean {
@@ -218,6 +265,9 @@ export function EventInscriptionClient({
   const [error, setError] = useState('');
   const [pixStepActive, setPixStepActive] = useState(false);
   const [asaasInvoiceUrl, setAsaasInvoiceUrl] = useState<string | null>(null);
+  /** Inscrição já gravada; nova tentativa só gera o pagamento Asaas. */
+  const [pendingInscriptionId, setPendingInscriptionId] = useState<string | null>(null);
+  const [completedInscriptionId, setCompletedInscriptionId] = useState<string | null>(null);
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [cnpjRejeitadoNaoAssociado, setCnpjRejeitadoNaoAssociado] = useState(false);
@@ -225,34 +275,20 @@ export function EventInscriptionClient({
   const [inscricaoViaCpf, setInscricaoViaCpf] = useState(false);
   const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
   const cnpjLookupReq = useRef(0);
-  const [previewAdminOk, setPreviewAdminOk] = useState(false);
-  const [previewAuthChecked, setPreviewAuthChecked] = useState(!previewRequested);
-
-  useEffect(() => {
-    if (!previewRequested) return;
-    initFirebase();
-    let mounted = true;
-    (async () => {
-      const ok = await isCurrentUserAdmin();
-      if (mounted) {
-        setPreviewAdminOk(ok);
-        setPreviewAuthChecked(true);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [previewRequested]);
+  const [adminOk, setAdminOk] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const c = await getCampaign(slug);
+        initFirebase();
+        const [c, isAdmin] = await Promise.all([getCampaign(slug), isCurrentUserAdmin()]);
         if (!mounted) return;
-        const allowDraft = previewRequested && previewAdminOk;
-        if (c?.published === false && !allowDraft) {
+        setAdminOk(isAdmin);
+        setAuthChecked(true);
+        if (c?.published === false && !isAdmin) {
           setCampanha(null);
         } else {
           setCampanha(c);
@@ -260,13 +296,16 @@ export function EventInscriptionClient({
       } catch {
         if (mounted) setCampanha(null);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setAuthChecked(true);
+          setLoading(false);
+        }
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [slug, previewRequested, previewAdminOk]);
+  }, [slug]);
 
   useEffect(() => {
     if (!campanha?.title) return;
@@ -303,9 +342,9 @@ export function EventInscriptionClient({
     };
   }, [campanha?.title]);
 
-  const isDraftPreview = previewRequested && previewAdminOk && campanha?.published === false;
+  const isDraftPreview = adminOk && campanha?.published === false;
 
-  if (loading || (previewRequested && !previewAuthChecked)) {
+  if (loading || !authChecked) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30 min-h-[50vh]">
         <div className="container-cdl max-w-2xl animate-pulse">
@@ -321,7 +360,7 @@ export function EventInscriptionClient({
   }
 
   if (!campanha) {
-    if (previewRequested && previewAuthChecked && !previewAdminOk) {
+    if (previewRequested && authChecked && !adminOk) {
       return <CampaignPreviewAccessDenied />;
     }
     return (
@@ -402,7 +441,7 @@ export function EventInscriptionClient({
 
   const inscricoesEncerradas = isInscriptionSoldOut(campanha);
 
-  if (inscricoesEncerradas) {
+  if (inscricoesEncerradas && !isDraftPreview) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
         <div className="container-cdl max-w-2xl">
@@ -571,6 +610,7 @@ export function EventInscriptionClient({
       return;
     }
     setSubmitting(true);
+    let inscriptionId: string | null = pendingInscriptionId;
     try {
       const fields = buildEventInscriptionFieldsPayload(userInputKeys, values, {
         viaCpf: inscricaoViaCpf,
@@ -581,7 +621,7 @@ export function EventInscriptionClient({
         return;
       }
       const fresh = await getCampaign(slug);
-      if (fresh && isInscriptionSoldOut(fresh)) {
+      if (fresh && isInscriptionSoldOut(fresh) && !isDraftPreview) {
         setCampanha(fresh);
         return;
       }
@@ -589,50 +629,38 @@ export function EventInscriptionClient({
         setCampanha(fresh);
         return;
       }
-      const inscriptionId = await createEventInscription(slug, fields);
+      if (!inscriptionId) {
+        inscriptionId = await createEventInscription(slug, fields, {
+          allowUnpublished: isDraftPreview,
+        });
+        setPendingInscriptionId(inscriptionId);
+      }
 
       if (payment.kind === 'asaas') {
         const { invoiceUrl } = await createAsaasInscriptionPayment(slug, inscriptionId);
         setAsaasInvoiceUrl(invoiceUrl);
       }
 
+      setPendingInscriptionId(null);
+      setCompletedInscriptionId(inscriptionId);
       setDone(true);
     } catch (err) {
-      if (isInscriptionLimitReachedError(err)) {
+      console.error('[inscrição evento]', err);
+      if (isInscriptionLimitReachedError(err) || isRegistrationClosedError(err)) {
         try {
           const again = await getCampaign(slug);
           if (again) setCampanha(again);
         } catch {
           /* ignore */
         }
-        setError('Ingressos esgotados. O limite de inscrições para este evento foi atingido.');
-      } else if (isRegistrationClosedError(err)) {
-        try {
-          const again = await getCampaign(slug);
-          if (again) setCampanha(again);
-        } catch {
-          /* ignore */
-        }
-      } else if (
-        isFirestorePermissionDenied(err) ||
-        (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR)
-      ) {
+        setPendingInscriptionId(null);
+      } else if (inscriptionId && payment.kind === 'asaas') {
+        setPendingInscriptionId(inscriptionId);
         setError(
-          'Não foi possível registrar a inscrição (permissão negada). Publique as regras atualizadas do Firestore (coleção campaigns/…/inscricoes) e tente novamente.'
+          `${inscriptionSubmitErrorMessage(err)} Sua inscrição foi registrada; clique em «Confirmar inscrição e pagar» novamente para tentar abrir o pagamento.`,
         );
-      } else if (err instanceof Error) {
-        const msg = err.message;
-        if (msg === 'CUSTOMER_DOCUMENT_REQUIRED') {
-          setError('Informe CPF ou CNPJ válido no formulário para gerar o link de pagamento.');
-        } else if (msg.includes('Asaas não configurado') || msg === 'ASAAS_NOT_CONFIGURED') {
-          setError('Pagamento online indisponível no momento. Entre em contato com a CDL.');
-        } else if (msg.includes('Não foi possível gerar o link')) {
-          setError(msg);
-        } else {
-          setError('Não foi possível enviar. Tente novamente.');
-        }
       } else {
-        setError('Não foi possível enviar. Tente novamente.');
+        setError(inscriptionSubmitErrorMessage(err));
       }
     } finally {
       setSubmitting(false);
@@ -709,6 +737,14 @@ export function EventInscriptionClient({
                 Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.
               </p>
             )}
+            {completedInscriptionId ? (
+              <EventInscriptionCheckInQr
+                eventId={slug}
+                inscriptionId={completedInscriptionId}
+                participantLabel={inscriptionDisplayLabel(values)}
+                className="mb-6 text-left"
+              />
+            ) : null}
             <Link
               href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
               className="btn-primary inline-block"

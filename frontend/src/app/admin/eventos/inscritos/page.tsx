@@ -19,6 +19,12 @@ import {
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
 import { getEffectivePayment } from '@/lib/event-payment-fields';
+import {
+  EVENT_ADMIN_LIST_PATH,
+  eventDetailsPath,
+  resolveEventAdminBackHref,
+} from '@/lib/event-admin-navigation';
+import { EventAdminBackLink } from '@/components/admin/EventAdminBackLink';
 
 function collectColumnKeys(
   reg: ReturnType<typeof getEffectiveRegistration>,
@@ -63,6 +69,10 @@ function paymentStatusOf(row: EventInscriptionRecord): EventInscriptionPaymentSt
 export default function AdminEventoInscritosPage() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('eventId') ?? '';
+  const backHref = resolveEventAdminBackHref(
+    searchParams.get('returnTo'),
+    eventId ? eventDetailsPath(eventId) : EVENT_ADMIN_LIST_PATH
+  );
 
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [rows, setRows] = useState<(EventInscriptionRecord & { id: string })[]>([]);
@@ -485,9 +495,7 @@ export default function AdminEventoInscritosPage() {
   if (!eventId) {
     return (
       <div>
-        <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-4 inline-block">
-          ← Eventos
-        </Link>
+        <EventAdminBackLink href={backHref} className="text-sm text-cdl-blue hover:underline mb-4 inline-block" />
         <p className="text-cdl-gray-text">Informe um evento na URL (?eventId=).</p>
       </div>
     );
@@ -508,9 +516,7 @@ export default function AdminEventoInscritosPage() {
     <div className="w-full max-w-full overflow-x-hidden">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <Link href="/admin/eventos" className="text-sm text-cdl-blue hover:underline mb-2 inline-block">
-            ← Eventos
-          </Link>
+          <EventAdminBackLink href={backHref} />
           <h1 className="break-words text-2xl font-bold text-gray-900">Inscritos no evento</h1>
           <p className="mt-1 break-words text-gray-600">
             {campanha ? (

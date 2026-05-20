@@ -35,6 +35,8 @@
 # slugs pré-gerados no build. Notícias novas não têm arquivo → 404 no host antes do React.
 # Reescreve para a página cliente única `noticias/ver.html`, mantendo a URL no browser;
 # o slug é lido do pathname em `noticias/ver/page.tsx`.
+# Pré-visualização no WhatsApp/Facebook: edge `netlify/edge-functions/news-social-preview.ts`
+# (og:image = foto destaque da notícia) para crawlers antes deste rewrite.
 [[redirects]]
   from = "/noticias/:slug"
   to = "/noticias/ver.html"

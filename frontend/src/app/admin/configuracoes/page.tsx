@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getSettings, setSettings as saveSettings } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
@@ -80,7 +81,14 @@ export default function AdminConfiguracoesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">Configurações do site</h1>
+      <p className="text-sm text-cdl-gray-text">
+        <span className="text-gray-700">Configurações do site</span>
+        <span className="mx-2 text-gray-300">·</span>
+        <Link href="/admin/configuracoes/apis" className="text-cdl-blue hover:underline">
+          APIs (Asaas)
+        </Link>
+      </p>
+      <h1 className="mt-2 text-2xl font-bold text-gray-900">Configurações do site</h1>
       <p className="mt-1 text-cdl-gray-text">
         Telefone, e-mail e endereço aparecem no rodapé. WhatsApp define o número do botão flutuante.
       </p>

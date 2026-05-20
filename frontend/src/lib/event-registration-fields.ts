@@ -99,6 +99,40 @@ export function labelForInscriptionField(id: string): string {
   return LEGACY_INSCRIPTION_LABELS[id] ?? id;
 }
 
+const INSCRIPTION_DISPLAY_NAME_KEYS = [
+  'nome',
+  'empresa',
+  'nome_responsavel',
+  'razao_social',
+  'email',
+  'email_pessoal',
+] as const;
+
+/** Rótulo principal para listagens admin (nome, empresa ou primeiro campo preenchido). */
+export function inscriptionDisplayLabel(fields: Record<string, string> | undefined): string {
+  const f = fields ?? {};
+  for (const key of INSCRIPTION_DISPLAY_NAME_KEYS) {
+    const v = (f[key] ?? '').trim();
+    if (v) return v;
+  }
+  for (const v of Object.values(f)) {
+    const t = (v ?? '').trim();
+    if (t) return t;
+  }
+  return 'Inscrição sem identificação';
+}
+
+/** Subtítulo opcional (empresa quando o título já é o nome, etc.). */
+export function inscriptionDisplaySubtitle(fields: Record<string, string> | undefined): string | null {
+  const f = fields ?? {};
+  const nome = (f.nome ?? f.nome_responsavel ?? '').trim();
+  const empresa = (f.empresa ?? f.razao_social ?? '').trim();
+  if (nome && empresa && nome !== empresa) return empresa;
+  const email = (f.email ?? f.email_pessoal ?? '').trim();
+  if (email && email !== nome && email !== empresa) return email;
+  return null;
+}
+
 const ASSOCIADO_FIELD_IDS = new Set<string>(ASSOCIADO_INSCRIPTION_FIELDS.map((f) => f.id));
 
 /** Campo de empresa / associado (não é cadastro padrão nem complementar). */
@@ -177,6 +211,17 @@ export function isEventInscriptionOpen(
   if (reg.kind === 'none') return false;
   if (reg.kind === 'form' && isInscriptionSoldOut(c)) return false;
   return true;
+}
+
+/** Evento tem inscrição configurada (formulário ou link externo), independente de estar encerrada. */
+export function hasEventRegistrationConfigured(
+  c: Pick<Campaign, 'registrationConfig' | 'registrationUrl'>,
+): boolean {
+  return getEffectiveRegistration(c, { ignoreRegistrationClosed: true }).kind !== 'none';
+}
+
+export function hasEventFormRegistration(c: Pick<Campaign, 'registrationConfig'>): boolean {
+  return c.registrationConfig?.type === 'form' && (c.registrationConfig.fieldKeys?.length ?? 0) > 0;
 }
 
 export function getEffectiveRegistration(

@@ -25,11 +25,18 @@ export async function createAsaasInscriptionPayment(
   campaignId: string,
   inscriptionId: string
 ): Promise<CreateInscriptionPaymentResponse> {
-  const res = await fetch(`${API_BASE}/api/asaas/inscription-payment`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ campaignId, inscriptionId }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/asaas/inscription-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, inscriptionId }),
+    });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor de pagamento (${API_BASE}). Verifique sua conexão ou tente mais tarde.`,
+    );
+  }
   const data = (await res.json().catch(() => ({}))) as { error?: string } & Partial<
     CreateInscriptionPaymentResponse
   >;

@@ -14,7 +14,10 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isMobileWebviewShell = pathname?.startsWith('/m/') ?? false;
   const isAgendamentosPage = pathname === '/agendamentos';
   const isLegalPage = pathname === '/privacy' || pathname === '/terms';
-  const isPublicEventInscriptionsPage = pathname === '/institucional/eventos/inscritos';
+  const isPublicEventInscriptionsPage =
+    pathname === '/institucional/eventos/inscritos' ||
+    pathname === '/institucional/eventos/credenciamento';
+  const isEventLandingPage = pathname === '/cenariosetendencias2026';
   const isConfiguracoesPage = pathname === '/admin/configuracoes';
 
   useEffect(() => {
@@ -25,7 +28,13 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }, [isAdmin, isAgendamentosPage]);
 
   // Páginas de leitura limpa sem header, footer ou WhatsApp
-  if (isAgendamentosPage || isLegalPage || isPublicEventInscriptionsPage || isMobileWebviewShell) {
+  if (
+    isAgendamentosPage ||
+    isLegalPage ||
+    isPublicEventInscriptionsPage ||
+    isEventLandingPage ||
+    isMobileWebviewShell
+  ) {
     return <>{children}</>;
   }
 

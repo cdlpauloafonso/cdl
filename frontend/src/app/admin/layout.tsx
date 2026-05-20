@@ -51,13 +51,22 @@ const adminNav = [
   { href: '/admin/noticias', label: 'Notícias' },
   { href: '/admin/historias', label: 'Histórias' },
   { href: '/admin/contato', label: 'Mensagens' },
-  { href: '/admin/configuracoes', label: 'Configurações' },
+  {
+    label: 'Configurações',
+    children: [
+      { href: '/admin/configuracoes', label: 'Configurações do site' },
+      { href: '/admin/configuracoes/apis', label: 'APIs (Asaas)' },
+    ],
+  },
 ];
 
 /** Lista de associados (/admin/associados) não deve ficar ativa em /admin/associados/... */
 function isNavChildActive(pathname: string, childHref: string) {
   if (pathname === childHref) return true;
   if (childHref === '/admin/associados') return false;
+  if (childHref === '/admin/configuracoes') {
+    return pathname === '/admin/configuracoes';
+  }
   return pathname.startsWith(`${childHref}/`);
 }
 

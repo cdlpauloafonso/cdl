@@ -18,9 +18,14 @@ export type CampaignDoc = {
   published?: boolean;
 };
 
-export async function getCampaignDoc(campaignId: string): Promise<CampaignDoc | null> {
+function requireAdminFirestore() {
   const db = getAdminFirestore();
-  if (!db) return null;
+  if (!db) throw new Error('FIREBASE_ADMIN_NOT_CONFIGURED');
+  return db;
+}
+
+export async function getCampaignDoc(campaignId: string): Promise<CampaignDoc | null> {
+  const db = requireAdminFirestore();
   const snap = await db.collection('campaigns').doc(campaignId).get();
   if (!snap.exists) return null;
   return snap.data() as CampaignDoc;
@@ -30,8 +35,7 @@ export async function getInscriptionDoc(
   campaignId: string,
   inscriptionId: string
 ): Promise<Record<string, unknown> | null> {
-  const db = getAdminFirestore();
-  if (!db) return null;
+  const db = requireAdminFirestore();
   const snap = await db
     .collection('campaigns')
     .doc(campaignId)
@@ -54,8 +58,7 @@ export async function updateInscriptionPayment(
     asaasLastWebhookEventId?: string;
   }
 ): Promise<void> {
-  const db = getAdminFirestore();
-  if (!db) throw new Error('FIREBASE_ADMIN_NOT_CONFIGURED');
+  const db = requireAdminFirestore();
   await db
     .collection('campaigns')
     .doc(campaignId)

@@ -206,3 +206,40 @@ html.mobile-shell-app body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Landing Cenários, Tendências & Mercado 2026 */
+@keyframes ctm-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes ctm-glow-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+@keyframes ctm-shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+@keyframes ctm-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ctm-animate-float { animation: ctm-float 5s ease-in-out infinite; }
+.ctm-animate-glow { animation: ctm-glow-pulse 4s ease-in-out infinite; }
+.ctm-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.ctm-reveal.ctm-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ctm-text-shimmer {
+  background: linear-gradient(90deg, #7dd3fc 0%, #fff 40%, #38bdf8 60%, #fff 80%, #7dd3fc 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ctm-shimmer 6s linear infinite;
+}

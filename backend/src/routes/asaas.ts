@@ -45,7 +45,9 @@ router.post('/inscription-payment', async (req, res) => {
           ? 400
           : message === 'CUSTOMER_DOCUMENT_REQUIRED'
             ? 400
-            : message === 'ASAAS_NOT_CONFIGURED'
+            : message === 'ASAAS_NOT_CONFIGURED' ||
+                message === 'FIREBASE_ADMIN_NOT_CONFIGURED' ||
+                message === 'ASAAS_PAYMENT_INCOMPLETE'
               ? 503
               : 502;
     res.status(status).json({ error: message });
