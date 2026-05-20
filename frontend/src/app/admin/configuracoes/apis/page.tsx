@@ -7,7 +7,9 @@ import { fetchAsaasIntegrationStatus, type AsaasIntegrationStatus } from '@/lib/
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const WEBHOOK_URL = `${API_BASE}/api/asaas/webhook`;
 
-const ENV_VARS = [
+type EnvVarDoc = { name: string; description: string; example: string; secret?: boolean };
+
+const ENV_VARS: EnvVarDoc[] = [
   {
     name: 'ASAAS_ENABLED',
     description: 'Ativa a integração (use false para desligar sem remover a chave).',
@@ -36,7 +38,7 @@ const ENV_VARS = [
     example: '{"type":"service_account",...}',
     secret: true,
   },
-] as const;
+];
 
 export default function AdminConfiguracoesApisPage() {
   const [status, setStatus] = useState<AsaasIntegrationStatus | null>(null);

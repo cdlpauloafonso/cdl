@@ -239,19 +239,19 @@ export default function AdminEventoDetalhePage() {
       {hasFormRegistration && (
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
-            href={eventSubPageHref('credenciamento', evento.id, detailsReturnTarget)}
+            href={eventSubPageHref('credenciamento', eventId, detailsReturnTarget)}
             className="btn-primary text-sm !px-4 !py-2"
           >
             Credenciamento
           </Link>
           <Link
-            href={eventSubPageHref('inscritos', evento.id, detailsReturnTarget)}
+            href={eventSubPageHref('inscritos', eventId, detailsReturnTarget)}
             className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 ring-1 ring-emerald-100 hover:bg-emerald-100"
           >
             Inscritos ({inscritos})
           </Link>
           <Link
-            href={eventSubPageHref('certificados', evento.id, detailsReturnTarget)}
+            href={eventSubPageHref('certificados', eventId, detailsReturnTarget)}
             className="inline-flex items-center rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 ring-1 ring-violet-100 hover:bg-violet-100"
           >
             Certificados
@@ -348,7 +348,7 @@ export default function AdminEventoDetalhePage() {
             <h2 className="text-sm font-semibold text-gray-900">Últimos inscritos</h2>
             {inscritos > 0 && (
               <Link
-                href={eventSubPageHref('inscritos', evento.id, detailsReturnTarget)}
+                href={eventSubPageHref('inscritos', eventId, detailsReturnTarget)}
                 className="text-sm font-medium text-cdl-blue hover:underline"
               >
                 Ver todos ({inscritos})
@@ -406,7 +406,7 @@ export default function AdminEventoDetalhePage() {
             <h2 className="text-sm font-semibold text-gray-900">Últimos credenciados</h2>
             {totalCredenciados > 0 && (
               <Link
-                href={eventSubPageHref('credenciamento', evento.id, detailsReturnTarget)}
+                href={eventSubPageHref('credenciamento', eventId, detailsReturnTarget)}
                 className="text-sm font-medium text-cdl-blue hover:underline"
               >
                 Abrir credenciamento ({totalCredenciados})
