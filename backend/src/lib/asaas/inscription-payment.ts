@@ -1,4 +1,4 @@
-import { asaasRequest } from './client.js';
+import { AsaasApiError, asaasRequest } from './client.js';
 import { getAsaasConfigEffective } from './config.js';
 import type {
   AsaasCreditCardHolderInput,
@@ -9,6 +9,7 @@ import type {
   AsaasPaymentPixQrCode,
   AsaasWebhookEvent,
 } from './types.js';
+import { normalizeVoucherCode } from '../event-voucher.js';
 import { buildInscriptionExternalReference, parseInscriptionExternalReference } from './types.js';
 import {
   getCampaignDoc,
@@ -99,16 +100,60 @@ export type CreateInscriptionPaymentResult = {
   boleto: InscriptionPaymentBoletoCheckout | null;
 };
 
+/** Método exibido no checkout interno (cada um exige billingType próprio no Asaas). */
+export type InscriptionCheckoutMethod = 'pix' | 'boleto' | 'card';
+
+const ASAAS_BILLING_BY_METHOD: Record<InscriptionCheckoutMethod, string> = {
+  pix: 'PIX',
+  boleto: 'BOLETO',
+  card: 'UNDEFINED',
+};
+
+const PAYMENT_EDITABLE_STATUSES = new Set(['PENDING', 'OVERDUE', 'WAITING']);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** QR PIX pode demorar alguns instantes após criar a cobrança — tenta com pequenos intervalos. */
+async function getAsaasPayment(
+  paymentId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<AsaasPayment> {
+  return asaasRequest<AsaasPayment>(
+    'GET',
+    `/payments/${encodeURIComponent(paymentId)}`,
+    undefined,
+    config,
+  );
+}
+
+/** O Asaas só expõe QR PIX / linha digitável quando billingType corresponde ao método. */
+async function ensurePaymentBillingType(
+  paymentId: string,
+  billingType: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<AsaasPayment> {
+  const current = await getAsaasPayment(paymentId, config);
+  const status = String(current.status ?? 'PENDING');
+  if (!PAYMENT_EDITABLE_STATUSES.has(status)) {
+    throw new Error('PAYMENT_NOT_EDITABLE');
+  }
+  if (current.billingType === billingType) return current;
+  return asaasRequest<AsaasPayment>(
+    'PUT',
+    `/payments/${encodeURIComponent(paymentId)}`,
+    { billingType },
+    config,
+  );
+}
+
+/** QR PIX pode demorar após criar ou alterar a cobrança — retenta com intervalos maiores. */
 async function fetchPaymentPixQrCode(
   paymentId: string,
   config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
 ): Promise<InscriptionPaymentPixCheckout | null> {
-  const delaysMs = [0, 500, 1200, 2500];
+  const delaysMs = [0, 600, 1500, 3000, 5000, 8000];
+  let lastErr: unknown;
   for (const delay of delaysMs) {
     if (delay > 0) await sleep(delay);
     try {
@@ -128,9 +173,11 @@ async function fetchPaymentPixQrCode(
         };
       }
     } catch (err) {
-      const status = err && typeof err === 'object' && 'status' in err ? (err as { status: number }).status : 0;
-      if (status === 404) continue;
+      lastErr = err;
     }
+  }
+  if (lastErr instanceof AsaasApiError) {
+    console.warn('[asaas] pixQrCode indisponível:', paymentId, lastErr.message);
   }
   return null;
 }
@@ -139,7 +186,8 @@ async function fetchPaymentBoletoFields(
   paymentId: string,
   config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
 ): Promise<InscriptionPaymentBoletoCheckout | null> {
-  const delaysMs = [0, 500, 1200, 2500];
+  const delaysMs = [0, 600, 1500, 3000, 5000, 8000];
+  let lastErr: unknown;
   for (const delay of delaysMs) {
     if (delay > 0) await sleep(delay);
     try {
@@ -154,12 +202,7 @@ async function fetchPaymentBoletoFields(
 
       let dueDate: string | undefined;
       try {
-        const payment = await asaasRequest<AsaasPayment>(
-          'GET',
-          `/payments/${encodeURIComponent(paymentId)}`,
-          undefined,
-          config,
-        );
+        const payment = await getAsaasPayment(paymentId, config);
         dueDate = payment.dueDate;
       } catch {
         /* dueDate opcional */
@@ -172,33 +215,37 @@ async function fetchPaymentBoletoFields(
         ...(dueDate ? { dueDate } : {}),
       };
     } catch (err) {
-      const status = err && typeof err === 'object' && 'status' in err ? (err as { status: number }).status : 0;
-      if (status === 404) continue;
+      lastErr = err;
     }
+  }
+  if (lastErr instanceof AsaasApiError) {
+    console.warn('[asaas] identificationField indisponível:', paymentId, lastErr.message);
   }
   return null;
 }
 
-async function buildCheckoutPayload(
-  paymentId: string,
-  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
-): Promise<{ pix: InscriptionPaymentPixCheckout | null; boleto: InscriptionPaymentBoletoCheckout | null }> {
-  const [pix, boleto] = await Promise.all([
-    fetchPaymentPixQrCode(paymentId, config),
-    fetchPaymentBoletoFields(paymentId, config),
-  ]);
-  return { pix, boleto };
-}
+type InscriptionPaymentContext = {
+  paymentId: string;
+  invoiceUrl: string;
+  customerId: string;
+  amount: number;
+  paymentStatus: string;
+};
 
-export async function createAsaasInscriptionPayment(
+async function resolveInscriptionPaymentContext(
   campaignId: string,
-  inscriptionId: string
-): Promise<CreateInscriptionPaymentResult> {
-  const config = await getAsaasConfigEffective();
-  if (!config.enabled) {
-    throw new Error('ASAAS_NOT_CONFIGURED');
-  }
-
+  inscriptionId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<{
+  campaign: NonNullable<Awaited<ReturnType<typeof getCampaignDoc>>>;
+  inscription: NonNullable<Awaited<ReturnType<typeof getInscriptionDoc>>>;
+  fields: Record<string, string>;
+  amount: number;
+  tier: 'normal' | 'associado';
+  voucherId?: string;
+  appliedCode?: string;
+  ctx: InscriptionPaymentContext | null;
+}> {
   const campaign = await getCampaignDoc(campaignId);
   if (!campaign) throw new Error('CAMPAIGN_NOT_FOUND');
 
@@ -217,45 +264,68 @@ export async function createAsaasInscriptionPayment(
     fields,
     { vouchers: campaign.vouchers, voucherCode },
   );
+
   const existingPaymentId = inscription.asaasPaymentId as string | undefined;
   const existingUrl = inscription.asaasInvoiceUrl as string | undefined;
-  const existingStatus = String(inscription.paymentStatus ?? 'pending');
   if (existingPaymentId && existingUrl) {
     const applied = Number(inscription.paymentAmountApplied);
-    const { pix, boleto } = await buildCheckoutPayload(existingPaymentId, config);
     return {
-      paymentId: existingPaymentId,
-      invoiceUrl: existingUrl,
-      customerId: String(inscription.asaasCustomerId ?? ''),
-      amount: Number.isFinite(applied) && applied > 0 ? applied : amount,
-      paymentStatus: existingStatus,
-      pix,
-      boleto,
+      campaign,
+      inscription,
+      fields,
+      amount,
+      tier,
+      voucherId,
+      appliedCode,
+      ctx: {
+        paymentId: existingPaymentId,
+        invoiceUrl: existingUrl,
+        customerId: String(inscription.asaasCustomerId ?? ''),
+        amount: Number.isFinite(applied) && applied > 0 ? applied : amount,
+        paymentStatus: String(inscription.paymentStatus ?? 'pending'),
+      },
     };
   }
 
-  const customerInput = pickCustomerFromFields(fields);
+  return { campaign, inscription, fields, amount, tier, voucherId, appliedCode, ctx: null };
+}
+
+async function createInscriptionAsaasPayment(
+  campaignId: string,
+  inscriptionId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+  input: {
+    campaign: NonNullable<Awaited<ReturnType<typeof getCampaignDoc>>>;
+    fields: Record<string, string>;
+    amount: number;
+    tier: 'normal' | 'associado';
+    voucherId?: string;
+    appliedCode?: string;
+    billingType: string;
+  },
+): Promise<InscriptionPaymentContext> {
+  const customerInput = pickCustomerFromFields(input.fields);
   if (customerInput.cpfCnpj.length < 11) {
     throw new Error('CUSTOMER_DOCUMENT_REQUIRED');
   }
 
   const customer = await findOrCreateCustomer(customerInput, config);
   const description =
-    paymentCfg.description?.trim() ||
-    `Inscrição — ${campaign.title?.trim() || 'Evento CDL'}`;
+    input.campaign.paymentConfig?.description?.trim() ||
+    `Inscrição — ${input.campaign.title?.trim() || 'Evento CDL'}`;
 
   const payment = await asaasRequest<AsaasPayment>(
     'POST',
     '/payments',
     {
       customer: customer.id,
-      billingType: 'UNDEFINED',
-      value: amount,
+      billingType: input.billingType,
+      value: input.amount,
       dueDate: dueDatePlusDays(7),
       description,
       externalReference: buildInscriptionExternalReference(campaignId, inscriptionId),
     },
-    config
+    config,
   );
 
   const invoiceUrl = payment.invoiceUrl ?? payment.bankSlipUrl;
@@ -266,26 +336,172 @@ export async function createAsaasInscriptionPayment(
   await updateInscriptionPayment(campaignId, inscriptionId, {
     paymentStatus: 'pending',
     paymentProvider: 'asaas',
-    paymentAmountApplied: amount,
-    paymentAmountTier: tier,
-    ...(voucherId ? { voucherId } : {}),
-    ...(appliedCode ? { voucherCode: appliedCode } : {}),
+    paymentAmountApplied: input.amount,
+    paymentAmountTier: input.tier,
+    ...(input.voucherId ? { voucherId: input.voucherId } : {}),
+    ...(input.appliedCode ? { voucherCode: input.appliedCode } : {}),
     asaasPaymentId: payment.id,
     asaasInvoiceUrl: invoiceUrl,
     asaasCustomerId: customer.id,
   });
 
-  const { pix, boleto } = await buildCheckoutPayload(payment.id, config);
-
   return {
     paymentId: payment.id,
     invoiceUrl,
     customerId: customer.id,
-    amount,
+    amount: input.amount,
     paymentStatus: payment.status ?? 'PENDING',
+  };
+}
+
+/** Carrega dados do checkout para um método (ajusta billingType na cobrança Asaas). */
+export async function loadInscriptionCheckoutForMethod(
+  campaignId: string,
+  inscriptionId: string,
+  method: InscriptionCheckoutMethod,
+): Promise<CreateInscriptionPaymentResult> {
+  const config = await getAsaasConfigEffective();
+  if (!config.enabled) throw new Error('ASAAS_NOT_CONFIGURED');
+
+  const resolved = await resolveInscriptionPaymentContext(campaignId, inscriptionId, config);
+  let ctx =
+    resolved.ctx ??
+    (await createInscriptionAsaasPayment(campaignId, inscriptionId, config, {
+      campaign: resolved.campaign,
+      fields: resolved.fields,
+      amount: resolved.amount,
+      tier: resolved.tier,
+      voucherId: resolved.voucherId,
+      appliedCode: resolved.appliedCode,
+      billingType: ASAAS_BILLING_BY_METHOD[method],
+    }));
+
+  const billingType = ASAAS_BILLING_BY_METHOD[method];
+  const synced = await ensurePaymentBillingType(ctx.paymentId, billingType, config);
+  ctx = { ...ctx, paymentStatus: synced.status ?? ctx.paymentStatus };
+
+  let pix: InscriptionPaymentPixCheckout | null = null;
+  let boleto: InscriptionPaymentBoletoCheckout | null = null;
+  if (method === 'pix') {
+    pix = await fetchPaymentPixQrCode(ctx.paymentId, config);
+  } else if (method === 'boleto') {
+    boleto = await fetchPaymentBoletoFields(ctx.paymentId, config);
+  }
+
+  return {
+    paymentId: ctx.paymentId,
+    invoiceUrl: ctx.invoiceUrl,
+    customerId: ctx.customerId,
+    amount: ctx.amount,
+    paymentStatus: ctx.paymentStatus,
     pix,
     boleto,
   };
+}
+
+export async function createAsaasInscriptionPayment(
+  campaignId: string,
+  inscriptionId: string
+): Promise<CreateInscriptionPaymentResult> {
+  return loadInscriptionCheckoutForMethod(campaignId, inscriptionId, 'pix');
+}
+
+export type ApplyInscriptionVoucherResult = {
+  amount: number;
+  amountBefore: number;
+  tier: 'normal' | 'associado';
+  voucherCode: string | null;
+  voucherApplied: boolean;
+};
+
+/** Aplica ou remove voucher na inscrição pendente e atualiza o valor da cobrança Asaas. */
+export async function applyInscriptionVoucher(
+  campaignId: string,
+  inscriptionId: string,
+  voucherCodeRaw: string,
+): Promise<ApplyInscriptionVoucherResult> {
+  const config = await getAsaasConfigEffective();
+  if (!config.enabled) throw new Error('ASAAS_NOT_CONFIGURED');
+
+  const campaign = await getCampaignDoc(campaignId);
+  if (!campaign) throw new Error('CAMPAIGN_NOT_FOUND');
+  const paymentCfg = campaign.paymentConfig;
+  if (paymentCfg?.provider !== 'asaas') throw new Error('CAMPAIGN_PAYMENT_NOT_ASAAS');
+
+  const inscription = await getInscriptionDoc(campaignId, inscriptionId);
+  if (!inscription) throw new Error('INSCRIPTION_NOT_FOUND');
+  if (inscription.paymentStatus === 'paid') throw new Error('INSCRIPTION_ALREADY_PAID');
+
+  const fields = (inscription.fields ?? {}) as Record<string, string>;
+  const baseResolved = await resolveInscriptionPaymentAmount(paymentCfg, fields, {
+    vouchers: campaign.vouchers,
+  });
+  const amountBefore = baseResolved.amount;
+
+  const code = normalizeVoucherCode(voucherCodeRaw);
+  let amount = amountBefore;
+  let tier = baseResolved.tier;
+  let voucherId: string | undefined;
+  let voucherCode: string | undefined;
+  let voucherApplied = false;
+
+  if (code) {
+    const withVoucher = await resolveInscriptionPaymentAmount(paymentCfg, fields, {
+      vouchers: campaign.vouchers,
+      voucherCode: code,
+    });
+    amount = withVoucher.amount;
+    tier = withVoucher.tier;
+    voucherId = withVoucher.voucherId;
+    voucherCode = withVoucher.voucherCode;
+    voucherApplied = true;
+  }
+
+  const paymentId = inscription.asaasPaymentId as string | undefined;
+  if (paymentId) {
+    const current = await getAsaasPayment(paymentId, config);
+    const status = String(current.status ?? 'PENDING');
+    if (!PAYMENT_EDITABLE_STATUSES.has(status)) {
+      throw new Error('PAYMENT_NOT_EDITABLE');
+    }
+    await asaasRequest<AsaasPayment>(
+      'PUT',
+      `/payments/${encodeURIComponent(paymentId)}`,
+      { value: amount },
+      config,
+    );
+  }
+
+  await updateInscriptionPayment(campaignId, inscriptionId, {
+    paymentAmountApplied: amount,
+    paymentAmountTier: tier,
+    ...(voucherApplied && voucherId && voucherCode
+      ? { voucherId, voucherCode }
+      : { clearVoucher: true }),
+  });
+
+  return {
+    amount,
+    amountBefore,
+    tier,
+    voucherCode: voucherApplied ? (voucherCode ?? code) : null,
+    voucherApplied,
+  };
+}
+
+export function mapVoucherErrorToMessage(code: string): string {
+  switch (code) {
+    case 'VOUCHER_INVALID':
+      return 'Código de voucher inválido.';
+    case 'VOUCHER_INACTIVE':
+      return 'Este voucher está inativo.';
+    case 'VOUCHER_EXPIRED':
+      return 'Este voucher expirou.';
+    case 'VOUCHER_EXHAUSTED':
+      return 'Este voucher atingiu o limite de utilizações.';
+    default:
+      return code;
+  }
 }
 
 const CARD_PAID_STATUSES = new Set(['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH']);
@@ -304,6 +520,8 @@ export async function payAsaasInscriptionWithCreditCard(
 
   const paymentId = inscription.asaasPaymentId as string | undefined;
   if (!paymentId) throw new Error('INSCRIPTION_PAYMENT_NOT_CREATED');
+
+  await ensurePaymentBillingType(paymentId, ASAAS_BILLING_BY_METHOD.card, config);
 
   const payment = await asaasRequest<AsaasPayment>(
     'POST',

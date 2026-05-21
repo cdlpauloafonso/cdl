@@ -3,19 +3,25 @@
 import { useEffect, useState } from 'react';
 import { formatPaymentAmountBrl } from '@/lib/event-payment-fields';
 import {
+  applyInscriptionVoucher,
+  fetchInscriptionCheckoutMethod,
   payAsaasInscriptionWithCreditCard,
   type AsaasCreditCardHolderInput,
   type AsaasCreditCardInput,
   type CreateInscriptionPaymentResponse,
   type InscriptionCardHolderPrefill,
+  type InscriptionCheckoutMethod,
   type InscriptionPaymentBoletoCheckout,
   type InscriptionPaymentPixCheckout,
 } from '@/lib/asaas-api';
+import { normalizeVoucherCodeInput } from '@/lib/event-vouchers-admin';
+import { resolveVoucherForCharge } from '@/lib/event-voucher-utils';
+import type { EventVoucher } from '@/lib/firestore';
 import { formatCnpjDisplay } from '@/lib/brasil-api-cnpj';
 import { formatBrazilPhoneDisplay, formatCpfDisplay } from '@/lib/input-masks-br';
 import { subscribeEventInscription, type EventInscriptionPaymentStatus } from '@/lib/firestore';
 
-type PaymentMethodTab = 'pix' | 'boleto' | 'card';
+type PaymentMethodTab = InscriptionCheckoutMethod;
 
 type Props = {
   campaignId: string;
@@ -24,9 +30,15 @@ type Props = {
   description?: string;
   checkout: CreateInscriptionPaymentResponse;
   holderPrefill?: InscriptionCardHolderPrefill;
+  /** Valor antes do voucher (tarifa normal ou associado). */
+  baseAmount?: number;
+  paymentTier?: 'normal' | 'associado';
+  vouchers?: EventVoucher[];
+  initialVoucherCode?: string;
+  initialVoucherApplied?: boolean;
   className?: string;
   onPaid?: () => void;
-  onCheckoutRefresh?: () => Promise<CreateInscriptionPaymentResponse>;
+  onAmountChange?: (amount: number, meta: { voucherApplied: boolean }) => void;
 };
 
 function onlyDigits(s: string): string {
@@ -79,15 +91,26 @@ export function AsaasInscriptionCheckout({
   description,
   checkout: initialCheckout,
   holderPrefill,
+  baseAmount,
+  paymentTier,
+  vouchers,
+  initialVoucherCode = '',
+  initialVoucherApplied = false,
   className = '',
   onPaid,
-  onCheckoutRefresh,
+  onAmountChange,
 }: Props) {
   const [checkout, setCheckout] = useState(initialCheckout);
+  const [chargeAmount, setChargeAmount] = useState(amount);
+  const [voucherCodeInput, setVoucherCodeInput] = useState(initialVoucherCode);
+  const [voucherHint, setVoucherHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [voucherApplying, setVoucherApplying] = useState(false);
+  const [voucherApplied, setVoucherApplied] = useState(initialVoucherApplied);
   const [tab, setTab] = useState<PaymentMethodTab>('pix');
   const [copiedPix, setCopiedPix] = useState(false);
   const [copiedBoleto, setCopiedBoleto] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [methodLoading, setMethodLoading] = useState(false);
+  const [methodError, setMethodError] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<EventInscriptionPaymentStatus | undefined>(
     undefined,
   );
@@ -107,6 +130,17 @@ export function AsaasInscriptionCheckout({
   }, [initialCheckout]);
 
   useEffect(() => {
+    setChargeAmount(amount);
+  }, [amount]);
+
+  useEffect(() => {
+    setVoucherCodeInput(initialVoucherCode);
+  }, [initialVoucherCode]);
+
+  const showVoucher = (vouchers?.length ?? 0) > 0;
+  const baseCharge = baseAmount ?? amount;
+
+  useEffect(() => {
     const unsub = subscribeEventInscription(campaignId, inscriptionId, (row) => {
       const status = row?.paymentStatus;
       setPaymentStatus(status);
@@ -118,18 +152,109 @@ export function AsaasInscriptionCheckout({
   const pix = checkout.pix;
   const boleto = checkout.boleto;
   const isPaid = paymentStatus === 'paid';
+
+  useEffect(() => {
+    if (paymentStatus === 'paid' || tab === 'card') return;
+
+    let cancelled = false;
+    setMethodError('');
+    setMethodLoading(true);
+    fetchInscriptionCheckoutMethod(campaignId, inscriptionId, tab)
+      .then((data) => {
+        if (!cancelled) {
+          setCheckout((prev) => ({
+            ...prev,
+            paymentId: data.paymentId,
+            amount: data.amount,
+            paymentStatus: data.paymentStatus,
+            pix: tab === 'pix' ? data.pix : prev.pix,
+            boleto: tab === 'boleto' ? data.boleto : prev.boleto,
+          }));
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setMethodError(err instanceof Error ? err.message : 'Não foi possível carregar o pagamento.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMethodLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, campaignId, inscriptionId, paymentStatus]);
   const isPending = !paymentStatus || paymentStatus === 'pending';
   const hasPix = Boolean(pix?.payload?.trim() && pix?.encodedImage?.trim());
   const hasBoleto = Boolean(boleto?.identificationField?.trim());
 
   async function refreshCheckout() {
-    if (!onCheckoutRefresh) return;
-    setRefreshing(true);
+    setMethodError('');
+    setMethodLoading(true);
     try {
-      const next = await onCheckoutRefresh();
-      setCheckout(next);
+      const data = await fetchInscriptionCheckoutMethod(campaignId, inscriptionId, tab);
+      setCheckout((prev) => ({
+        ...prev,
+        paymentId: data.paymentId,
+        amount: data.amount,
+        paymentStatus: data.paymentStatus,
+        pix: tab === 'pix' ? data.pix : prev.pix,
+        boleto: tab === 'boleto' ? data.boleto : prev.boleto,
+      }));
+      setChargeAmount(data.amount);
+    } catch (err) {
+      setMethodError(err instanceof Error ? err.message : 'Não foi possível atualizar o pagamento.');
     } finally {
-      setRefreshing(false);
+      setMethodLoading(false);
+    }
+  }
+
+  async function handleApplyVoucher() {
+    setVoucherHint(null);
+    setMethodError('');
+    setVoucherApplying(true);
+    try {
+      const result = await applyInscriptionVoucher(
+        campaignId,
+        inscriptionId,
+        voucherCodeInput,
+      );
+      setChargeAmount(result.amount);
+      setVoucherApplied(result.voucherApplied);
+      onAmountChange?.(result.amount, { voucherApplied: result.voucherApplied });
+      if (result.voucherApplied) {
+        setVoucherHint({
+          type: 'ok',
+          text: `Voucher aplicado. Valor da inscrição: ${formatPaymentAmountBrl(result.amount)}`,
+        });
+      } else {
+        setVoucherHint({
+          type: 'ok',
+          text: `Voucher removido. Valor: ${formatPaymentAmountBrl(result.amount)}`,
+        });
+      }
+      if (tab !== 'card') {
+        setMethodLoading(true);
+        const data = await fetchInscriptionCheckoutMethod(campaignId, inscriptionId, tab);
+        setCheckout((prev) => ({
+          ...prev,
+          paymentId: data.paymentId,
+          amount: data.amount,
+          paymentStatus: data.paymentStatus,
+          pix: tab === 'pix' ? data.pix : null,
+          boleto: tab === 'boleto' ? data.boleto : null,
+        }));
+        setChargeAmount(data.amount);
+        setMethodLoading(false);
+      }
+    } catch (err) {
+      setVoucherHint({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Não foi possível aplicar o voucher.',
+      });
+    } finally {
+      setVoucherApplying(false);
     }
   }
 
@@ -243,7 +368,15 @@ export function AsaasInscriptionCheckout({
       className={`rounded-xl border border-cdl-blue/25 bg-gradient-to-b from-cdl-blue/5 to-white p-6 sm:p-8 ${className}`}
     >
       <p className="text-sm font-semibold text-cdl-blue uppercase tracking-wide">Pagamento da inscrição</p>
-      <p className="mt-2 text-2xl font-bold text-gray-900">{formatPaymentAmountBrl(amount)}</p>
+      <div className="mt-2 flex flex-wrap items-baseline gap-2">
+        <p className="text-2xl font-bold text-gray-900">{formatPaymentAmountBrl(chargeAmount)}</p>
+        {voucherApplied && chargeAmount < baseCharge ? (
+          <p className="text-sm text-cdl-gray-text line-through">{formatPaymentAmountBrl(baseCharge)}</p>
+        ) : null}
+      </div>
+      {paymentTier === 'associado' ? (
+        <p className="mt-1 text-xs font-medium text-cdl-blue">Tarifa de associado CDL aplicada.</p>
+      ) : null}
       {description ? <p className="mt-1 text-sm text-cdl-gray-text">{description}</p> : null}
 
       {isPaid ? (
@@ -256,11 +389,72 @@ export function AsaasInscriptionCheckout({
             Escolha a forma de pagamento abaixo. Tudo é feito nesta página — a confirmação é automática.
           </p>
 
+          {showVoucher ? (
+            <div className="mt-5 rounded-lg border border-cdl-blue/20 bg-white/80 px-4 py-4">
+              <p className="text-sm font-medium text-gray-900">Voucher</p>
+              <p className="mt-0.5 text-xs text-cdl-gray-text">
+                Digite o código para alterar o valor da inscrição antes de pagar.
+              </p>
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Código de voucher (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    value={voucherCodeInput}
+                    onChange={(e) => {
+                      const v = normalizeVoucherCodeInput(e.target.value);
+                      setVoucherCodeInput(v);
+                      if (!v) {
+                        setVoucherHint(null);
+                        return;
+                      }
+                      const r = resolveVoucherForCharge(vouchers, v, baseCharge);
+                      if (r.ok) {
+                        setVoucherHint({
+                          type: 'ok',
+                          text: `Desconto previsto: ${formatPaymentAmountBrl(r.applied.amountAfter)}`,
+                        });
+                      } else {
+                        setVoucherHint({ type: 'err', text: r.error });
+                      }
+                    }}
+                    placeholder="Ex.: CDL2026"
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm uppercase"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleApplyVoucher}
+                  disabled={voucherApplying || methodLoading}
+                  className="btn-secondary shrink-0 text-sm"
+                >
+                  {voucherApplying ? 'Aplicando…' : 'Aplicar voucher'}
+                </button>
+              </div>
+              {voucherHint ? (
+                <p
+                  className={`mt-2 text-xs ${voucherHint.type === 'ok' ? 'text-green-800' : 'text-red-700'}`}
+                >
+                  {voucherHint.text}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="mt-5 flex gap-2" role="tablist" aria-label="Forma de pagamento">
             {tabBtn('pix', 'PIX')}
             {tabBtn('boleto', 'Boleto')}
             {tabBtn('card', 'Cartão')}
           </div>
+
+          {methodError ? (
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {methodError}
+            </p>
+          ) : null}
 
           <div className="mt-6" role="tabpanel">
             {tab === 'pix' && (
@@ -269,8 +463,8 @@ export function AsaasInscriptionCheckout({
                 hasPix={hasPix}
                 copied={copiedPix}
                 isPending={isPending}
-                refreshing={refreshing}
-                onRefresh={onCheckoutRefresh ? refreshCheckout : undefined}
+                loading={methodLoading}
+                onRefresh={refreshCheckout}
                 onCopy={() => pix?.payload && copyText(pix.payload, 'pix')}
               />
             )}
@@ -280,8 +474,8 @@ export function AsaasInscriptionCheckout({
                 hasBoleto={hasBoleto}
                 copied={copiedBoleto}
                 isPending={isPending}
-                refreshing={refreshing}
-                onRefresh={onCheckoutRefresh ? refreshCheckout : undefined}
+                loading={methodLoading}
+                onRefresh={refreshCheckout}
                 onCopy={() => boleto?.identificationField && copyText(boleto.identificationField, 'boleto')}
               />
             )}
@@ -309,7 +503,7 @@ function PixPanel({
   hasPix,
   copied,
   isPending,
-  refreshing,
+  loading,
   onRefresh,
   onCopy,
 }: {
@@ -317,15 +511,18 @@ function PixPanel({
   hasPix: boolean;
   copied: boolean;
   isPending: boolean;
-  refreshing: boolean;
-  onRefresh?: () => void;
+  loading: boolean;
+  onRefresh: () => void;
   onCopy: () => void;
 }) {
+  if (loading) {
+    return <MethodLoading message="Conectando com o Asaas e gerando QR Code PIX…" />;
+  }
   if (!hasPix || !pix) {
     return (
       <UnavailableMethod
-        message="O QR Code PIX ainda está sendo gerado. Aguarde alguns segundos e atualize."
-        refreshing={refreshing}
+        message="Não foi possível obter o QR Code PIX. Verifique se o PIX está habilitado na conta Asaas e tente atualizar."
+        loading={loading}
         onRefresh={onRefresh}
       />
     );
@@ -374,7 +571,7 @@ function BoletoPanel({
   hasBoleto,
   copied,
   isPending,
-  refreshing,
+  loading,
   onRefresh,
   onCopy,
 }: {
@@ -382,15 +579,18 @@ function BoletoPanel({
   hasBoleto: boolean;
   copied: boolean;
   isPending: boolean;
-  refreshing: boolean;
-  onRefresh?: () => void;
+  loading: boolean;
+  onRefresh: () => void;
   onCopy: () => void;
 }) {
+  if (loading) {
+    return <MethodLoading message="Conectando com o Asaas e gerando boleto…" />;
+  }
   if (!hasBoleto || !boleto) {
     return (
       <UnavailableMethod
-        message="A linha digitável do boleto ainda está sendo gerada. Aguarde alguns segundos e atualize."
-        refreshing={refreshing}
+        message="Não foi possível obter a linha digitável do boleto. Verifique se o boleto está habilitado na conta Asaas e tente atualizar."
+        loading={loading}
         onRefresh={onRefresh}
       />
     );
@@ -564,28 +764,35 @@ function CardPanel({
   );
 }
 
+function MethodLoading({ message }: { message: string }) {
+  return (
+    <p className="flex items-center gap-2 text-sm text-cdl-blue py-4">
+      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-cdl-blue border-t-transparent" />
+      {message}
+    </p>
+  );
+}
+
 function UnavailableMethod({
   message,
-  refreshing,
+  loading,
   onRefresh,
 }: {
   message: string;
-  refreshing: boolean;
-  onRefresh?: () => void;
+  loading: boolean;
+  onRefresh: () => void;
 }) {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
       <p>{message}</p>
-      {onRefresh ? (
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="btn-secondary mt-3 text-sm"
-        >
-          {refreshing ? 'Atualizando…' : 'Atualizar'}
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={loading}
+        className="btn-secondary mt-3 text-sm"
+      >
+        {loading ? 'Atualizando…' : 'Atualizar'}
+      </button>
     </div>
   );
 }

@@ -62,6 +62,16 @@ export type AsaasCreditCardHolderInput = {
 
 export type InscriptionCardHolderPrefill = Partial<AsaasCreditCardHolderInput>;
 
+export type InscriptionCheckoutMethod = 'pix' | 'boleto' | 'card';
+
+export type ApplyInscriptionVoucherResult = {
+  amount: number;
+  amountBefore: number;
+  tier: 'normal' | 'associado';
+  voucherCode: string | null;
+  voucherApplied: boolean;
+};
+
 function parseBoletoFromResponse(
   data: Record<string, unknown>
 ): InscriptionPaymentBoletoCheckout | null {
@@ -243,6 +253,67 @@ export async function createAsaasInscriptionPayment(
   if (!res.ok) {
     throw new Error(
       typeof data.error === 'string' && data.error ? data.error : 'Não foi possível gerar o link de pagamento.',
+    );
+  }
+  return normalizeInscriptionPaymentResponse(data);
+}
+
+export async function applyInscriptionVoucher(
+  campaignId: string,
+  inscriptionId: string,
+  voucherCode: string,
+): Promise<ApplyInscriptionVoucherResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/asaas/inscription-payment/voucher`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, inscriptionId, voucherCode }),
+    });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor de pagamento (${API_BASE}). Verifique sua conexão ou tente mais tarde.`,
+    );
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === 'string' && data.error ? data.error : 'Não foi possível aplicar o voucher.',
+    );
+  }
+  const amount = Number(data.amount);
+  const amountBefore = Number(data.amountBefore);
+  return {
+    amount: Number.isFinite(amount) && amount > 0 ? amount : 0,
+    amountBefore: Number.isFinite(amountBefore) && amountBefore > 0 ? amountBefore : 0,
+    tier: data.tier === 'associado' ? 'associado' : 'normal',
+    voucherCode:
+      typeof data.voucherCode === 'string' && data.voucherCode ? data.voucherCode : null,
+    voucherApplied: Boolean(data.voucherApplied),
+  };
+}
+
+export async function fetchInscriptionCheckoutMethod(
+  campaignId: string,
+  inscriptionId: string,
+  method: InscriptionCheckoutMethod,
+): Promise<CreateInscriptionPaymentResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/asaas/inscription-payment/method`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, inscriptionId, method }),
+    });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor de pagamento (${API_BASE}). Verifique sua conexão ou tente mais tarde.`,
+    );
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === 'string' && data.error ? data.error : 'Não foi possível carregar o pagamento.',
     );
   }
   return normalizeInscriptionPaymentResponse(data);

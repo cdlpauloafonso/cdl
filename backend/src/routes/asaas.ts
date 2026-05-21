@@ -3,9 +3,13 @@ import { requireAdminAuth, type AdminAuthInfo } from '../lib/admin-auth.js';
 import { getAsaasConfigEffective } from '../lib/asaas/config.js';
 import { AsaasApiError, asaasRequest } from '../lib/asaas/client.js';
 import {
+  applyInscriptionVoucher,
   createAsaasInscriptionPayment,
   handleAsaasWebhookPayload,
+  loadInscriptionCheckoutForMethod,
+  mapVoucherErrorToMessage,
   payAsaasInscriptionWithCreditCard,
+  type InscriptionCheckoutMethod,
 } from '../lib/asaas/inscription-payment.js';
 import type { AsaasWebhookEvent } from '../lib/asaas/types.js';
 import {
@@ -65,6 +69,105 @@ router.post('/inscription-payment', async (req, res) => {
               ? 503
               : err instanceof AsaasApiError
                 ? 502
+                : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * Aplica voucher na inscrição pendente (atualiza valor no Firestore e na cobrança Asaas).
+ * Body: { campaignId, inscriptionId, voucherCode } — voucherCode vazio remove o desconto.
+ */
+router.post('/inscription-payment/voucher', async (req, res) => {
+  const cfg = await getAsaasConfigEffective();
+  if (!cfg.enabled) {
+    res.status(503).json({
+      error: 'Asaas não configurado. Defina a chave em Configurações → APIs (Asaas) ou no backend.',
+    });
+    return;
+  }
+
+  const campaignId = String(req.body?.campaignId ?? '').trim();
+  const inscriptionId = String(req.body?.inscriptionId ?? '').trim();
+  const voucherCode = String(req.body?.voucherCode ?? '');
+
+  if (!campaignId || !inscriptionId) {
+    res.status(400).json({ error: 'campaignId e inscriptionId são obrigatórios.' });
+    return;
+  }
+
+  try {
+    const result = await applyInscriptionVoucher(campaignId, inscriptionId, voucherCode);
+    res.json(result);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : 'Erro ao aplicar voucher';
+    const message =
+      raw === 'VOUCHER_INVALID' ||
+      raw === 'VOUCHER_INACTIVE' ||
+      raw === 'VOUCHER_EXPIRED' ||
+      raw === 'VOUCHER_EXHAUSTED'
+        ? mapVoucherErrorToMessage(raw)
+        : raw;
+    const status =
+      message === 'CAMPAIGN_NOT_FOUND' || message === 'INSCRIPTION_NOT_FOUND'
+        ? 404
+        : message === 'INSCRIPTION_ALREADY_PAID'
+          ? 409
+          : message === 'CAMPAIGN_PAYMENT_NOT_ASAAS' || message === 'INVALID_PAYMENT_AMOUNT'
+            ? 400
+            : message === 'PAYMENT_NOT_EDITABLE'
+              ? 409
+              : message === 'ASAAS_NOT_CONFIGURED' || message === 'FIREBASE_ADMIN_NOT_CONFIGURED'
+                ? 503
+                : err instanceof AsaasApiError
+                  ? 502
+                  : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * Dados do checkout para um método (PIX, boleto ou cartão).
+ * Body: { campaignId, inscriptionId, method: 'pix' | 'boleto' | 'card' }
+ */
+router.post('/inscription-payment/method', async (req, res) => {
+  const cfg = await getAsaasConfigEffective();
+  if (!cfg.enabled) {
+    res.status(503).json({
+      error: 'Asaas não configurado. Defina a chave em Configurações → APIs (Asaas) ou no backend.',
+    });
+    return;
+  }
+
+  const campaignId = String(req.body?.campaignId ?? '').trim();
+  const inscriptionId = String(req.body?.inscriptionId ?? '').trim();
+  const methodRaw = String(req.body?.method ?? 'pix').trim().toLowerCase();
+  const method: InscriptionCheckoutMethod =
+    methodRaw === 'boleto' || methodRaw === 'card' ? methodRaw : 'pix';
+
+  if (!campaignId || !inscriptionId) {
+    res.status(400).json({ error: 'campaignId e inscriptionId são obrigatórios.' });
+    return;
+  }
+
+  try {
+    const result = await loadInscriptionCheckoutForMethod(campaignId, inscriptionId, method);
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao carregar pagamento';
+    const status =
+      message === 'CAMPAIGN_NOT_FOUND' || message === 'INSCRIPTION_NOT_FOUND'
+        ? 404
+        : message === 'CAMPAIGN_PAYMENT_NOT_ASAAS' || message === 'INVALID_PAYMENT_AMOUNT'
+          ? 400
+          : message === 'CUSTOMER_DOCUMENT_REQUIRED'
+            ? 400
+            : message === 'PAYMENT_NOT_EDITABLE'
+              ? 409
+              : message === 'ASAAS_NOT_CONFIGURED' ||
+                  message === 'FIREBASE_ADMIN_NOT_CONFIGURED' ||
+                  message === 'ASAAS_PAYMENT_INCOMPLETE'
+                ? 503
                 : 502;
     res.status(status).json({ error: message });
   }

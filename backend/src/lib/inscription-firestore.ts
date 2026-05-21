@@ -1,3 +1,4 @@
+import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore } from './firebase-admin.js';
 import {
   type EventVoucherDoc,
@@ -143,6 +144,7 @@ export async function updateInscriptionPayment(
     paymentAmountTier?: 'normal' | 'associado';
     voucherId?: string;
     voucherCode?: string;
+    clearVoucher?: boolean;
     asaasPaymentId?: string;
     asaasInvoiceUrl?: string;
     asaasCustomerId?: string;
@@ -151,12 +153,21 @@ export async function updateInscriptionPayment(
   }
 ): Promise<void> {
   const db = requireAdminFirestore();
+  const { clearVoucher, voucherId, voucherCode, ...rest } = patch;
+  const data: Record<string, unknown> = { ...rest };
+  if (clearVoucher) {
+    data.voucherId = FieldValue.delete();
+    data.voucherCode = FieldValue.delete();
+  } else {
+    if (voucherId !== undefined) data.voucherId = voucherId;
+    if (voucherCode !== undefined) data.voucherCode = voucherCode;
+  }
   await db
     .collection('campaigns')
     .doc(campaignId)
     .collection('inscricoes')
     .doc(inscriptionId)
-    .set(patch, { merge: true });
+    .set(data, { merge: true });
 }
 
 export async function isWebhookEventProcessed(

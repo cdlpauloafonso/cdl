@@ -873,15 +873,22 @@ export function EventInscriptionClient({
                   campaignId={slug}
                   inscriptionId={completedInscriptionId!}
                   amount={completedAsaasCharge?.amount ?? asaasCheckout.amount}
+                  baseAmount={baseAsaasCharge?.amount}
+                  paymentTier={completedAsaasCharge?.tier}
+                  vouchers={campanha.vouchers}
+                  initialVoucherCode={voucherCodeInput}
+                  initialVoucherApplied={completedAsaasCharge?.voucherApplied}
                   description={payment.description}
                   checkout={asaasCheckout}
                   holderPrefill={cardHolderPrefillFromInscription(values)}
                   className="mb-2"
                   onPaid={() => setInscriptionPaid(true)}
-                  onCheckoutRefresh={async () => {
-                    const next = await createAsaasInscriptionPayment(slug, completedInscriptionId!);
-                    setAsaasCheckout(next);
-                    return next;
+                  onAmountChange={(nextAmount, meta) => {
+                    setCompletedAsaasCharge((prev) =>
+                      prev
+                        ? { ...prev, amount: nextAmount, voucherApplied: meta.voucherApplied }
+                        : { amount: nextAmount, tier: associadoPaymentTier ? 'associado' : 'normal', voucherApplied: meta.voucherApplied },
+                    );
                   }}
                 />
                 <p className="mt-6 text-xs text-cdl-gray-text text-center">
