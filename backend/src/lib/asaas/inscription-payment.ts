@@ -1,6 +1,6 @@
 import { asaasRequest } from './client.js';
 import { getAsaasConfigEffective } from './config.js';
-import type { AsaasCustomer, AsaasPayment, AsaasWebhookEvent } from './types.js';
+import type { AsaasCustomer, AsaasPayment, AsaasPaymentPixQrCode, AsaasWebhookEvent } from './types.js';
 import { buildInscriptionExternalReference, parseInscriptionExternalReference } from './types.js';
 import {
   getCampaignDoc,
@@ -68,11 +68,42 @@ async function findOrCreateCustomer(
   );
 }
 
+export type InscriptionPaymentPixCheckout = {
+  encodedImage: string;
+  payload: string;
+  expirationDate?: string;
+};
+
 export type CreateInscriptionPaymentResult = {
   paymentId: string;
   invoiceUrl: string;
   customerId: string;
+  amount: number;
+  paymentStatus: string;
+  pix: InscriptionPaymentPixCheckout;
 };
+
+async function fetchPaymentPixQrCode(
+  paymentId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<InscriptionPaymentPixCheckout> {
+  const qr = await asaasRequest<AsaasPaymentPixQrCode>(
+    'GET',
+    `/payments/${encodeURIComponent(paymentId)}/pixQrCode`,
+    undefined,
+    config,
+  );
+  const payload = qr.payload?.trim();
+  const encodedImage = qr.encodedImage?.trim();
+  if (!payload || !encodedImage) {
+    throw new Error('ASAAS_PIX_QR_UNAVAILABLE');
+  }
+  return {
+    encodedImage,
+    payload,
+    ...(qr.expirationDate ? { expirationDate: qr.expirationDate } : {}),
+  };
+}
 
 export async function createAsaasInscriptionPayment(
   campaignId: string,
@@ -103,11 +134,16 @@ export async function createAsaasInscriptionPayment(
   );
   const existingPaymentId = inscription.asaasPaymentId as string | undefined;
   const existingUrl = inscription.asaasInvoiceUrl as string | undefined;
+  const existingStatus = String(inscription.paymentStatus ?? 'pending');
   if (existingPaymentId && existingUrl) {
+    const pix = await fetchPaymentPixQrCode(existingPaymentId, config);
     return {
       paymentId: existingPaymentId,
       invoiceUrl: existingUrl,
       customerId: String(inscription.asaasCustomerId ?? ''),
+      amount,
+      paymentStatus: existingStatus,
+      pix,
     };
   }
 
@@ -152,10 +188,15 @@ export async function createAsaasInscriptionPayment(
     asaasCustomerId: customer.id,
   });
 
+  const pix = await fetchPaymentPixQrCode(payment.id, config);
+
   return {
     paymentId: payment.id,
     invoiceUrl,
     customerId: customer.id,
+    amount,
+    paymentStatus: payment.status ?? 'PENDING',
+    pix,
   };
 }
 

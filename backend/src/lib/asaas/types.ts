@@ -17,6 +17,14 @@ export type AsaasPayment = {
   externalReference?: string;
 };
 
+/** GET /v3/payments/{id}/pixQrCode */
+export type AsaasPaymentPixQrCode = {
+  encodedImage?: string;
+  payload?: string;
+  expirationDate?: string;
+  description?: string;
+};
+
 export type AsaasWebhookEvent = {
   id?: string;
   event?: string;

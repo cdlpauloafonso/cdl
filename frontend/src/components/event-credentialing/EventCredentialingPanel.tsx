@@ -14,7 +14,12 @@ import {
   isInscriptionCredentialed,
 } from '@/lib/event-credentialing';
 import { parseCredentialingQrPayload } from '@/lib/event-credentialing-qr';
+import {
+  compareByCreatedAtDesc,
+  compareByCredentialedAtDesc,
+} from '@/lib/event-inscription-sort';
 import { CredentialingQrScannerModal } from '@/components/event-credentialing/CredentialingQrScannerModal';
+import { EventInscriptionDetailModal } from '@/components/event-credentialing/EventInscriptionDetailModal';
 import { AdminSensitiveConfirmModal } from '@/components/ui/AdminSensitiveConfirmModal';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -110,9 +115,9 @@ export function EventCredentialingPanel({
   const [filter, setFilter] = useState<CredentialFilter>('pending');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [localError, setLocalError] = useState('');
-  const [qrSuccess, setQrSuccess] = useState('');
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
-  const [credentialSuccessName, setCredentialSuccessName] = useState<string | null>(null);
+  const [credentialSuccessModal, setCredentialSuccessModal] = useState<{ title: string } | null>(null);
+  const [detailRow, setDetailRow] = useState<(EventInscriptionRecord & { id: string }) | null>(null);
   const [undoConfirmRow, setUndoConfirmRow] = useState<(EventInscriptionRecord & { id: string }) | null>(
     null,
   );
@@ -158,12 +163,11 @@ export function EventCredentialingPanel({
     };
   }, []);
 
-  const selectSuggestion = useCallback((row: EventInscriptionRecord & { id: string }, label: string) => {
-    setSearchTerm(label);
-    setSuggestOpen(false);
-    setHighlightIndex(-1);
-    setFilter(isInscriptionCredentialed(row) ? 'credentialed' : 'pending');
-  }, []);
+  useEffect(() => {
+    if (!detailRow) return;
+    const fresh = rowsById.get(detailRow.id);
+    if (fresh) setDetailRow(fresh);
+  }, [rows, detailRow?.id, rowsById]);
 
   const filteredRows = useMemo(() => {
     const term = trimmedSearch;
@@ -175,10 +179,13 @@ export function EventCredentialingPanel({
     });
 
     list = [...list].sort((a, b) => {
+      if (filter === 'credentialed') return compareByCredentialedAtDesc(a, b);
+      if (filter === 'pending') return compareByCreatedAtDesc(a, b);
       const ca = isInscriptionCredentialed(a);
       const cb = isInscriptionCredentialed(b);
       if (ca !== cb) return ca ? 1 : -1;
-      return inscriptionDisplayLabel(a.fields).localeCompare(inscriptionDisplayLabel(b.fields), 'pt-BR');
+      if (ca) return compareByCredentialedAtDesc(a, b);
+      return compareByCreatedAtDesc(a, b);
     });
 
     return list;
@@ -189,7 +196,6 @@ export function EventCredentialingPanel({
   async function applyToggle(row: EventInscriptionRecord & { id: string }, credentialed: boolean) {
     setUpdatingId(row.id);
     setLocalError('');
-    setQrSuccess('');
     try {
       await onToggle(row, credentialed);
     } catch {
@@ -203,11 +209,10 @@ export function EventCredentialingPanel({
     const label = inscriptionDisplayLabel(row.fields);
     setUpdatingId(row.id);
     setLocalError('');
-    setQrSuccess('');
-    setCredentialSuccessName(null);
+    setCredentialSuccessModal(null);
     try {
       await onToggle(row, true);
-      setCredentialSuccessName(label);
+      setCredentialSuccessModal({ title: `${label} foi credenciado.` });
       setFilter('credentialed');
       setSearchTerm('');
     } catch {
@@ -225,6 +230,20 @@ export function EventCredentialingPanel({
     void handleCredential(row);
   }
 
+  function openInscriptionDetail(row: EventInscriptionRecord & { id: string }) {
+    setDetailRow(row);
+  }
+
+  async function credentialFromDetail(row: EventInscriptionRecord & { id: string }) {
+    await handleCredential(row);
+    setDetailRow(null);
+  }
+
+  function requestUndoFromDetail(row: EventInscriptionRecord & { id: string }) {
+    setDetailRow(null);
+    setUndoConfirmRow(row);
+  }
+
   async function confirmUndoCredentialing() {
     if (!undoConfirmRow) return;
     const row = undoConfirmRow;
@@ -235,7 +254,7 @@ export function EventCredentialingPanel({
   const handleQrScan = useCallback(
     async (raw: string) => {
       setLocalError('');
-      setQrSuccess('');
+      setCredentialSuccessModal(null);
       const parsed = parseCredentialingQrPayload(raw, eventId);
       if (!parsed) {
         setLocalError('QR Code inválido ou de outro evento.');
@@ -248,7 +267,7 @@ export function EventCredentialingPanel({
       }
       const label = inscriptionDisplayLabel(row.fields);
       if (isInscriptionCredentialed(row)) {
-        setQrSuccess(`${label} já estava credenciado(a).`);
+        setCredentialSuccessModal({ title: `${label} já estava credenciado(a).` });
         setFilter('credentialed');
         setSearchTerm('');
         return;
@@ -256,7 +275,7 @@ export function EventCredentialingPanel({
       setUpdatingId(row.id);
       try {
         await onToggle(row, true);
-        setQrSuccess(`${label} credenciado(a) com sucesso!`);
+        setCredentialSuccessModal({ title: `${label} foi credenciado.` });
         setFilter('credentialed');
         setSearchTerm('');
       } catch {
@@ -284,12 +303,6 @@ export function EventCredentialingPanel({
         </div>
       ) : null}
 
-      {qrSuccess ? (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          {qrSuccess}
-        </div>
-      ) : null}
-
       <div className="mt-4">
         <button
           type="button"
@@ -309,6 +322,9 @@ export function EventCredentialingPanel({
         </button>
         <p className="mt-2 text-xs text-cdl-gray-text">
           No celular, toque para abrir a câmera e credenciar automaticamente ao ler o QR do participante.
+        </p>
+        <p className="mt-1 text-xs text-cdl-gray-text">
+          Toque no nome de um inscrito na lista para ver os detalhes completos.
         </p>
       </div>
 
@@ -382,10 +398,10 @@ export function EventCredentialingPanel({
               } else if (e.key === 'Enter' && highlightIndex >= 0) {
                 e.preventDefault();
                 const item = suggestions[highlightIndex];
-                if (item) selectSuggestion(item.row, item.label);
+                if (item) openInscriptionDetail(item.row);
               } else if (e.key === 'Enter' && suggestions.length === 1) {
                 e.preventDefault();
-                selectSuggestion(suggestions[0].row, suggestions[0].label);
+                openInscriptionDetail(suggestions[0].row);
               }
             }}
             className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
@@ -428,7 +444,7 @@ export function EventCredentialingPanel({
                         }`}
                         onMouseDown={(e) => e.preventDefault()}
                         onMouseEnter={() => setHighlightIndex(index)}
-                        onClick={() => selectSuggestion(item.row, item.label)}
+                        onClick={() => openInscriptionDetail(item.row)}
                       >
                         <span className="min-w-0 flex-1 truncate">
                           <span className="font-medium">{item.label}</span>
@@ -517,7 +533,11 @@ export function EventCredentialingPanel({
                   credentialed ? 'bg-emerald-50/50' : ''
                 }`}
               >
-                <p className="min-w-0 flex-1 truncate text-xs leading-snug text-gray-600">
+                <button
+                  type="button"
+                  onClick={() => openInscriptionDetail(row)}
+                  className="min-w-0 flex-1 truncate text-left text-xs leading-snug text-gray-600 hover:text-cdl-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-cdl-blue/40 rounded"
+                >
                   <span className="font-medium text-gray-900">{label}</span>
                   {showCpf && cpf ? (
                     <>
@@ -537,7 +557,7 @@ export function EventCredentialingPanel({
                       <span className="text-emerald-700">{credAt}</span>
                     </>
                   ) : null}
-                </p>
+                </button>
                 <div className="flex shrink-0 items-center gap-1">
                   {credentialed && (
                     <span className={`${badgeSm} bg-emerald-200 text-emerald-900`}>Cred.</span>
@@ -573,11 +593,20 @@ export function EventCredentialingPanel({
 
       {footerLink ? <p className="mt-6 text-center text-sm">{footerLink}</p> : null}
 
+      <EventInscriptionDetailModal
+        open={detailRow !== null}
+        row={detailRow}
+        campanhaTitle={campanha.title}
+        paymentConfigured={paymentConfigured}
+        busy={Boolean(detailRow && updatingId === detailRow.id)}
+        onClose={() => setDetailRow(null)}
+        onCredential={(row) => void credentialFromDetail(row)}
+        onUndoCredential={requestUndoFromDetail}
+      />
+
       <AdminSensitiveConfirmModal
-        open={credentialSuccessName !== null}
-        title={
-          credentialSuccessName ? `${credentialSuccessName} credenciado com sucesso.` : ''
-        }
+        open={credentialSuccessModal !== null}
+        title={credentialSuccessModal?.title ?? ''}
         titleId="credentialing-success-title"
         confirmLabel="OK"
         confirmTone="primary"
@@ -585,8 +614,8 @@ export function EventCredentialingPanel({
         successVariant
         alertOnly
         busy={false}
-        onClose={() => setCredentialSuccessName(null)}
-        onConfirm={() => setCredentialSuccessName(null)}
+        onClose={() => setCredentialSuccessModal(null)}
+        onConfirm={() => setCredentialSuccessModal(null)}
       />
 
       <AdminSensitiveConfirmModal

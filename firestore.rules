@@ -65,13 +65,80 @@ service cloud.firestore {
       return cfg is map && numericFieldPositive(cfg.get('inscriptionLimit', 0));
     }
 
+    function isValidVoucherCodeString(code) {
+      return code is string
+        && code.size() >= 3
+        && code.size() <= 40
+        && code.matches('^[A-Z0-9_-]+$');
+    }
+
+    // Inscrição pública: somente dados do formulário (+ voucher opcional). Pagamento/Asaas só via backend (Admin SDK).
     function inscriptionCreatePayloadValid() {
-      return request.resource.data.keys().hasOnly(['createdAt', 'fields'])
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() >= 10
-        && request.resource.data.fields is map
-        && request.resource.data.fields.size() >= 1
-        && request.resource.data.fields.size() <= 25;
+      let d = request.resource.data;
+      let keysOk = d.keys().hasOnly(['createdAt', 'fields'])
+        || d.keys().hasOnly(['createdAt', 'fields', 'voucherCode']);
+      let voucherOk = !('voucherCode' in d) || isValidVoucherCodeString(d.voucherCode);
+      let noPaymentKeys = !d.keys().hasAny([
+        'paymentStatus',
+        'paymentProvider',
+        'paymentAmountApplied',
+        'paymentAmountTier',
+        'voucherId',
+        'asaasPaymentId',
+        'asaasInvoiceUrl',
+        'asaasCustomerId',
+        'asaasLastWebhookEventId',
+      ]);
+      return keysOk
+        && noPaymentKeys
+        && voucherOk
+        && d.createdAt is string
+        && d.createdAt.size() >= 10
+        && d.fields is map
+        && d.fields.size() >= 1
+        && d.fields.size() <= 25;
+    }
+
+    function isValidEventVoucherEntry(v) {
+      return v is map
+        && v.keys().hasAll(['id', 'code', 'discountType', 'discountValue'])
+        && v.id is string
+        && v.id.size() >= 8
+        && v.id.size() <= 64
+        && isValidVoucherCodeString(v.code)
+        && v.discountType in ['percent', 'fixed']
+        && numericFieldPositive(v.discountValue)
+        && (v.discountType != 'percent' || v.discountValue <= 100)
+        && (!('maxUses' in v) || numericFieldPositive(v.maxUses))
+        && (!('usedCount' in v) || numericFieldNonNegative(v.usedCount))
+        && (!('active' in v) || v.active is bool)
+        && (!('label' in v) || (v.label is string && v.label.size() <= 120))
+        && (!('expiresAt' in v) || (v.expiresAt is string && v.expiresAt.matches('^\\d{4}-\\d{2}-\\d{2}$')));
+    }
+
+    function isValidEventVouchersList(list) {
+      return list is list && list.size() >= 0 && list.size() <= 100;
+    }
+
+    function isValidCampaignPaymentConfig(pc) {
+      return pc == null
+        || (pc is map
+          && (!('provider' in pc) || pc.provider in ['manual_pix', 'asaas'])
+          && (!('amount' in pc) || numericFieldPositive(pc.amount))
+          && (!('amountAssociado' in pc) || numericFieldPositive(pc.amountAssociado))
+          && (!('description' in pc) || (pc.description is string && pc.description.size() <= 200))
+          && (!('pixImageUrl' in pc) || (pc.pixImageUrl is string && pc.pixImageUrl.size() <= 2048))
+          && (!('pixCopyPaste' in pc) || (pc.pixCopyPaste is string && pc.pixCopyPaste.size() <= 4096))
+          && (!('pixObservationText' in pc) || (pc.pixObservationText is string && pc.pixObservationText.size() <= 2000)));
+    }
+
+    function campaignPaymentAndVouchersValidOnWrite() {
+      let d = request.resource.data;
+      let payOk = !d.keys().hasAny(['paymentConfig'])
+        || isValidCampaignPaymentConfig(d.get('paymentConfig', null));
+      let vouchersOk = !d.keys().hasAny(['vouchers'])
+        || isValidEventVouchersList(d.get('vouchers', []));
+      return payOk && vouchersOk;
     }
 
     // Uma leitura do evento: publicação, formulário ativo, limite e formato do payload.
@@ -158,9 +225,13 @@ service cloud.firestore {
 
     match /campaigns/{campaignId} {
       allow get, list: if true;
-      allow create: if isAdmin() && campaignRegistrationConfigValidOnWrite();
+      allow create: if isAdmin()
+        && campaignRegistrationConfigValidOnWrite()
+        && campaignPaymentAndVouchersValidOnWrite();
       allow delete: if isAdmin();
-      allow update: if (isAdmin() && campaignRegistrationConfigValidOnWrite()) || publicInscriptionWebCountIncrement();
+      allow update: if (isAdmin()
+        && campaignRegistrationConfigValidOnWrite()
+        && campaignPaymentAndVouchersValidOnWrite()) || publicInscriptionWebCountIncrement();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público).
       // Leitura pública: lista de inscritos e tela de credenciamento (somente leitura).

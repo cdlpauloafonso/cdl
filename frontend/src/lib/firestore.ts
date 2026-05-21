@@ -390,6 +390,30 @@ export async function listEventInscriptions(campaignId: string): Promise<(EventI
 }
 
 /** Atualização em tempo real (ex.: webhook Asaas grava paymentStatus no Firestore). */
+/** Listener em uma inscrição (checkout aguardando pagamento Asaas). */
+export function subscribeEventInscription(
+  campaignId: string,
+  inscriptionId: string,
+  onData: (row: (EventInscriptionRecord & { id: string }) | null) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  return onSnapshot(
+    ref,
+    (snap) => {
+      if (!snap.exists()) {
+        onData(null);
+        return;
+      }
+      onData({ id: snap.id, ...(snap.data() as EventInscriptionRecord) });
+    },
+    (err) => {
+      onError?.(err instanceof Error ? err : new Error(String(err)));
+    },
+  );
+}
+
 export function subscribeEventInscriptions(
   campaignId: string,
   onData: (rows: (EventInscriptionRecord & { id: string })[]) => void,

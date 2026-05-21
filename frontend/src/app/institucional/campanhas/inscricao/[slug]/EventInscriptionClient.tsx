@@ -41,13 +41,13 @@ import {
 } from '@/lib/inscription-payment-amount';
 import { normalizeVoucherCodeInput } from '@/lib/event-vouchers-admin';
 import { resolveVoucherForCharge } from '@/lib/event-voucher-utils';
-import { createAsaasInscriptionPayment } from '@/lib/asaas-api';
+import { createAsaasInscriptionPayment, type CreateInscriptionPaymentResponse } from '@/lib/asaas-api';
 import {
   applyInscriptionFieldMask,
   hasInscriptionFieldMask,
 } from '@/lib/input-masks-br';
 import { PixPaymentPublicBlock } from '@/components/PixPaymentPublicBlock';
-import { AsaasPaymentPublicBlock } from '@/components/AsaasPaymentPublicBlock';
+import { AsaasInscriptionCheckout } from '@/components/AsaasInscriptionCheckout';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { isCurrentUserAdmin } from '@/lib/admin-auth';
 import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
@@ -108,6 +108,9 @@ function inscriptionSubmitErrorMessage(err: unknown): string {
   if (msg === 'VOUCHER_INACTIVE') return 'Este voucher está inativo.';
   if (msg === 'VOUCHER_EXPIRED') return 'Este voucher expirou.';
   if (msg === 'VOUCHER_EXHAUSTED') return 'Este voucher atingiu o limite de utilizações.';
+  if (msg === 'ASAAS_PIX_QR_UNAVAILABLE') {
+    return 'Não foi possível gerar o QR Code PIX. Tente novamente ou use outra forma de pagamento.';
+  }
   if (msg === 'CAMPAIGN_NOT_PUBLISHED') {
     return 'Este evento ainda não está publicado. Faça login como administrador para testar a inscrição em rascunho.';
   }
@@ -272,9 +275,11 @@ export function EventInscriptionClient({
   const [cnpjStepDone, setCnpjStepDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  /** Checkout Asaas na própria página (antes do pagamento confirmado). */
+  const [asaasCheckout, setAsaasCheckout] = useState<CreateInscriptionPaymentResponse | null>(null);
+  const [inscriptionPaid, setInscriptionPaid] = useState(false);
   const [error, setError] = useState('');
   const [pixStepActive, setPixStepActive] = useState(false);
-  const [asaasInvoiceUrl, setAsaasInvoiceUrl] = useState<string | null>(null);
   /** Inscrição já gravada; nova tentativa só gera o pagamento Asaas. */
   const [pendingInscriptionId, setPendingInscriptionId] = useState<string | null>(null);
   const [completedInscriptionId, setCompletedInscriptionId] = useState<string | null>(null);
@@ -745,8 +750,12 @@ export function EventInscriptionClient({
           ...charge,
           voucherApplied: Boolean(voucherCode),
         });
-        const { invoiceUrl } = await createAsaasInscriptionPayment(slug, inscriptionId);
-        setAsaasInvoiceUrl(invoiceUrl);
+        const checkout = await createAsaasInscriptionPayment(slug, inscriptionId);
+        setAsaasCheckout(checkout);
+        setPendingInscriptionId(null);
+        setCompletedInscriptionId(inscriptionId);
+        setDone(true);
+        return;
       }
 
       setPendingInscriptionId(null);
@@ -807,67 +816,77 @@ export function EventInscriptionClient({
     });
   }
 
+  const showAsaasCheckout = done && payment.kind === 'asaas' && asaasCheckout && !inscriptionPaid;
+  const showSuccessAfterPayment =
+    done && (payment.kind !== 'asaas' || inscriptionPaid);
+  const showCheckInQr =
+    completedInscriptionId &&
+    (payment.kind !== 'asaas' || inscriptionPaid);
+
   if (done) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
         <div className="container-cdl max-w-lg">
           <div
-            className={`rounded-xl border px-6 py-10 text-center ${
-              payment.kind === 'asaas' && asaasInvoiceUrl
-                ? 'border-cdl-blue/25 bg-white'
-                : 'border-green-200 bg-green-50'
+            className={`rounded-xl border px-6 py-10 ${
+              showAsaasCheckout
+                ? 'border-cdl-blue/25 bg-white text-left'
+                : showSuccessAfterPayment
+                  ? 'border-green-200 bg-green-50 text-center'
+                  : 'border-cdl-blue/25 bg-white text-center'
             }`}
           >
-            <p
-              className={`text-sm font-medium mb-2 ${
-                payment.kind === 'asaas' && asaasInvoiceUrl ? 'text-cdl-blue' : 'text-green-800'
-              }`}
-            >
-              {payment.kind === 'asaas' && asaasInvoiceUrl
-                ? 'Inscrição registrada — finalize o pagamento'
-                : 'Inscrição registrada'}
-            </p>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
-            {payment.kind === 'asaas' && asaasInvoiceUrl ? (
+            {showAsaasCheckout ? (
               <>
-                <p className="text-cdl-gray-text mb-6 text-left sm:text-center">
-                  Seus dados foram salvos. Para confirmar a participação, conclua o pagamento de{' '}
-                  <strong>
-                    {formatPaymentAmountBrl(
-                      completedAsaasCharge?.amount ?? payment.amountNormal,
-                    )}
-                  </strong>
+                <p className="text-sm font-medium text-cdl-blue mb-2">Inscrição registrada — pagamento</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{campanha.title}</h1>
+                <p className="text-cdl-gray-text mb-6 text-sm">
+                  Seus dados foram salvos. Conclua o pagamento abaixo para confirmar sua participação.
                   {completedAsaasCharge?.tier === 'associado' ? (
-                    <span className="text-cdl-blue"> (tarifa associado CDL)</span>
-                  ) : null}{' '}
-                  pelo link abaixo.
+                    <span className="text-cdl-blue"> Tarifa de associado CDL aplicada.</span>
+                  ) : null}
                 </p>
-                <AsaasPaymentPublicBlock
-                  amount={completedAsaasCharge?.amount ?? payment.amountNormal}
+                <AsaasInscriptionCheckout
+                  campaignId={slug}
+                  inscriptionId={completedInscriptionId!}
+                  amount={completedAsaasCharge?.amount ?? asaasCheckout.amount}
                   description={payment.description}
-                  invoiceUrl={asaasInvoiceUrl}
-                  className="text-left mb-6"
+                  invoiceUrl={asaasCheckout.invoiceUrl}
+                  pix={asaasCheckout.pix}
+                  className="mb-2"
+                  onPaid={() => setInscriptionPaid(true)}
                 />
+                <p className="mt-6 text-xs text-cdl-gray-text text-center">
+                  O QR Code de credenciamento será exibido após a confirmação do pagamento.
+                </p>
               </>
-            ) : (
-              <p className="text-cdl-gray-text mb-6">
-                Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.
-              </p>
-            )}
-            {completedInscriptionId ? (
-              <EventInscriptionCheckInQr
-                eventId={slug}
-                inscriptionId={completedInscriptionId}
-                participantLabel={inscriptionDisplayLabel(values)}
-                className="mb-6 text-left"
-              />
+            ) : showSuccessAfterPayment ? (
+              <>
+                <p className="text-sm font-medium text-green-800 mb-2">
+                  {payment.kind === 'asaas' ? 'Pagamento confirmado' : 'Inscrição registrada'}
+                </p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
+                <p className="text-cdl-gray-text mb-6">
+                  {payment.kind === 'asaas'
+                    ? 'Sua inscrição e pagamento foram confirmados. Apresente o QR Code abaixo na entrada do evento.'
+                    : 'Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.'}
+                </p>
+                {showCheckInQr ? (
+                  <EventInscriptionCheckInQr
+                    eventId={slug}
+                    inscriptionId={completedInscriptionId}
+                    participantLabel={inscriptionDisplayLabel(values)}
+                    className="mb-6 text-left"
+                  />
+                ) : null}
+                <Link
+                  href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+                  className="btn-primary inline-block"
+                >
+                  Voltar ao evento
+                </Link>
+              </>
             ) : null}
-            <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
-              className="btn-primary inline-block"
-            >
-              Voltar ao evento
-            </Link>
           </div>
         </div>
       </div>

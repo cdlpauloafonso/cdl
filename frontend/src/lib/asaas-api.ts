@@ -18,10 +18,19 @@ export type AsaasIntegrationStatus = {
   environment: string;
 };
 
+export type InscriptionPaymentPixCheckout = {
+  encodedImage: string;
+  payload: string;
+  expirationDate?: string;
+};
+
 export type CreateInscriptionPaymentResponse = {
   paymentId: string;
   invoiceUrl: string;
   customerId: string;
+  amount: number;
+  paymentStatus: string;
+  pix: InscriptionPaymentPixCheckout;
 };
 
 export type AsaasIntegrationPublic = {
@@ -144,7 +153,7 @@ export async function createAsaasInscriptionPayment(
   if (!res.ok) {
     throw new Error(data.error ?? 'Não foi possível gerar o link de pagamento.');
   }
-  if (!data.invoiceUrl || !data.paymentId) {
+  if (!data.invoiceUrl || !data.paymentId || !data.pix?.payload || !data.pix?.encodedImage) {
     throw new Error('Resposta inválida do servidor de pagamento.');
   }
   return data as CreateInscriptionPaymentResponse;

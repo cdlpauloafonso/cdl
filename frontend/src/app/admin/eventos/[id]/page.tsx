@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  countEventInscriptions,
   deleteCampaignById,
   getCampaign,
   listEventInscriptions,
+  subscribeEventInscriptions,
   updateCampaign,
   type Campaign,
   type EventInscriptionRecord,
@@ -27,6 +27,10 @@ import {
 import { getEffectivePayment, type EffectivePayment } from '@/lib/event-payment-fields';
 import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
+  pickUltimosCredenciados,
+  pickUltimosInscritos,
+} from '@/lib/event-inscription-sort';
+import {
   EVENT_ADMIN_LIST_PATH,
   eventDetailsPath,
   eventSubPageHref,
@@ -38,21 +42,14 @@ import { AdminSensitiveConfirmModal } from '@/components/ui/AdminSensitiveConfir
 const ULTIMOS_INSCRITOS_LIMITE = 5;
 const ULTIMOS_CREDENCIADOS_LIMITE = 5;
 
-function pickUltimosInscritos(lista: (EventInscriptionRecord & { id: string })[]) {
-  return [...lista]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, ULTIMOS_INSCRITOS_LIMITE);
-}
-
-function pickUltimosCredenciados(lista: (EventInscriptionRecord & { id: string })[]) {
-  return lista
-    .filter(isInscriptionCredentialed)
-    .sort((a, b) => {
-      const ta = new Date(a.credentialedAt ?? 0).getTime() || 0;
-      const tb = new Date(b.credentialedAt ?? 0).getTime() || 0;
-      return tb - ta;
-    })
-    .slice(0, ULTIMOS_CREDENCIADOS_LIMITE);
+function applyInscriptionLists(lista: (EventInscriptionRecord & { id: string })[]) {
+  const credenciados = lista.filter(isInscriptionCredentialed);
+  return {
+    inscritos: lista.length,
+    ultimosInscritos: pickUltimosInscritos(lista, ULTIMOS_INSCRITOS_LIMITE),
+    totalCredenciados: credenciados.length,
+    ultimosCredenciados: pickUltimosCredenciados(lista, ULTIMOS_CREDENCIADOS_LIMITE),
+  };
 }
 
 function formatDateTimeCompact(iso: string): string {
@@ -179,6 +176,16 @@ export default function AdminEventoDetalhePage() {
       return;
     }
     let mounted = true;
+    let unsubInscriptions: (() => void) | undefined;
+
+    function syncInscriptionLists(lista: (EventInscriptionRecord & { id: string })[]) {
+      const applied = applyInscriptionLists(lista);
+      setInscritos(applied.inscritos);
+      setUltimosInscritos(applied.ultimosInscritos);
+      setTotalCredenciados(applied.totalCredenciados);
+      setUltimosCredenciados(applied.ultimosCredenciados);
+    }
+
     (async () => {
       try {
         const ev = await getCampaign(eventId);
@@ -188,31 +195,40 @@ export default function AdminEventoDetalhePage() {
           return;
         }
         setEvento(ev);
-        if (hasEventFormRegistration(ev)) {
-          try {
-            const [total, lista] = await Promise.all([
-              countEventInscriptions(eventId),
-              listEventInscriptions(eventId),
-            ]);
-            if (mounted) {
-              const credenciados = lista.filter(isInscriptionCredentialed);
-              setInscritos(total);
-              setUltimosInscritos(pickUltimosInscritos(lista));
-              setTotalCredenciados(credenciados.length);
-              setUltimosCredenciados(pickUltimosCredenciados(lista));
-            }
-          } catch {
-            if (mounted) {
-              setInscritos(0);
-              setUltimosInscritos([]);
-              setTotalCredenciados(0);
-              setUltimosCredenciados([]);
-            }
+        if (!hasEventFormRegistration(ev)) {
+          if (mounted) {
+            setInscritos(0);
+            setUltimosInscritos([]);
+            setTotalCredenciados(0);
+            setUltimosCredenciados([]);
           }
-        } else if (mounted) {
-          setUltimosInscritos([]);
-          setTotalCredenciados(0);
-          setUltimosCredenciados([]);
+          return;
+        }
+
+        unsubInscriptions = subscribeEventInscriptions(
+          eventId,
+          (lista) => {
+            if (!mounted) return;
+            syncInscriptionLists(lista);
+          },
+          () => {
+            if (!mounted) return;
+            setUltimosInscritos([]);
+            setTotalCredenciados(0);
+            setUltimosCredenciados([]);
+          },
+        );
+
+        try {
+          const lista = await listEventInscriptions(eventId);
+          if (mounted) syncInscriptionLists(lista);
+        } catch {
+          if (mounted) {
+            setInscritos(0);
+            setUltimosInscritos([]);
+            setTotalCredenciados(0);
+            setUltimosCredenciados([]);
+          }
         }
       } catch {
         if (mounted) setError('Erro ao carregar evento');
@@ -220,8 +236,10 @@ export default function AdminEventoDetalhePage() {
         if (mounted) setLoading(false);
       }
     })();
+
     return () => {
       mounted = false;
+      unsubInscriptions?.();
     };
   }, [eventId]);
 
