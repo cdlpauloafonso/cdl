@@ -277,12 +277,13 @@ export default function AdminEventoCertificadosPage() {
       return;
     }
 
-    if ('skipped' in result && result.skipped) {
-      setInfo(result.error);
-      return;
+    if (!result.ok) {
+      if (result.skipped) {
+        setInfo(result.error);
+      } else {
+        setError(result.error);
+      }
     }
-
-    setError(result.error);
   }
 
   async function handleSendSelected() {
