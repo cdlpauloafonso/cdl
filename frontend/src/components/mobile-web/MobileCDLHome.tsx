@@ -7,7 +7,8 @@ import { usePathname } from 'next/navigation';
 import { getMarketingSiteHomeAbsoluteUrl, resolveAppShellHref, segmentFromMobilePathname, shouldUseNativeAnchorForMobileNav, coerceToAppRelativePath } from '@/lib/mobile-shell-links';
 import { HOME_PAGE_STATS } from '@/constants/home-stats';
 import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
-import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore } from '@/lib/firestore';
+import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore, type Campaign } from '@/lib/firestore';
+import { listAppCredentialingCampaigns } from '@/lib/credentialing-app';
 import { MobileHomeFixedBlueBackdrop } from '@/components/mobile-web/MobileHomeFixedBlueBackdrop';
 
 type HeroSlideVM = {
@@ -199,6 +200,7 @@ export function MobileCDLHome() {
 
   const [slides, setSlides] = useState<HeroSlideVM[]>(MOCK_SLIDES);
   const [news, setNews] = useState<NewsItemFirestore[]>([]);
+  const [credentialingEvents, setCredentialingEvents] = useState<Campaign[]>([]);
   const [feedError, setFeedError] = useState(false);
 
   useEffect(() => {
@@ -206,9 +208,10 @@ export function MobileCDLHome() {
 
     (async () => {
       try {
-        const [carousel, newsRows] = await Promise.all([
+        const [carousel, newsRows, credEvents] = await Promise.all([
           listCarouselSlides().catch(() => [] as CarouselSlide[]),
           listNews(true, 24).catch(() => [] as NewsItemFirestore[]),
+          listAppCredentialingCampaigns().catch(() => [] as Campaign[]),
         ]);
         if (cancelled) return;
 
@@ -224,6 +227,7 @@ export function MobileCDLHome() {
           return tb - ta;
         });
         setNews(sortedNews.slice(0, 6));
+        setCredentialingEvents(credEvents);
         setFeedError(false);
       } catch {
         if (!cancelled) {
@@ -363,6 +367,38 @@ export function MobileCDLHome() {
 
       <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
         <div className="flex flex-1 flex-col">
+        {credentialingEvents.length > 0 && (
+          <section className="mb-6 space-y-2">
+            <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Credenciamento
+            </p>
+            {credentialingEvents.map((ev) => {
+              const eventId = ev.id ?? '';
+              const title = (ev.title || 'Evento').trim();
+              const href = eventId ? mobileAppShellHref(`/eventos/${eventId}/credenciamento`) : '#';
+              return (
+                <div
+                  key={eventId || title}
+                  className="flex items-center gap-3 rounded-xl border border-emerald-200/90 bg-white px-3 py-3 shadow-sm shadow-slate-900/[0.04]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-900">{title}</p>
+                  </div>
+                  {eventId ? (
+                    <Link
+                      href={href}
+                      prefetch={false}
+                      className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
+                    >
+                      Credenciar
+                    </Link>
+                  ) : null}
+                </div>
+              );
+            })}
+          </section>
+        )}
+
         <div className="grid grid-cols-3 gap-2">
           {QUICK_TILES.map((tile) => (
             <Link

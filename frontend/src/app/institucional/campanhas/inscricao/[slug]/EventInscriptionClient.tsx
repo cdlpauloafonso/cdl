@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   createEventInscription,
+  CPF_ALREADY_REGISTERED_ERROR,
   getCampaign,
+  getEventInscription,
+  isCpfAlreadyRegisteredForEvent,
   getSettings,
   isInscriptionLimitReachedError,
   isRegistrationClosedError,
@@ -29,6 +32,7 @@ import {
   isInscriptionFieldOptional,
   labelForInscriptionField,
   canOfferInscricaoComCpf,
+  eventRequiresUniqueCpfInscription,
   needsCnpjInscriptionStep,
   PADRAO_INSCRIPTION_FIELDS,
   sortInscriptionFieldKeys,
@@ -51,6 +55,7 @@ import {
   hasInscriptionFieldMask,
 } from '@/lib/input-masks-br';
 import { PixPaymentPublicBlock } from '@/components/PixPaymentPublicBlock';
+import { normalizeInscriptionPaymentStatus } from '@/lib/inscription-payment-status';
 import { AsaasInscriptionCheckout } from '@/components/AsaasInscriptionCheckout';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { isCurrentUserAdmin } from '@/lib/admin-auth';
@@ -117,6 +122,9 @@ function inscriptionSubmitErrorMessage(err: unknown): string {
   }
   if (msg === 'CAMPAIGN_NOT_PUBLISHED') {
     return 'Este evento ainda não está publicado. Faça login como administrador para testar a inscrição em rascunho.';
+  }
+  if (msg === CPF_ALREADY_REGISTERED_ERROR) {
+    return 'Este CPF já possui inscrição neste evento. Cada CPF pode se inscrever apenas uma vez.';
   }
   if (msg.includes('Não foi possível gerar o link') || msg.includes('servidor de pagamento')) {
     return msg;
@@ -287,9 +295,12 @@ function cardHolderPrefillFromInscription(values: Record<string, string>): Inscr
 export function EventInscriptionClient({
   slug,
   previewRequested = false,
+  resumeInscriptionId,
 }: {
   slug: string;
   previewRequested?: boolean;
+  /** Retoma checkout Asaas ou confirmação após inscrição já gravada (link do credenciamento no app). */
+  resumeInscriptionId?: string;
 }) {
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -324,6 +335,7 @@ export function EventInscriptionClient({
   const cnpjLookupReq = useRef(0);
   const [adminOk, setAdminOk] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(Boolean(resumeInscriptionId?.trim()));
 
   useEffect(() => {
     let mounted = true;
@@ -353,6 +365,73 @@ export function EventInscriptionClient({
       mounted = false;
     };
   }, [slug]);
+
+  useEffect(() => {
+    const inscId = resumeInscriptionId?.trim();
+    if (!inscId || !campanha || loading) return;
+
+    let cancelled = false;
+    (async () => {
+      setResumeLoading(true);
+      setError('');
+      try {
+        const row = await getEventInscription(slug, inscId);
+        if (cancelled) return;
+        if (!row) {
+          setError('Inscrição não encontrada.');
+          return;
+        }
+
+        setValues(row.fields ?? {});
+        const paymentCfg = getEffectivePayment(campanha);
+        const status = normalizeInscriptionPaymentStatus(row);
+
+        if (paymentCfg.kind === 'none' || status === 'paid') {
+          setCompletedInscriptionId(inscId);
+          setInscriptionPaid(true);
+          setDone(true);
+          return;
+        }
+
+        setCompletedInscriptionId(inscId);
+        setPendingInscriptionId(inscId);
+
+        if (paymentCfg.kind === 'asaas') {
+          const tier: InscriptionPaymentTier =
+            row.paymentAmountTier === 'associado' ? 'associado' : 'normal';
+          setAssociadoPaymentTier(tier === 'associado');
+          if (row.voucherCode) setVoucherCodeInput(row.voucherCode);
+          const charge = resolveInscriptionChargeAmount(paymentCfg, tier === 'associado');
+          setCompletedAsaasCharge({
+            amount:
+              typeof row.paymentAmountApplied === 'number' && row.paymentAmountApplied > 0
+                ? row.paymentAmountApplied
+                : charge.amount,
+            tier,
+            voucherApplied: Boolean(row.voucherCode),
+          });
+          const checkout = await createAsaasInscriptionPayment(slug, inscId);
+          if (cancelled) return;
+          setAsaasCheckout(checkout);
+          setDone(true);
+          return;
+        }
+
+        if (paymentCfg.kind === 'pix') {
+          setPixStepActive(true);
+          setDone(true);
+        }
+      } catch (err) {
+        if (!cancelled) setError(inscriptionSubmitErrorMessage(err));
+      } finally {
+        if (!cancelled) setResumeLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeInscriptionId, campanha, loading, slug]);
 
   useEffect(() => {
     if (!campanha?.title) return;
@@ -391,7 +470,7 @@ export function EventInscriptionClient({
 
   const isDraftPreview = adminOk && campanha?.published === false;
 
-  if (loading || !authChecked) {
+  if (loading || resumeLoading || !authChecked) {
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30 min-h-[50vh]">
         <div className="container-cdl max-w-2xl animate-pulse">
@@ -691,6 +770,26 @@ export function EventInscriptionClient({
       if (!values[key]?.trim()) {
         setError(`Preencha o campo: ${labelForInscriptionField(key)}`);
         return false;
+      }
+    }
+    if (campanha && eventRequiresUniqueCpfInscription(campanha)) {
+      const fieldsPreview = buildEventInscriptionFieldsPayload(userInputKeys, values, {
+        viaCpf: inscricaoViaCpf,
+        documentMode: inscriptionDocumentMode,
+      });
+      const cpf = fieldsPreview.cpf;
+      if (cpf) {
+        try {
+          const taken = await isCpfAlreadyRegisteredForEvent(slug, cpf);
+          if (taken) {
+            setError(
+              'Este CPF já possui inscrição neste evento. Cada CPF pode se inscrever apenas uma vez.',
+            );
+            return false;
+          }
+        } catch {
+          /* validação definitiva na transação ao gravar */
+        }
       }
     }
     return true;

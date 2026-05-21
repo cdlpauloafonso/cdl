@@ -1,3 +1,4 @@
+import type { EffectivePayment } from './event-payment-fields';
 import type { EventInscriptionPaymentStatus, EventInscriptionRecord } from './firestore';
 
 export function normalizeInscriptionPaymentStatus(
@@ -25,6 +26,16 @@ export function paymentStatusLabel(status: EventInscriptionPaymentStatus): strin
 
 export function isAsaasManagedInscription(row: EventInscriptionRecord): boolean {
   return row.paymentProvider === 'asaas' || Boolean(row.asaasPaymentId);
+}
+
+/** Evento com cobrança configurada e inscrição ainda sem confirmação de pagamento. */
+export function isInscriptionPaymentPending(
+  row: Pick<EventInscriptionRecord, 'paymentStatus'>,
+  payment: EffectivePayment,
+): boolean {
+  if (payment.kind === 'none') return false;
+  if (payment.kind === 'pix') return false;
+  return normalizeInscriptionPaymentStatus(row) !== 'paid';
 }
 
 export function paymentStatusBadgeClass(status: EventInscriptionPaymentStatus): string {

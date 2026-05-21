@@ -2,6 +2,10 @@ import { getApps } from 'firebase/app';
 import { onlyDigitsCnpj } from './brasil-api-cnpj';
 import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
 import { normalizeVoucherCodeInput } from './event-vouchers-admin';
+import {
+  eventRequiresUniqueCpfInscription,
+  normalizeInscriptionCpfDigits,
+} from './event-registration-fields';
 import { initFirebase } from './firebase';
 import {
   getFirestore,
@@ -148,6 +152,11 @@ export type Campaign = {
    * Ausente ou `true` = publicado (compatível com registros antigos).
    */
   published?: boolean;
+  /**
+   * Quando `true`, o evento aparece na home do app (/m/…) com botão «Credenciar».
+   * Requer inscrição por formulário e evento publicado.
+   */
+  credentialingOnApp?: boolean;
 };
 
 /** Informativos: comunicados e avisos importantes */
@@ -286,6 +295,14 @@ export type EventInscriptionRecord = {
 /** Limite atingido (UI e transação). */
 export const INSCRIPTION_LIMIT_REACHED_ERROR = 'INSCRIPTION_LIMIT_REACHED';
 
+export const CPF_ALREADY_REGISTERED_ERROR = 'CPF_ALREADY_REGISTERED';
+
+export function isCpfAlreadyRegisteredError(err: unknown): boolean {
+  if (err instanceof Error && err.message === CPF_ALREADY_REGISTERED_ERROR) return true;
+  const s = err instanceof Error ? err.message : String(err);
+  return s.includes(CPF_ALREADY_REGISTERED_ERROR);
+}
+
 /** Inscrição encerrada pelo admin (`registrationClosed`). */
 export const REGISTRATION_CLOSED_ERROR = 'REGISTRATION_CLOSED';
 
@@ -352,32 +369,78 @@ export async function createEventInscription(
 
   const voucherCode = options?.voucherCode?.trim();
   const newInscRef = doc(inscricoesCol);
+  const createdAt = new Date().toISOString();
   const record: EventInscriptionRecord = {
-    createdAt: new Date().toISOString(),
+    createdAt,
     fields,
     ...(options?.paymentStatus ? { paymentStatus: options.paymentStatus } : {}),
     ...(options?.paymentProvider ? { paymentProvider: options.paymentProvider } : {}),
     ...(voucherCode ? { voucherCode: normalizeVoucherCodeInput(voucherCode) } : {}),
   };
 
+  const enforceUniqueCpf = eventRequiresUniqueCpfInscription(camp);
+  const cpfDigits = enforceUniqueCpf ? normalizeInscriptionCpfDigits(fields) : null;
+
   try {
-    await setDoc(newInscRef, record);
+    if (cpfDigits) {
+      const cpfRef = doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits);
+      await runTransaction(db, async (tx) => {
+        const cpfSnap = await tx.get(cpfRef);
+        if (cpfSnap.exists()) {
+          throw new Error(CPF_ALREADY_REGISTERED_ERROR);
+        }
+        tx.set(cpfRef, { inscriptionId: newInscRef.id, createdAt });
+        tx.set(newInscRef, record);
+        if (limit != null) {
+          tx.update(campaignRef, { inscriptionWebCount: current + 1 });
+        }
+      });
+    } else {
+      await setDoc(newInscRef, record);
+      if (limit != null) {
+        try {
+          await updateDoc(campaignRef, { inscriptionWebCount: current + 1 });
+        } catch {
+          /* contador pode ser ressincronizado no admin */
+        }
+      }
+    }
   } catch (err) {
+    if (err instanceof Error && err.message === CPF_ALREADY_REGISTERED_ERROR) {
+      throw err;
+    }
     if (isFirestorePermissionDenied(err)) {
       throw new Error('INSCRIPTION_PERMISSION_DENIED');
     }
     throw err;
   }
 
-  if (limit != null) {
-    try {
-      await updateDoc(campaignRef, { inscriptionWebCount: current + 1 });
-    } catch {
-      // Inscrição já gravada; contador pode ser ressincronizado no admin.
-    }
-  }
-
   return newInscRef.id;
+}
+
+/** Verifica se o CPF já possui inscrição neste evento (quando a opção CPF está ativa). */
+export async function isCpfAlreadyRegisteredForEvent(
+  campaignId: string,
+  cpfRaw: string,
+): Promise<boolean> {
+  const digits = cpfRaw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length !== 11) return false;
+  const db = getDb();
+  const cpfRef = doc(db, 'campaigns', campaignId, 'inscricoesByCpf', digits);
+  const snap = await getDoc(cpfRef);
+  return snap.exists();
+}
+
+/** Uma inscrição do evento (credenciamento / retomar pagamento). */
+export async function getEventInscription(
+  campaignId: string,
+  inscriptionId: string,
+): Promise<(EventInscriptionRecord & { id: string }) | null> {
+  const db = getDb();
+  const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as EventInscriptionRecord) };
 }
 
 /** Lista inscrições de um evento (painel admin / relatórios). */
@@ -501,7 +564,16 @@ export async function updateEventInscriptionFields(
 export async function deleteEventInscription(campaignId: string, inscriptionId: string): Promise<void> {
   const db = getDb();
   const ref = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
-  await deleteDoc(ref);
+  const snap = await getDoc(ref);
+  const cpfDigits = snap.exists()
+    ? normalizeInscriptionCpfDigits((snap.data() as EventInscriptionRecord).fields ?? {})
+    : null;
+  const batch = writeBatch(db);
+  batch.delete(ref);
+  if (cpfDigits) {
+    batch.delete(doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits));
+  }
+  await batch.commit();
 }
 
 export async function countEventInscriptions(campaignId: string): Promise<number> {

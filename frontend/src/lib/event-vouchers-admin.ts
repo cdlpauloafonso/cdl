@@ -45,11 +45,14 @@ export function loadEventVoucherDraftsFromCampaign(campaign?: Pick<Campaign, 'vo
     discountType: v.discountType === 'fixed' ? 'fixed' : 'percent',
     discountValue:
       v.discountType === 'fixed'
-        ? v.discountValue > 0
-          ? v.discountValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ? Number(v.discountValue) > 0
+          ? Number(v.discountValue).toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
           : ''
-        : v.discountValue > 0
-          ? String(Math.round(v.discountValue))
+        : Number(v.discountValue) > 0
+          ? String(Math.round(Number(v.discountValue)))
           : '',
     maxUses: v.maxUses != null && v.maxUses > 0 ? String(v.maxUses) : '',
     expiresAt: v.expiresAt ?? '',
@@ -119,10 +122,14 @@ export function buildEventVouchersForSave(
   return drafts.map((d) => {
     const code = normalizeVoucherCodeInput(d.code);
     const prev = existingById.get(d.id);
-    const discountValue =
+    const discountValueRaw =
       d.discountType === 'percent'
-        ? (parsePercentInput(d.discountValue) as number)
-        : (parsePaymentAmountInput(d.discountValue) as number);
+        ? parsePercentInput(d.discountValue)
+        : parsePaymentAmountInput(d.discountValue);
+    if (discountValueRaw == null) {
+      throw new Error('INVALID_VOUCHER_DRAFT');
+    }
+    const discountValue = discountValueRaw;
     const maxUses = parseMaxUsesInput(d.maxUses);
     const expiresAt = d.expiresAt.trim() || undefined;
     const label = d.label.trim() || undefined;
@@ -141,8 +148,22 @@ export function buildEventVouchersForSave(
 }
 
 export function formatVoucherDiscountSummary(v: Pick<EventVoucher, 'discountType' | 'discountValue'>): string {
+  const val = Number(v.discountValue);
+  if (!Number.isFinite(val) || val <= 0) return '—';
   if (v.discountType === 'percent') {
-    return `${Math.round(v.discountValue)}%`;
+    return `${Math.round(val)}%`;
   }
-  return v.discountValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Resumo do desconto enquanto o admin preenche o rascunho (evita crash com campos vazios). */
+export function formatVoucherDraftDiscountPreview(d: EventVoucherDraft): string | null {
+  if (d.discountType === 'percent') {
+    const n = parsePercentInput(d.discountValue);
+    if (n == null) return null;
+    return `${n}%`;
+  }
+  const amount = parsePaymentAmountInput(d.discountValue);
+  if (amount == null) return null;
+  return amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }

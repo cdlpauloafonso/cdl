@@ -10,6 +10,7 @@ function EventInscriptionByQueryContent() {
   const searchParams = useSearchParams();
   const slug = (searchParams.get('slug') ?? searchParams.get('id') ?? '').trim();
   const previewRequested = isCampaignPreviewRequested(searchParams.get('preview'));
+  const resumeInscriptionId = (searchParams.get('inscriptionId') ?? searchParams.get('inscricao') ?? '').trim();
 
   if (!slug) {
     return (
@@ -26,7 +27,13 @@ function EventInscriptionByQueryContent() {
     );
   }
 
-  return <EventInscriptionClient slug={slug} previewRequested={previewRequested} />;
+  return (
+    <EventInscriptionClient
+      slug={slug}
+      previewRequested={previewRequested}
+      resumeInscriptionId={resumeInscriptionId || undefined}
+    />
+  );
 }
 
 export default function EventInscriptionByQueryPage() {

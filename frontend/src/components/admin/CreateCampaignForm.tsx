@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createCampaign } from '@/lib/firestore';
+import { createCampaign, ensureCredentialingAccessToken } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
@@ -73,6 +73,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [voucherDrafts, setVoucherDrafts] = useState<EventVoucherDraft[]>([]);
   /** Apenas eventos: salvar já publicado no site (padrão: sim). */
   const [publishOnSite, setPublishOnSite] = useState(true);
+  /** Apenas eventos: botão «Credenciar» na home do app. */
+  const [credentialingOnApp, setCredentialingOnApp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -180,14 +182,19 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
       const vouchersBuilt =
         variant === 'event' ? buildEventVouchersForSave(voucherDrafts) : undefined;
 
-      await createCampaign({
+      const newId = await createCampaign({
         title,
         description,
         fullDescription: fullDescription || undefined,
         date: date || undefined,
         category: category || undefined,
         image: imageUrl || undefined,
-        ...(variant === 'event' ? { published: publishOnSite } : {}),
+        ...(variant === 'event'
+          ? {
+              published: publishOnSite,
+              ...(credentialingOnApp ? { credentialingOnApp: true } : {}),
+            }
+          : {}),
         ...(variant === 'event' && wantsRegistrationLink
           ? {
               registrationConfig:
@@ -210,6 +217,9 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         ...(paymentConfig ? { paymentConfig } : {}),
         ...(vouchersBuilt && vouchersBuilt.length > 0 ? { vouchers: vouchersBuilt } : {}),
       });
+      if (variant === 'event' && credentialingOnApp && newId) {
+        await ensureCredentialingAccessToken(newId);
+      }
       router.push(c.successPath);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : c.errorCreate;
@@ -448,7 +458,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
           </>
         )}
         {variant === 'event' && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
@@ -460,6 +470,21 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                 <span className="block text-sm font-medium text-gray-900">Publicar no site</span>
                 <span className="mt-1 block text-xs text-cdl-gray-text">
                   Desmarque para guardar o evento como rascunho (visível apenas no painel até você publicar na edição).
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 border-t border-gray-200/80 pt-3">
+              <input
+                type="checkbox"
+                className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+                checked={credentialingOnApp}
+                onChange={(e) => setCredentialingOnApp(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+                <span className="mt-1 block text-xs text-cdl-gray-text">
+                  Quando ativo, exibe na home do app um atalho com o nome do evento e o botão «Credenciar» (somente no
+                  aplicativo).
                 </span>
               </span>
             </label>

@@ -115,6 +115,8 @@ const APP_SHELL_ROUTE_PREFIXES = [
   '/associe-se',
   '/servicos/beneficios-associados',
   '/institucional/campanhas/ver',
+  '/institucional/campanhas/inscricao',
+  '/eventos',
 ] as const;
 
 /**

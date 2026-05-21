@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getCampaign, updateCampaign, countEventInscriptions, Campaign } from '@/lib/firestore';
+import {
+  getCampaign,
+  updateCampaign,
+  countEventInscriptions,
+  ensureCredentialingAccessToken,
+  Campaign,
+} from '@/lib/firestore';
+import { hasEventFormRegistration } from '@/lib/event-registration-fields';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
 import { EventVouchersSection } from '@/components/admin/EventVouchersSection';
@@ -243,6 +250,7 @@ export default function AdminCampanhaEditByQueryPage() {
 
       await updateCampaign(id, {
         ...rest,
+        credentialingOnApp: campanha.credentialingOnApp === true,
         ...(inscriptionWebCountSync !== undefined ? { inscriptionWebCount: inscriptionWebCountSync } : {}),
         ...(wantsRegistrationLink
           ? registrationMode === 'external'
@@ -271,6 +279,9 @@ export default function AdminCampanhaEditByQueryPage() {
           ? { vouchers: vouchersBuilt }
           : { vouchers: null }),
       });
+      if (campanha.credentialingOnApp === true) {
+        await ensureCredentialingAccessToken(id);
+      }
       router.push('/admin/eventos');
     } catch {
       setError('Erro ao salvar evento');
@@ -604,7 +615,7 @@ export default function AdminCampanhaEditByQueryPage() {
                 onPixObservationTextChange={setPixObservationText}
               />
               <EventVouchersSection vouchers={voucherDrafts} onVouchersChange={setVoucherDrafts} />
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
                     id="edit-published-event"
@@ -620,6 +631,27 @@ export default function AdminCampanhaEditByQueryPage() {
                     </span>
                   </span>
                 </label>
+                {hasEventFormRegistration(campanha) && (
+                  <label className="flex cursor-pointer items-start gap-3 border-t border-gray-200/80 pt-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+                      checked={campanha.credentialingOnApp === true}
+                      disabled={campanha.published === false}
+                      onChange={(e) =>
+                        setCampanha({ ...campanha, credentialingOnApp: e.target.checked })
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+                      <span className="mt-1 block text-xs text-cdl-gray-text">
+                        {campanha.published === false
+                          ? 'Publique o evento no site para ativar o atalho na home do app.'
+                          : 'Quando ativo, exibe na home do app o nome do evento e o botão «Credenciar».'}
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
           </div>

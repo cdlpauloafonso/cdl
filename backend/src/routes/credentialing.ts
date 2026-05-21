@@ -2,11 +2,60 @@ import { Router } from 'express';
 import { getCampaignDoc } from '../lib/inscription-firestore.js';
 import {
   assertCredentialingToken,
+  campaignHasFormRegistration,
+  createCredentialingGateSession,
+  ensureCredentialingAccessToken,
   getCredentialingAccessToken,
   setInscriptionCredentialed,
 } from '../lib/credentialing-access.js';
+import { isValidMobileWebviewToken } from '../lib/mobile-webview-token.js';
 
 const router = Router();
+
+/** Sessão de credenciamento para o app (/m/…), sem expor o token do link público. */
+router.post('/credentialing/app-session', async (req, res) => {
+  const eventId = String(req.body?.eventId ?? '').trim();
+  const mobileToken = String(req.body?.mobileToken ?? '').trim();
+  if (!eventId || !mobileToken) {
+    res.status(400).json({ ok: false, error: 'eventId e mobileToken são obrigatórios.' });
+    return;
+  }
+  if (!isValidMobileWebviewToken(mobileToken)) {
+    res.status(403).json({ ok: false, error: 'Acesso não autorizado.' });
+    return;
+  }
+
+  try {
+    const camp = await getCampaignDoc(eventId);
+    if (!camp) {
+      res.status(404).json({ ok: false, error: 'Evento não encontrado.' });
+      return;
+    }
+    if (camp.credentialingOnApp !== true) {
+      res.status(403).json({ ok: false, error: 'Credenciamento no app não está ativo para este evento.' });
+      return;
+    }
+    if (camp.published === false) {
+      res.status(403).json({ ok: false, error: 'Evento não publicado.' });
+      return;
+    }
+    if (!campaignHasFormRegistration(camp)) {
+      res.status(403).json({ ok: false, error: 'Este evento não utiliza inscrição por formulário.' });
+      return;
+    }
+
+    const accessToken = await ensureCredentialingAccessToken(eventId);
+    const sessionId = await createCredentialingGateSession(eventId, accessToken);
+    res.json({ ok: true, sessionId, eventTitle: camp.title ?? '' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '';
+    if (message === 'FIREBASE_ADMIN_NOT_CONFIGURED') {
+      res.status(503).json({ ok: false, error: 'Servidor indisponível para credenciamento.' });
+      return;
+    }
+    res.status(500).json({ ok: false, error: 'Não foi possível abrir o credenciamento.' });
+  }
+});
 
 /** Valida token do link público de credenciamento (sem expor o segredo). */
 router.get('/events/:campaignId/credentialing/session', async (req, res) => {

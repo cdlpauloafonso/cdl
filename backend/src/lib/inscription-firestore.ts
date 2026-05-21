@@ -17,12 +17,18 @@ export type CampaignPaymentConfigDoc = {
   pixObservationText?: string;
 };
 
+export type CampaignRegistrationConfigDoc =
+  | { type: 'external'; url?: string }
+  | { type: 'form'; fieldKeys?: string[] };
+
 export type CampaignDoc = {
   title?: string;
   paymentConfig?: CampaignPaymentConfigDoc;
   vouchers?: EventVoucherDoc[];
   registrationClosed?: boolean;
   published?: boolean;
+  credentialingOnApp?: boolean;
+  registrationConfig?: CampaignRegistrationConfigDoc;
 };
 
 function requireAdminFirestore() {

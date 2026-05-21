@@ -29,6 +29,20 @@ export function canOfferInscricaoComCpf(documentMode: InscriptionDocumentMode, f
   return documentMode === 'cpf_allowed' && fieldKeys.includes('cpf');
 }
 
+/** Evento com opção «Permitir inscrição com CPF» — no máximo uma inscrição por CPF. */
+export function eventRequiresUniqueCpfInscription(campaign: Campaign): boolean {
+  const cfg = campaign.registrationConfig;
+  if (cfg?.type !== 'form') return false;
+  const mode = resolveInscriptionDocumentMode(cfg);
+  return mode === 'cpf_allowed' && (cfg.fieldKeys?.includes('cpf') ?? false);
+}
+
+/** CPF da inscrição (11 dígitos) ou null se ausente/inválido. */
+export function normalizeInscriptionCpfDigits(fields: Record<string, string>): string | null {
+  const digits = (fields.cpf ?? '').replace(/\D/g, '').slice(0, 11);
+  return digits.length === 11 ? digits : null;
+}
+
 /** Monta o mapa `fields` enviado ao Firestore (somente chaves preenchidas; CNPJ/CPF só dígitos). */
 export function buildEventInscriptionFieldsPayload(
   keys: string[],

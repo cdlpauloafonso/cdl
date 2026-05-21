@@ -15,3 +15,10 @@ export function campaignInscriptionPageUrl(slug: string, options?: { preview?: b
   const base = `/institucional/campanhas/inscricao?slug=${encodeURIComponent(slug)}`;
   return options?.preview ? `${base}&${CAMPAIGN_PREVIEW_PARAM}=1` : base;
 }
+
+/** Retoma pagamento de inscrição já registrada (Asaas pendente). */
+export function campaignInscriptionResumeUrl(slug: string, inscriptionId: string): string {
+  const base = campaignInscriptionPageUrl(slug);
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}inscriptionId=${encodeURIComponent(inscriptionId.trim())}`;
+}

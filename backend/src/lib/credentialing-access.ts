@@ -1,8 +1,12 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import admin from 'firebase-admin';
 import { getAdminFirestore } from './firebase-admin.js';
 
 const SECRET_DOC_ID = 'credentialing';
+
+function generateCredentialingAccessToken(): string {
+  return `${randomUUID().replace(/-/g, '')}${randomUUID().replace(/-/g, '')}`;
+}
 
 export type CredentialingSecretDoc = {
   accessToken?: string;
@@ -52,4 +56,45 @@ export async function setInscriptionCredentialed(
       ? new Date().toISOString()
       : admin.firestore.FieldValue.delete(),
   });
+}
+
+export async function ensureCredentialingAccessToken(campaignId: string): Promise<string> {
+  const existing = await getCredentialingAccessToken(campaignId);
+  if (existing) return existing;
+  const db = getAdminFirestore();
+  if (!db) throw new Error('FIREBASE_ADMIN_NOT_CONFIGURED');
+  const token = generateCredentialingAccessToken();
+  await db
+    .collection('campaigns')
+    .doc(campaignId)
+    .collection('adminSecrets')
+    .doc(SECRET_DOC_ID)
+    .set({ accessToken: token, createdAt: new Date().toISOString() });
+  return token;
+}
+
+/** Sessão efêmera de credenciamento (mesma estrutura do link público). */
+export async function createCredentialingGateSession(
+  campaignId: string,
+  accessToken: string,
+): Promise<string> {
+  const db = getAdminFirestore();
+  if (!db) throw new Error('FIREBASE_ADMIN_NOT_CONFIGURED');
+  const sessionId = randomUUID();
+  await db
+    .collection('campaigns')
+    .doc(campaignId)
+    .collection('credentialingGate')
+    .doc(sessionId)
+    .set({
+      token: accessToken.trim(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  return sessionId;
+}
+
+export function campaignHasFormRegistration(camp: {
+  registrationConfig?: { type?: string };
+}): boolean {
+  return camp.registrationConfig?.type === 'form';
 }

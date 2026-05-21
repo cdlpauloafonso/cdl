@@ -1,9 +1,8 @@
 'use client';
 
 import {
-  buildEventVouchersForSave,
   createEmptyVoucherDraft,
-  formatVoucherDiscountSummary,
+  formatVoucherDraftDiscountPreview,
   normalizeVoucherCodeInput,
   type EventVoucherDraft,
 } from '@/lib/event-vouchers-admin';
@@ -62,7 +61,7 @@ export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouche
       ) : (
         <ul className="space-y-4">
           {vouchers.map((v, index) => {
-            const summary = previewDiscount(v);
+            const summary = formatVoucherDraftDiscountPreview(v);
             return (
               <li
                 key={v.id}
@@ -77,7 +76,7 @@ export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouche
                     {(v.usedCount ?? 0) > 0 ? (
                       <span className="ml-2 normal-case font-normal text-gray-600">
                         · {v.usedCount} uso{v.usedCount === 1 ? '' : 's'}
-                        {v.maxUses.trim() ? ` (limite ${v.maxUses})` : ''}
+                        {(v.maxUses ?? '').trim() ? ` (limite ${v.maxUses})` : ''}
                       </span>
                     ) : null}
                   </span>

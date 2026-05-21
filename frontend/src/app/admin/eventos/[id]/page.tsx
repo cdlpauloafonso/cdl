@@ -9,6 +9,7 @@ import {
   listEventInscriptions,
   subscribeEventInscriptions,
   updateCampaign,
+  ensureCredentialingAccessToken,
   type Campaign,
   type EventInscriptionRecord,
 } from '@/lib/firestore';
@@ -168,6 +169,7 @@ export default function AdminEventoDetalhePage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingRegistration, setTogglingRegistration] = useState(false);
   const [togglingPublished, setTogglingPublished] = useState(false);
+  const [togglingCredentialingOnApp, setTogglingCredentialingOnApp] = useState(false);
 
   useEffect(() => {
     if (!eventId) {
@@ -284,6 +286,23 @@ export default function AdminEventoDetalhePage() {
       setError('Erro ao atualizar publicação do evento no site');
     } finally {
       setTogglingPublished(false);
+    }
+  }
+
+  async function setCredentialingOnApp(enabled: boolean) {
+    if (!evento?.id) return;
+    try {
+      setTogglingCredentialingOnApp(true);
+      setError('');
+      await updateCampaign(evento.id, { credentialingOnApp: enabled });
+      if (enabled) {
+        await ensureCredentialingAccessToken(evento.id);
+      }
+      setEvento((prev) => (prev ? { ...prev, credentialingOnApp: enabled } : prev));
+    } catch {
+      setError('Erro ao atualizar credenciamento no app');
+    } finally {
+      setTogglingCredentialingOnApp(false);
     }
   }
 
@@ -428,7 +447,7 @@ export default function AdminEventoDetalhePage() {
         )}
       </dl>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <section className="mt-6 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
@@ -448,6 +467,29 @@ export default function AdminEventoDetalhePage() {
             </span>
           </span>
         </label>
+        {hasFormRegistration && (
+          <label className="flex cursor-pointer items-start gap-3 border-t border-gray-200/80 pt-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue disabled:opacity-50"
+              checked={evento.credentialingOnApp === true}
+              disabled={togglingCredentialingOnApp || evento.published === false}
+              onChange={(e) => void setCredentialingOnApp(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+              <span className="mt-1 block text-xs text-cdl-gray-text">
+                {togglingCredentialingOnApp
+                  ? 'Salvando…'
+                  : evento.published === false
+                    ? 'Publique o evento no site para ativar o atalho na home do app.'
+                    : evento.credentialingOnApp === true
+                      ? 'Atalho «Credenciar» visível na home do aplicativo.'
+                      : 'Desativado — o app não exibirá este evento para credenciamento.'}
+              </span>
+            </span>
+          </label>
+        )}
       </section>
 
       {hasFormRegistration && (

@@ -157,6 +157,30 @@ service cloud.firestore {
         && inscriptionCreatePayloadValid();
     }
 
+    function registrationAllowsCpf(campaignId) {
+      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
+      let cfg = camp.get('registrationConfig', null);
+      return cfg is map
+        && cfg.get('type', '') == 'form'
+        && cfg.get('documentMode', '') == 'cpf_allowed';
+    }
+
+    function isValidCpfIndexKey(cpfKey) {
+      return cpfKey.matches('^\\d{11}$');
+    }
+
+    function inscriptionCpfIndexCreateValid(campaignId, cpfKey) {
+      let d = request.resource.data;
+      return isValidCpfIndexKey(cpfKey)
+        && registrationAllowsCpf(campaignId)
+        && !exists(/databases/$(database)/documents/campaigns/$(campaignId)/inscricoesByCpf/$(cpfKey))
+        && d.keys().hasOnly(['inscriptionId', 'createdAt'])
+        && d.inscriptionId is string
+        && d.inscriptionId.size() >= 8
+        && d.createdAt is string
+        && d.createdAt.size() >= 10;
+    }
+
     // Admin autenticado pode testar inscrição em evento em rascunho (published == false).
     function adminDraftInscriptionCreateAllowed(campaignId) {
       let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
@@ -243,6 +267,16 @@ service cloud.firestore {
         allow get, list: if true;
         allow update: if isAdmin() || publicCredentialingInscriptionUpdateAllowed(campaignId);
         allow delete: if isAdmin();
+      }
+
+      // Um CPF por evento quando documentMode == cpf_allowed (índice na transação de inscrição).
+      match /inscricoesByCpf/{cpfKey} {
+        allow get: if true;
+        allow list: if false;
+        allow create: if (publicInscriptionCreateAllowed(campaignId)
+            || adminDraftInscriptionCreateAllowed(campaignId))
+          && inscriptionCpfIndexCreateValid(campaignId, cpfKey);
+        allow update, delete: if isAdmin();
       }
 
       // Sessão efêmera do link público (valida token; documento não é legível).
