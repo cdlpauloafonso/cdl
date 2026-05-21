@@ -64,6 +64,8 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # URL pública da API (admin Asaas, pagamentos). Pode sobrescrever no painel Netlify.
+  NEXT_PUBLIC_API_URL = "https://apiassas.cdlpauloafonso.com"
   # Falso positivo: SDK Firebase em node_modules traz exemplos "AIza..." em arquivos .d.ts;
   # o scan inteligente falha o build. A var NEXT_PUBLIC_* já é chave pública do cliente.
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"

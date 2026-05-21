@@ -46,7 +46,10 @@ cd "$BACKEND_DIR"
 
 # 2) Garantir o arquivo .env (sem sobrescrever)
 if [ ! -f "$BACKEND_DIR/.env" ]; then
-  if [ -f "$BACKEND_DIR/.env.production.example" ]; then
+  if [ -f "$BACKEND_DIR/.env_api.example" ]; then
+    log "Criando .env a partir de .env_api.example (preencha as chaves!)"
+    cp "$BACKEND_DIR/.env_api.example" "$BACKEND_DIR/.env"
+  elif [ -f "$BACKEND_DIR/.env.production.example" ]; then
     log "Criando .env a partir de .env.production.example (preencha as chaves!)"
     cp "$BACKEND_DIR/.env.production.example" "$BACKEND_DIR/.env"
     chmod 600 "$BACKEND_DIR/.env"
