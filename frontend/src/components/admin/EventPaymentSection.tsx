@@ -78,7 +78,7 @@ async function compressImage(input: File, maxDim = 1600, quality = 0.75): Promis
 }
 
 /**
- * Pagamento na inscrição: PIX manual (QR/copia e cola) ou cobrança Asaas (link automático).
+ * Pagamento na inscrição: PIX manual (QR/copia e cola) ou cobrança Asaas (checkout interno).
  */
 export function EventPaymentSection({
   enabled,
@@ -175,9 +175,9 @@ export function EventPaymentSection({
                 onChange={() => onProviderChange('asaas')}
               />
               <span className="text-sm text-gray-700">
-                <span className="font-medium text-gray-900">Asaas (link de pagamento)</span>
+                <span className="font-medium text-gray-900">Asaas (checkout na inscrição)</span>
                 <span className="mt-0.5 block text-xs text-cdl-gray-text">
-                  PIX, boleto ou cartão na página do Asaas. Confirmação automática via webhook.
+                  PIX, boleto e cartão na própria página de inscrição, com confirmação automática via webhook.
                 </span>
               </span>
             </label>

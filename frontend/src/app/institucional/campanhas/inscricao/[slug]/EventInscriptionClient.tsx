@@ -41,7 +41,11 @@ import {
 } from '@/lib/inscription-payment-amount';
 import { normalizeVoucherCodeInput } from '@/lib/event-vouchers-admin';
 import { resolveVoucherForCharge } from '@/lib/event-voucher-utils';
-import { createAsaasInscriptionPayment, type CreateInscriptionPaymentResponse } from '@/lib/asaas-api';
+import {
+  createAsaasInscriptionPayment,
+  type CreateInscriptionPaymentResponse,
+  type InscriptionCardHolderPrefill,
+} from '@/lib/asaas-api';
 import {
   applyInscriptionFieldMask,
   hasInscriptionFieldMask,
@@ -259,6 +263,25 @@ function FieldRow({
       )}
     </div>
   );
+}
+
+function cardHolderPrefillFromInscription(values: Record<string, string>): InscriptionCardHolderPrefill {
+  const name =
+    values.nome_responsavel?.trim() ||
+    values.nome?.trim() ||
+    values.empresa?.trim() ||
+    '';
+  const email = values.email_pessoal?.trim() || values.email?.trim() || '';
+  const cpfCnpj = values.cpf?.trim() || values.cnpj?.trim() || '';
+  const phone = values.telefone_celular?.trim() || values.telefone?.trim() || '';
+  return {
+    name,
+    email,
+    cpfCnpj,
+    postalCode: values.cep?.trim() || '',
+    addressNumber: 'S/N',
+    phone,
+  };
 }
 
 export function EventInscriptionClient({
@@ -851,10 +874,15 @@ export function EventInscriptionClient({
                   inscriptionId={completedInscriptionId!}
                   amount={completedAsaasCharge?.amount ?? asaasCheckout.amount}
                   description={payment.description}
-                  invoiceUrl={asaasCheckout.invoiceUrl}
-                  pix={asaasCheckout.pix}
+                  checkout={asaasCheckout}
+                  holderPrefill={cardHolderPrefillFromInscription(values)}
                   className="mb-2"
                   onPaid={() => setInscriptionPaid(true)}
+                  onCheckoutRefresh={async () => {
+                    const next = await createAsaasInscriptionPayment(slug, completedInscriptionId!);
+                    setAsaasCheckout(next);
+                    return next;
+                  }}
                 />
                 <p className="mt-6 text-xs text-cdl-gray-text text-center">
                   O QR Code de credenciamento será exibido após a confirmação do pagamento.

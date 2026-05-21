@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { requireAdminAuth, type AdminAuthInfo } from '../lib/admin-auth.js';
 import { getAsaasConfigEffective } from '../lib/asaas/config.js';
-import { asaasRequest } from '../lib/asaas/client.js';
-import { createAsaasInscriptionPayment, handleAsaasWebhookPayload } from '../lib/asaas/inscription-payment.js';
+import { AsaasApiError, asaasRequest } from '../lib/asaas/client.js';
+import {
+  createAsaasInscriptionPayment,
+  handleAsaasWebhookPayload,
+  payAsaasInscriptionWithCreditCard,
+} from '../lib/asaas/inscription-payment.js';
 import type { AsaasWebhookEvent } from '../lib/asaas/types.js';
 import {
   buildIntegrationPublic,
@@ -57,9 +61,66 @@ router.post('/inscription-payment', async (req, res) => {
             ? 400
             : message === 'ASAAS_NOT_CONFIGURED' ||
                 message === 'FIREBASE_ADMIN_NOT_CONFIGURED' ||
-                message === 'ASAAS_PAYMENT_INCOMPLETE' ||
-                message === 'ASAAS_PIX_QR_UNAVAILABLE'
+                message === 'ASAAS_PAYMENT_INCOMPLETE'
               ? 503
+              : err instanceof AsaasApiError
+                ? 502
+                : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * Paga cobrança da inscrição com cartão (checkout interno).
+ * Body: { campaignId, inscriptionId, creditCard, creditCardHolderInfo }
+ */
+router.post('/inscription-payment/card', async (req, res) => {
+  const cfg = await getAsaasConfigEffective();
+  if (!cfg.enabled) {
+    res.status(503).json({
+      error: 'Asaas não configurado. Defina a chave em Configurações → APIs (Asaas) ou no backend.',
+    });
+    return;
+  }
+
+  const campaignId = String(req.body?.campaignId ?? '').trim();
+  const inscriptionId = String(req.body?.inscriptionId ?? '').trim();
+  const creditCard = req.body?.creditCard;
+  const creditCardHolderInfo = req.body?.creditCardHolderInfo;
+
+  if (!campaignId || !inscriptionId) {
+    res.status(400).json({ error: 'campaignId e inscriptionId são obrigatórios.' });
+    return;
+  }
+  if (!creditCard || !creditCardHolderInfo) {
+    res.status(400).json({ error: 'Dados do cartão e do titular são obrigatórios.' });
+    return;
+  }
+
+  try {
+    const result = await payAsaasInscriptionWithCreditCard(
+      campaignId,
+      inscriptionId,
+      creditCard,
+      creditCardHolderInfo,
+    );
+    res.json(result);
+  } catch (err) {
+    const message =
+      err instanceof AsaasApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Erro ao processar cartão';
+    const status =
+      message === 'INSCRIPTION_NOT_FOUND'
+        ? 404
+        : message === 'INSCRIPTION_PAYMENT_NOT_CREATED'
+          ? 400
+          : message === 'ASAAS_NOT_CONFIGURED' || message === 'FIREBASE_ADMIN_NOT_CONFIGURED'
+            ? 503
+            : err instanceof AsaasApiError && err.status === 400
+              ? 400
               : 502;
     res.status(status).json({ error: message });
   }

@@ -237,7 +237,7 @@ export function RegistrationLinkSection({
                 {pixPayment && paymentSummaryOk && (
                   <p className="text-sm text-gray-700 mt-2">
                     <span className="font-medium text-gray-900">Pagamento na inscrição:</span>{' '}
-                    {pixPayment.provider === 'asaas' ? 'Asaas (link automático)' : 'PIX manual'}
+                    {pixPayment.provider === 'asaas' ? 'Asaas (checkout na inscrição)' : 'PIX manual'}
                   </p>
                 )}
                 <button type="button" onClick={openModal} className="text-sm font-medium text-cdl-blue hover:underline">

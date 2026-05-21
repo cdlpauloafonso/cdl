@@ -24,6 +24,13 @@ export type InscriptionPaymentPixCheckout = {
   expirationDate?: string;
 };
 
+export type InscriptionPaymentBoletoCheckout = {
+  identificationField: string;
+  barCode?: string;
+  nossoNumero?: string;
+  dueDate?: string;
+};
+
 export type CreateInscriptionPaymentResponse = {
   paymentId: string;
   invoiceUrl: string;
@@ -31,7 +38,51 @@ export type CreateInscriptionPaymentResponse = {
   amount: number;
   paymentStatus: string;
   pix: InscriptionPaymentPixCheckout | null;
+  boleto: InscriptionPaymentBoletoCheckout | null;
 };
+
+export type AsaasCreditCardInput = {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+};
+
+export type AsaasCreditCardHolderInput = {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  phone: string;
+  addressComplement?: string;
+  mobilePhone?: string;
+};
+
+export type InscriptionCardHolderPrefill = Partial<AsaasCreditCardHolderInput>;
+
+function parseBoletoFromResponse(
+  data: Record<string, unknown>
+): InscriptionPaymentBoletoCheckout | null {
+  const boleto = data.boleto;
+  if (boleto && typeof boleto === 'object') {
+    const b = boleto as Record<string, unknown>;
+    const identificationField =
+      typeof b.identificationField === 'string' ? b.identificationField.trim() : '';
+    if (identificationField) {
+      return {
+        identificationField,
+        ...(typeof b.barCode === 'string' && b.barCode.trim() ? { barCode: b.barCode.trim() } : {}),
+        ...(typeof b.nossoNumero === 'string' && b.nossoNumero.trim()
+          ? { nossoNumero: b.nossoNumero.trim() }
+          : {}),
+        ...(typeof b.dueDate === 'string' && b.dueDate ? { dueDate: b.dueDate } : {}),
+      };
+    }
+  }
+  return null;
+}
 
 function parsePixFromResponse(
   data: Record<string, unknown>
@@ -58,19 +109,19 @@ function normalizeInscriptionPaymentResponse(
   data: Record<string, unknown>
 ): CreateInscriptionPaymentResponse {
   const paymentId = typeof data.paymentId === 'string' ? data.paymentId : '';
-  const invoiceUrl = typeof data.invoiceUrl === 'string' ? data.invoiceUrl : '';
-  if (!paymentId || !invoiceUrl) {
+  if (!paymentId) {
     throw new Error('Resposta inválida do servidor de pagamento.');
   }
   const amountRaw = Number(data.amount);
   return {
     paymentId,
-    invoiceUrl,
+    invoiceUrl: typeof data.invoiceUrl === 'string' ? data.invoiceUrl : '',
     customerId: typeof data.customerId === 'string' ? data.customerId : '',
     amount: Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0,
     paymentStatus:
       typeof data.paymentStatus === 'string' && data.paymentStatus ? data.paymentStatus : 'pending',
     pix: parsePixFromResponse(data),
+    boleto: parseBoletoFromResponse(data),
   };
 }
 
@@ -195,4 +246,35 @@ export async function createAsaasInscriptionPayment(
     );
   }
   return normalizeInscriptionPaymentResponse(data);
+}
+
+export async function payAsaasInscriptionWithCreditCard(
+  campaignId: string,
+  inscriptionId: string,
+  creditCard: AsaasCreditCardInput,
+  creditCardHolderInfo: AsaasCreditCardHolderInput,
+): Promise<{ paymentStatus: string; paid: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/asaas/inscription-payment/card`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, inscriptionId, creditCard, creditCardHolderInfo }),
+    });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor de pagamento (${API_BASE}). Verifique sua conexão ou tente mais tarde.`,
+    );
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === 'string' && data.error ? data.error : 'Não foi possível processar o cartão.',
+    );
+  }
+  return {
+    paymentStatus:
+      typeof data.paymentStatus === 'string' && data.paymentStatus ? data.paymentStatus : 'PENDING',
+    paid: Boolean(data.paid),
+  };
 }

@@ -25,6 +25,32 @@ export type AsaasPaymentPixQrCode = {
   description?: string;
 };
 
+/** GET /v3/payments/{id}/identificationField */
+export type AsaasPaymentIdentificationField = {
+  identificationField?: string;
+  barCode?: string;
+  nossoNumero?: string;
+};
+
+export type AsaasCreditCardInput = {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+};
+
+export type AsaasCreditCardHolderInput = {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  phone: string;
+  addressComplement?: string;
+  mobilePhone?: string;
+};
+
 export type AsaasWebhookEvent = {
   id?: string;
   event?: string;

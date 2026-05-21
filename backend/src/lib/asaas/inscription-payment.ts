@@ -1,6 +1,14 @@
 import { asaasRequest } from './client.js';
 import { getAsaasConfigEffective } from './config.js';
-import type { AsaasCustomer, AsaasPayment, AsaasPaymentPixQrCode, AsaasWebhookEvent } from './types.js';
+import type {
+  AsaasCreditCardHolderInput,
+  AsaasCreditCardInput,
+  AsaasCustomer,
+  AsaasPayment,
+  AsaasPaymentIdentificationField,
+  AsaasPaymentPixQrCode,
+  AsaasWebhookEvent,
+} from './types.js';
 import { buildInscriptionExternalReference, parseInscriptionExternalReference } from './types.js';
 import {
   getCampaignDoc,
@@ -74,14 +82,21 @@ export type InscriptionPaymentPixCheckout = {
   expirationDate?: string;
 };
 
+export type InscriptionPaymentBoletoCheckout = {
+  identificationField: string;
+  barCode?: string;
+  nossoNumero?: string;
+  dueDate?: string;
+};
+
 export type CreateInscriptionPaymentResult = {
   paymentId: string;
   invoiceUrl: string;
   customerId: string;
   amount: number;
   paymentStatus: string;
-  /** Ausente quando o Asaas ainda não disponibilizou o QR (cliente usa invoiceUrl). */
-  pix?: InscriptionPaymentPixCheckout | null;
+  pix: InscriptionPaymentPixCheckout | null;
+  boleto: InscriptionPaymentBoletoCheckout | null;
 };
 
 function sleep(ms: number): Promise<void> {
@@ -120,6 +135,61 @@ async function fetchPaymentPixQrCode(
   return null;
 }
 
+async function fetchPaymentBoletoFields(
+  paymentId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<InscriptionPaymentBoletoCheckout | null> {
+  const delaysMs = [0, 500, 1200, 2500];
+  for (const delay of delaysMs) {
+    if (delay > 0) await sleep(delay);
+    try {
+      const idField = await asaasRequest<AsaasPaymentIdentificationField>(
+        'GET',
+        `/payments/${encodeURIComponent(paymentId)}/identificationField`,
+        undefined,
+        config,
+      );
+      const identificationField = idField.identificationField?.trim();
+      if (!identificationField) continue;
+
+      let dueDate: string | undefined;
+      try {
+        const payment = await asaasRequest<AsaasPayment>(
+          'GET',
+          `/payments/${encodeURIComponent(paymentId)}`,
+          undefined,
+          config,
+        );
+        dueDate = payment.dueDate;
+      } catch {
+        /* dueDate opcional */
+      }
+
+      return {
+        identificationField,
+        ...(idField.barCode?.trim() ? { barCode: idField.barCode.trim() } : {}),
+        ...(idField.nossoNumero?.trim() ? { nossoNumero: idField.nossoNumero.trim() } : {}),
+        ...(dueDate ? { dueDate } : {}),
+      };
+    } catch (err) {
+      const status = err && typeof err === 'object' && 'status' in err ? (err as { status: number }).status : 0;
+      if (status === 404) continue;
+    }
+  }
+  return null;
+}
+
+async function buildCheckoutPayload(
+  paymentId: string,
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
+): Promise<{ pix: InscriptionPaymentPixCheckout | null; boleto: InscriptionPaymentBoletoCheckout | null }> {
+  const [pix, boleto] = await Promise.all([
+    fetchPaymentPixQrCode(paymentId, config),
+    fetchPaymentBoletoFields(paymentId, config),
+  ]);
+  return { pix, boleto };
+}
+
 export async function createAsaasInscriptionPayment(
   campaignId: string,
   inscriptionId: string
@@ -152,14 +222,15 @@ export async function createAsaasInscriptionPayment(
   const existingStatus = String(inscription.paymentStatus ?? 'pending');
   if (existingPaymentId && existingUrl) {
     const applied = Number(inscription.paymentAmountApplied);
-    const pix = await fetchPaymentPixQrCode(existingPaymentId, config);
+    const { pix, boleto } = await buildCheckoutPayload(existingPaymentId, config);
     return {
       paymentId: existingPaymentId,
       invoiceUrl: existingUrl,
       customerId: String(inscription.asaasCustomerId ?? ''),
       amount: Number.isFinite(applied) && applied > 0 ? applied : amount,
       paymentStatus: existingStatus,
-      ...(pix ? { pix } : { pix: null }),
+      pix,
+      boleto,
     };
   }
 
@@ -204,7 +275,7 @@ export async function createAsaasInscriptionPayment(
     asaasCustomerId: customer.id,
   });
 
-  const pix = await fetchPaymentPixQrCode(payment.id, config);
+  const { pix, boleto } = await buildCheckoutPayload(payment.id, config);
 
   return {
     paymentId: payment.id,
@@ -212,8 +283,77 @@ export async function createAsaasInscriptionPayment(
     customerId: customer.id,
     amount,
     paymentStatus: payment.status ?? 'PENDING',
-    ...(pix ? { pix } : { pix: null }),
+    pix,
+    boleto,
   };
+}
+
+const CARD_PAID_STATUSES = new Set(['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH']);
+
+export async function payAsaasInscriptionWithCreditCard(
+  campaignId: string,
+  inscriptionId: string,
+  creditCard: AsaasCreditCardInput,
+  creditCardHolderInfo: AsaasCreditCardHolderInput,
+): Promise<{ paymentStatus: string; paid: boolean }> {
+  const config = await getAsaasConfigEffective();
+  if (!config.enabled) throw new Error('ASAAS_NOT_CONFIGURED');
+
+  const inscription = await getInscriptionDoc(campaignId, inscriptionId);
+  if (!inscription) throw new Error('INSCRIPTION_NOT_FOUND');
+
+  const paymentId = inscription.asaasPaymentId as string | undefined;
+  if (!paymentId) throw new Error('INSCRIPTION_PAYMENT_NOT_CREATED');
+
+  const payment = await asaasRequest<AsaasPayment>(
+    'POST',
+    `/payments/${encodeURIComponent(paymentId)}/payWithCreditCard`,
+    {
+      creditCard: {
+        holderName: creditCard.holderName.trim(),
+        number: onlyDigits(creditCard.number),
+        expiryMonth: creditCard.expiryMonth.trim(),
+        expiryYear: creditCard.expiryYear.trim(),
+        ccv: creditCard.ccv.trim(),
+      },
+      creditCardHolderInfo: {
+        name: creditCardHolderInfo.name.trim(),
+        email: creditCardHolderInfo.email.trim(),
+        cpfCnpj: onlyDigits(creditCardHolderInfo.cpfCnpj),
+        postalCode: onlyDigits(creditCardHolderInfo.postalCode),
+        addressNumber: creditCardHolderInfo.addressNumber.trim() || 'S/N',
+        phone: onlyDigits(creditCardHolderInfo.phone),
+        ...(creditCardHolderInfo.addressComplement?.trim()
+          ? { addressComplement: creditCardHolderInfo.addressComplement.trim() }
+          : {}),
+        ...(creditCardHolderInfo.mobilePhone?.trim()
+          ? { mobilePhone: onlyDigits(creditCardHolderInfo.mobilePhone) }
+          : {}),
+      },
+    },
+    config,
+  );
+
+  const status = String(payment.status ?? 'PENDING');
+  const paid = CARD_PAID_STATUSES.has(status);
+  if (paid) {
+    const insc = await getInscriptionDoc(campaignId, inscriptionId);
+    const voucherId = typeof insc?.voucherId === 'string' ? insc.voucherId : undefined;
+    const alreadyPaid = insc?.paymentStatus === 'paid';
+    await updateInscriptionPayment(campaignId, inscriptionId, {
+      paymentStatus: 'paid',
+      asaasPaymentId: payment.id ?? paymentId,
+    });
+    if (voucherId && !alreadyPaid) {
+      try {
+        await incrementCampaignVoucherUsedCount(campaignId, voucherId);
+      } catch {
+        /* contador de voucher não bloqueia confirmação */
+      }
+    }
+  }
+
+  return { paymentStatus: status, paid };
 }
 
 const PAID_EVENTS = new Set([
