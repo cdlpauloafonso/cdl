@@ -158,6 +158,7 @@ export function RegistrationLinkSection({
       enabled: pixPayment!.enabled,
       provider: pixPayment!.provider,
       amount: pixPayment!.amount,
+      amountAssociado: pixPayment!.amountAssociado,
       pixImageUrl: pixPayment!.pixImageUrl,
       pixCopyPaste: pixPayment!.pixCopyPaste,
     });

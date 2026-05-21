@@ -13,6 +13,8 @@ export type EventPaymentSectionProps = {
   onProviderChange: (value: CampaignPaymentProvider) => void;
   amount: string;
   onAmountChange: (value: string) => void;
+  amountAssociado: string;
+  onAmountAssociadoChange: (value: string) => void;
   paymentDescription: string;
   onPaymentDescriptionChange: (value: string) => void;
   pixImageUrl: string;
@@ -85,6 +87,8 @@ export function EventPaymentSection({
   onProviderChange,
   amount,
   onAmountChange,
+  amountAssociado,
+  onAmountAssociadoChange,
   paymentDescription,
   onPaymentDescriptionChange,
   pixImageUrl,
@@ -147,6 +151,7 @@ export function EventPaymentSection({
             onEnabledChange(e.target.checked);
             if (!e.target.checked) {
               onAmountChange('');
+              onAmountAssociadoChange('');
               onPaymentDescriptionChange('');
               onPixImageUrlChange('');
               onPixCopyPasteChange('');
@@ -195,19 +200,41 @@ export function EventPaymentSection({
 
           {provider === 'asaas' ? (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Valor da inscrição (R$) <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={amount}
-                  onChange={(e) => onAmountChange(formatBrlCurrencyInput(e.target.value))}
-                  placeholder="R$ 0,00"
-                  className="mt-1 block w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2"
-                />
+              <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Valor normal (R$) <span className="text-red-600">*</span>
+                  </label>
+                  <p className="mt-0.5 text-xs text-cdl-gray-text">
+                    Cobrado para quem não for associado CDL (ou sem CNPJ na base).
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={amount}
+                    onChange={(e) => onAmountChange(formatBrlCurrencyInput(e.target.value))}
+                    placeholder="R$ 0,00"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Valor de associado (R$)
+                  </label>
+                  <p className="mt-0.5 text-xs text-cdl-gray-text">
+                    Opcional. Aplicado automaticamente quando o CNPJ estiver cadastrado como associado.
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={amountAssociado}
+                    onChange={(e) => onAmountAssociadoChange(formatBrlCurrencyInput(e.target.value))}
+                    placeholder="R$ 0,00"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Descrição na fatura (opcional)</label>

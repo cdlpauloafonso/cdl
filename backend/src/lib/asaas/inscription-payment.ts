@@ -5,7 +5,9 @@ import { buildInscriptionExternalReference, parseInscriptionExternalReference } 
 import {
   getCampaignDoc,
   getInscriptionDoc,
+  incrementCampaignVoucherUsedCount,
   isWebhookEventProcessed,
+  resolveInscriptionPaymentAmount,
   updateInscriptionPayment,
 } from '../inscription-firestore.js';
 
@@ -89,15 +91,16 @@ export async function createAsaasInscriptionPayment(
     throw new Error('CAMPAIGN_PAYMENT_NOT_ASAAS');
   }
 
-  const amount = Number(paymentCfg.amount);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error('INVALID_PAYMENT_AMOUNT');
-  }
-
   const inscription = await getInscriptionDoc(campaignId, inscriptionId);
   if (!inscription) throw new Error('INSCRIPTION_NOT_FOUND');
 
   const fields = (inscription.fields ?? {}) as Record<string, string>;
+  const voucherCode = String(inscription.voucherCode ?? '').trim() || undefined;
+  const { amount, tier, voucherId, voucherCode: appliedCode } = await resolveInscriptionPaymentAmount(
+    paymentCfg,
+    fields,
+    { vouchers: campaign.vouchers, voucherCode },
+  );
   const existingPaymentId = inscription.asaasPaymentId as string | undefined;
   const existingUrl = inscription.asaasInvoiceUrl as string | undefined;
   if (existingPaymentId && existingUrl) {
@@ -140,6 +143,10 @@ export async function createAsaasInscriptionPayment(
   await updateInscriptionPayment(campaignId, inscriptionId, {
     paymentStatus: 'pending',
     paymentProvider: 'asaas',
+    paymentAmountApplied: amount,
+    paymentAmountTier: tier,
+    ...(voucherId ? { voucherId } : {}),
+    ...(appliedCode ? { voucherCode: appliedCode } : {}),
     asaasPaymentId: payment.id,
     asaasInvoiceUrl: invoiceUrl,
     asaasCustomerId: customer.id,
@@ -178,11 +185,21 @@ export async function handleAsaasWebhookPayload(payload: AsaasWebhookEvent): Pro
   }
 
   if (PAID_EVENTS.has(eventName) || payment?.status === 'RECEIVED' || payment?.status === 'CONFIRMED') {
+    const insc = await getInscriptionDoc(campaignId, inscriptionId);
+    const voucherId = typeof insc?.voucherId === 'string' ? insc.voucherId : undefined;
+    const alreadyPaid = insc?.paymentStatus === 'paid';
     await updateInscriptionPayment(campaignId, inscriptionId, {
       paymentStatus: 'paid',
       asaasPaymentId: payment?.id,
       asaasLastWebhookEventId: eventId,
     });
+    if (voucherId && !alreadyPaid) {
+      try {
+        await incrementCampaignVoucherUsedCount(campaignId, voucherId);
+      } catch {
+        /* contador de voucher não bloqueia confirmação de pagamento */
+      }
+    }
     return;
   }
 

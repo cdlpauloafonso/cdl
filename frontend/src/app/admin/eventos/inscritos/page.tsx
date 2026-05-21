@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   deleteEventInscription,
   getCampaign,
-  listEventInscriptions,
+  subscribeEventInscriptions,
   updateEventInscriptionFields,
   updateEventInscriptionPaymentStatus,
   type Campaign,
@@ -18,7 +18,13 @@ import {
   labelForInscriptionField,
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
-import { getEffectivePayment } from '@/lib/event-payment-fields';
+import { getEffectivePayment, type EffectivePayment } from '@/lib/event-payment-fields';
+import {
+  isAsaasManagedInscription,
+  normalizeInscriptionPaymentStatus,
+  paymentStatusBadgeClass,
+  paymentStatusLabel,
+} from '@/lib/inscription-payment-status';
 import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
   EVENT_ADMIN_LIST_PATH,
@@ -63,8 +69,105 @@ function formatDateBr(iso: string): string {
   }
 }
 
-function paymentStatusOf(row: EventInscriptionRecord): EventInscriptionPaymentStatus {
-  return row.paymentStatus === 'paid' ? 'paid' : 'pending';
+function PaymentStatusCell({
+  row,
+  paymentKind,
+  updating,
+  onRequestStatusChange,
+}: {
+  row: EventInscriptionRecord & { id: string };
+  paymentKind: EffectivePayment['kind'];
+  updating: boolean;
+  onRequestStatusChange: (
+    row: EventInscriptionRecord & { id: string },
+    nextStatus: EventInscriptionPaymentStatus
+  ) => void;
+}) {
+  const status = normalizeInscriptionPaymentStatus(row);
+  const asaas = paymentKind === 'asaas' || isAsaasManagedInscription(row);
+  const label = paymentStatusLabel(status);
+  const badgeClass = paymentStatusBadgeClass(status);
+
+  if (asaas) {
+    const manualTarget: EventInscriptionPaymentStatus =
+      status === 'paid' ? 'pending' : status === 'pending' ? 'paid' : 'pending';
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${badgeClass}`}
+        >
+          {label}
+        </span>
+        <span className="text-[10px] leading-tight text-gray-500">Asaas · atualiza via webhook</span>
+        {status === 'pending' && row.asaasInvoiceUrl ? (
+          <a
+            href={row.asaasInvoiceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-medium text-cdl-blue hover:underline"
+          >
+            Abrir cobrança
+          </a>
+        ) : null}
+        {(status === 'paid' || status === 'pending') && (
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() => onRequestStatusChange(row, manualTarget)}
+            className="text-[10px] font-medium text-gray-600 underline-offset-2 hover:text-gray-900 hover:underline disabled:opacity-50"
+          >
+            {updating ? 'Salvando...' : 'Ajustar manualmente'}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (status === 'paid') {
+    return (
+      <button
+        type="button"
+        disabled={updating}
+        onClick={() => onRequestStatusChange(row, 'pending')}
+        className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 ring-1 ring-green-200/80 hover:bg-green-200 disabled:opacity-50"
+        title="Clique para marcar como pendente"
+      >
+        {updating ? 'Salvando...' : 'Pago'}
+      </button>
+    );
+  }
+
+  if (status === 'cancelled' || status === 'expired') {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${badgeClass}`}
+        >
+          {label}
+        </span>
+        <button
+          type="button"
+          disabled={updating}
+          onClick={() => onRequestStatusChange(row, 'pending')}
+          className="text-[10px] font-medium text-gray-600 underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          Marcar pendente
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={updating}
+      onClick={() => onRequestStatusChange(row, 'paid')}
+      className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60 hover:bg-amber-200 disabled:opacity-50"
+      title="Clique para marcar como pago"
+    >
+      {updating ? 'Salvando...' : 'Pendente'}
+    </button>
+  );
 }
 
 function CredentialingStatusBadge({ row }: { row: EventInscriptionRecord }) {
@@ -116,52 +219,94 @@ export default function AdminEventoInscritosPage() {
   const [paymentConfirmTarget, setPaymentConfirmTarget] = useState<{
     inscriptionId: string;
     nextStatus: EventInscriptionPaymentStatus;
+    asaasManaged: boolean;
   } | null>(null);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     if (!eventId) {
       setLoading(false);
       setError('Nenhum evento selecionado.');
+      setCampanha(null);
+      setRows([]);
       return;
     }
+
+    let unsubInscriptions: (() => void) | undefined;
+    let cancelled = false;
+
     setLoading(true);
     setError('');
-    try {
-      const c = await getCampaign(eventId);
-      setCampanha(c);
-      if (!c) {
-        setError('Evento não encontrado.');
-        setRows([]);
-        return;
-      }
-      const reg = getEffectiveRegistration(c, { ignoreRegistrationClosed: true });
-      if (reg.kind !== 'form') {
-        setError('Este evento não utiliza inscrição pelo formulário do site.');
-        setRows([]);
-        return;
-      }
-      const list = await listEventInscriptions(eventId);
-      setRows(list);
-    } catch {
-      setError('Erro ao carregar inscrições.');
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+    void (async () => {
+      try {
+        const c = await getCampaign(eventId);
+        if (cancelled) return;
+        setCampanha(c);
+        if (!c) {
+          setError('Evento não encontrado.');
+          setRows([]);
+          setLoading(false);
+          return;
+        }
+        const reg = getEffectiveRegistration(c, { ignoreRegistrationClosed: true });
+        if (reg.kind !== 'form') {
+          setError('Este evento não utiliza inscrição pelo formulário do site.');
+          setRows([]);
+          setLoading(false);
+          return;
+        }
+
+        unsubInscriptions = subscribeEventInscriptions(
+          eventId,
+          (list) => {
+            if (cancelled) return;
+            setRows(list);
+            setLoading(false);
+          },
+          () => {
+            if (cancelled) return;
+            setError('Erro ao acompanhar inscrições em tempo real.');
+            setLoading(false);
+          },
+        );
+      } catch {
+        if (!cancelled) {
+          setError('Erro ao carregar inscrições.');
+          setRows([]);
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubInscriptions?.();
+    };
+  }, [eventId]);
 
   const reg = campanha
     ? getEffectiveRegistration(campanha, { ignoreRegistrationClosed: true })
     : { kind: 'none' as const };
-  const eventHasConfiguredPayment = useMemo(
-    () => (campanha ? getEffectivePayment(campanha).kind !== 'none' : false),
-    [campanha]
+  const effectivePayment = useMemo(
+    () => (campanha ? getEffectivePayment(campanha) : { kind: 'none' as const }),
+    [campanha],
   );
+  const eventHasConfiguredPayment = effectivePayment.kind !== 'none';
   const displayPaymentColumn = eventHasConfiguredPayment && showPaymentColumn;
+
+  const paymentSummary = useMemo(() => {
+    if (!eventHasConfiguredPayment) return null;
+    let paid = 0;
+    let pending = 0;
+    let other = 0;
+    for (const r of rows) {
+      const s = normalizeInscriptionPaymentStatus(r);
+      if (s === 'paid') paid += 1;
+      else if (s === 'pending') pending += 1;
+      else other += 1;
+    }
+    return { paid, pending, other, total: rows.length };
+  }, [rows, eventHasConfiguredPayment]);
   const publicListUrl = useMemo(() => {
     if (!eventId || typeof window === 'undefined') return '';
     return `${window.location.origin}/institucional/eventos/inscritos?eventId=${encodeURIComponent(eventId)}`;
@@ -174,7 +319,9 @@ export default function AdminEventoInscritosPage() {
   }, [eventHasConfiguredPayment, sortBy]);
 
   useEffect(() => {
-    if (!eventHasConfiguredPayment) {
+    if (eventHasConfiguredPayment) {
+      setShowPaymentColumn(true);
+    } else {
       setShowPaymentColumn(false);
       setFilterPayment('all');
     }
@@ -243,7 +390,7 @@ export default function AdminEventoInscritosPage() {
         const v = (r.fields?.estado || '').trim();
         if (v !== filterEstado) return false;
       }
-      if (filterPayment !== 'all' && paymentStatusOf(r) !== filterPayment) {
+      if (filterPayment !== 'all' && normalizeInscriptionPaymentStatus(r) !== filterPayment) {
         return false;
       }
       if (filterCredentialing === 'credentialed' && !isInscriptionCredentialed(r)) {
@@ -255,7 +402,7 @@ export default function AdminEventoInscritosPage() {
       if (!term) return true;
       const blob = [
         r.createdAt,
-        paymentStatusOf(r) === 'paid' ? 'pago' : 'pendente',
+        paymentStatusLabel(normalizeInscriptionPaymentStatus(r)).toLowerCase(),
         isInscriptionCredentialed(r) ? 'credenciado' : 'aguardando',
         ...Object.values(r.fields || {}).map((x) => String(x)),
       ]
@@ -271,8 +418,8 @@ export default function AdminEventoInscritosPage() {
         return sortDirection === 'desc' ? tb - ta : ta - tb;
       }
       if (sortBy === 'paymentStatus') {
-        const va = paymentStatusOf(a) === 'paid' ? 'pago' : 'pendente';
-        const vb = paymentStatusOf(b) === 'paid' ? 'pago' : 'pendente';
+        const va = paymentStatusLabel(normalizeInscriptionPaymentStatus(a));
+        const vb = paymentStatusLabel(normalizeInscriptionPaymentStatus(b));
         const cmp = va.localeCompare(vb, 'pt-BR');
         return sortDirection === 'desc' ? -cmp : cmp;
       }
@@ -310,9 +457,11 @@ export default function AdminEventoInscritosPage() {
     row: EventInscriptionRecord & { id: string },
     nextStatus: EventInscriptionPaymentStatus
   ) {
-    const current = paymentStatusOf(row);
+    const current = normalizeInscriptionPaymentStatus(row);
     if (current === nextStatus) return;
-    setPaymentConfirmTarget({ inscriptionId: row.id, nextStatus });
+    const asaasManaged =
+      effectivePayment.kind === 'asaas' || isAsaasManagedInscription(row);
+    setPaymentConfirmTarget({ inscriptionId: row.id, nextStatus, asaasManaged });
   }
 
   async function handleChangePaymentStatus(
@@ -480,7 +629,9 @@ export default function AdminEventoInscritosPage() {
         const rowValues = [
           ...displayedColumnKeys.map((k) => (row.fields?.[k] ?? '').toString().trim() || '—'),
           ...(showDateColumn ? [formatDateBr(row.createdAt)] : []),
-          ...(displayPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
+          ...(displayPaymentColumn
+            ? [paymentStatusLabel(normalizeInscriptionPaymentStatus(row))]
+            : []),
           ...(showCredentialingColumn
             ? [isInscriptionCredentialed(row) ? 'Credenciado' : 'Aguardando']
             : []),
@@ -693,6 +844,8 @@ export default function AdminEventoInscritosPage() {
                   <option value="all">Todos os pagamentos</option>
                   <option value="paid">Pago</option>
                   <option value="pending">Pendente</option>
+                  <option value="cancelled">Cancelado</option>
+                  <option value="expired">Vencido</option>
                 </select>
               )}
               <select
@@ -747,6 +900,22 @@ export default function AdminEventoInscritosPage() {
             <p className="text-sm text-cdl-gray-text">
               Exibindo <strong className="text-gray-800">{filteredRows.length}</strong> de{' '}
               <strong className="text-gray-800">{rows.length}</strong> inscrição(ões).
+              {paymentSummary && (
+                <>
+                  {' '}
+                  · Pagamento:{' '}
+                  <strong className="text-green-800">{paymentSummary.paid} pago(s)</strong>,{' '}
+                  <strong className="text-amber-800">{paymentSummary.pending} pendente(s)</strong>
+                  {paymentSummary.other > 0 ? (
+                    <>
+                      , <strong className="text-gray-700">{paymentSummary.other} outro(s)</strong>
+                    </>
+                  ) : null}
+                  {effectivePayment.kind === 'asaas' ? (
+                    <span className="text-gray-500"> (Asaas · lista atualiza em tempo real)</span>
+                  ) : null}
+                </>
+              )}
             </p>
             <div className="w-full max-w-full rounded-lg border border-gray-200 bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -900,27 +1069,12 @@ export default function AdminEventoInscritosPage() {
                     )}
                     {displayPaymentColumn && (
                       <div className="mt-2">
-                        {paymentStatusOf(row) === 'paid' ? (
-                          <button
-                            type="button"
-                            disabled={updatingPaymentId === row.id}
-                            onClick={() => askChangePaymentStatus(row, 'pending')}
-                            className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50"
-                            title="Clique para marcar como pendente"
-                          >
-                            {updatingPaymentId === row.id ? 'Salvando...' : 'Pago'}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={updatingPaymentId === row.id}
-                            onClick={() => askChangePaymentStatus(row, 'paid')}
-                            className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
-                            title="Clique para marcar como pago"
-                          >
-                            {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
-                          </button>
-                        )}
+                        <PaymentStatusCell
+                          row={row}
+                          paymentKind={effectivePayment.kind}
+                          updating={updatingPaymentId === row.id}
+                          onRequestStatusChange={askChangePaymentStatus}
+                        />
                       </div>
                     )}
                     {showSignatureColumn && (
@@ -968,7 +1122,7 @@ export default function AdminEventoInscritosPage() {
                         <th className="px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">Data</th>
                       )}
                       {displayPaymentColumn && (
-                        <th className="w-28 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
+                        <th className="w-36 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
                           Pagamento
                         </th>
                       )}
@@ -1023,27 +1177,12 @@ export default function AdminEventoInscritosPage() {
                         )}
                         {displayPaymentColumn && (
                           <td className="px-2 py-2 align-top">
-                            {paymentStatusOf(row) === 'paid' ? (
-                              <button
-                                type="button"
-                                disabled={updatingPaymentId === row.id}
-                                onClick={() => askChangePaymentStatus(row, 'pending')}
-                                className="inline-flex rounded-full border border-amber-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50"
-                                title="Clique para marcar como pendente"
-                              >
-                                {updatingPaymentId === row.id ? 'Salvando...' : 'Pago'}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={updatingPaymentId === row.id}
-                                onClick={() => askChangePaymentStatus(row, 'paid')}
-                                className="inline-flex rounded-full border border-green-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
-                                title="Clique para marcar como pago"
-                              >
-                                {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
-                              </button>
-                            )}
+                            <PaymentStatusCell
+                              row={row}
+                              paymentKind={effectivePayment.kind}
+                              updating={updatingPaymentId === row.id}
+                              onRequestStatusChange={askChangePaymentStatus}
+                            />
                           </td>
                         )}
                         {showCredentialingColumn && (
@@ -1083,10 +1222,16 @@ export default function AdminEventoInscritosPage() {
               <p className="mt-3 text-sm text-gray-600">
                 Deseja marcar esta inscrição como{' '}
                 <strong className="text-gray-900">
-                  {paymentConfirmTarget.nextStatus === 'paid' ? 'PAGO' : 'PENDENTE'}
+                  {paymentStatusLabel(paymentConfirmTarget.nextStatus).toUpperCase()}
                 </strong>
                 ?
               </p>
+              {paymentConfirmTarget.asaasManaged && (
+                <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Inscrição com cobrança Asaas: o webhook pode atualizar o status automaticamente após o
+                  pagamento. Use o ajuste manual só em casos excepcionais.
+                </p>
+              )}
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   type="button"

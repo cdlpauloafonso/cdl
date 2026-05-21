@@ -1,10 +1,15 @@
 import { getAdminFirestore } from './firebase-admin.js';
+import {
+  type EventVoucherDoc,
+  resolveVoucherForCharge,
+} from './event-voucher.js';
 
 export type InscriptionPaymentStatus = 'pending' | 'paid' | 'cancelled' | 'expired';
 
 export type CampaignPaymentConfigDoc = {
   provider?: 'manual_pix' | 'asaas';
   amount?: number;
+  amountAssociado?: number;
   description?: string;
   pixImageUrl?: string;
   pixCopyPaste?: string;
@@ -14,6 +19,7 @@ export type CampaignPaymentConfigDoc = {
 export type CampaignDoc = {
   title?: string;
   paymentConfig?: CampaignPaymentConfigDoc;
+  vouchers?: EventVoucherDoc[];
   registrationClosed?: boolean;
   published?: boolean;
 };
@@ -46,11 +52,97 @@ export async function getInscriptionDoc(
   return snap.data() as Record<string, unknown>;
 }
 
+function onlyDigitsCnpj(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 14);
+}
+
+/** CNPJ na coleção pública associadosCnpjIndex (mesma regra do site). */
+export async function isCnpjCadastradoComoAssociado(cnpjRaw: string): Promise<boolean> {
+  const digits = onlyDigitsCnpj(cnpjRaw);
+  if (digits.length !== 14) return false;
+  const db = requireAdminFirestore();
+  const snap = await db.collection('associadosCnpjIndex').doc(digits).get();
+  return snap.exists;
+}
+
+export type ResolvedInscriptionPaymentAmount = {
+  amount: number;
+  tier: 'normal' | 'associado';
+  voucherId?: string;
+  voucherCode?: string;
+};
+
+/** Define valor da cobrança conforme CNPJ, voucher e configuração do evento. */
+export async function resolveInscriptionPaymentAmount(
+  paymentCfg: CampaignPaymentConfigDoc,
+  fields: Record<string, string>,
+  options?: {
+    vouchers?: EventVoucherDoc[];
+    voucherCode?: string;
+  },
+): Promise<ResolvedInscriptionPaymentAmount> {
+  const amountNormal = Number(paymentCfg.amount);
+  if (!Number.isFinite(amountNormal) || amountNormal <= 0) {
+    throw new Error('INVALID_PAYMENT_AMOUNT');
+  }
+
+  const amountAssociado = Number(paymentCfg.amountAssociado);
+  const cnpj = onlyDigitsCnpj(String(fields.cnpj ?? ''));
+  let baseAmount = amountNormal;
+  let tier: 'normal' | 'associado' = 'normal';
+  if (
+    Number.isFinite(amountAssociado) &&
+    amountAssociado > 0 &&
+    cnpj.length === 14 &&
+    (await isCnpjCadastradoComoAssociado(cnpj))
+  ) {
+    baseAmount = amountAssociado;
+    tier = 'associado';
+  }
+
+  const code = options?.voucherCode?.trim();
+  if (code) {
+    const resolved = resolveVoucherForCharge(options?.vouchers, code, baseAmount);
+    if (!resolved.ok) throw new Error(resolved.error);
+    return {
+      amount: resolved.amount,
+      tier,
+      voucherId: resolved.voucher.id,
+      voucherCode: resolved.voucher.code,
+    };
+  }
+
+  return { amount: baseAmount, tier };
+}
+
+export async function incrementCampaignVoucherUsedCount(
+  campaignId: string,
+  voucherId: string,
+): Promise<void> {
+  const db = requireAdminFirestore();
+  const ref = db.collection('campaigns').doc(campaignId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const data = snap.data() as CampaignDoc;
+    const vouchers = data.vouchers;
+    if (!Array.isArray(vouchers)) return;
+    const next = vouchers.map((v) =>
+      v.id === voucherId ? { ...v, usedCount: (v.usedCount ?? 0) + 1 } : v,
+    );
+    tx.update(ref, { vouchers: next });
+  });
+}
+
 export async function updateInscriptionPayment(
   campaignId: string,
   inscriptionId: string,
   patch: {
     paymentStatus?: InscriptionPaymentStatus;
+    paymentAmountApplied?: number;
+    paymentAmountTier?: 'normal' | 'associado';
+    voucherId?: string;
+    voucherCode?: string;
     asaasPaymentId?: string;
     asaasInvoiceUrl?: string;
     asaasCustomerId?: string;

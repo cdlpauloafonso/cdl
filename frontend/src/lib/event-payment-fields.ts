@@ -3,7 +3,14 @@ import type { Campaign, CampaignPaymentProvider } from './firestore';
 export type EffectivePayment =
   | { kind: 'none' }
   | { kind: 'pix'; imageUrl?: string; copyPaste?: string; observationText?: string }
-  | { kind: 'asaas'; amount: number; description?: string };
+  | {
+      kind: 'asaas';
+      /** Valor padrão (retrocompat: mesmo que amountNormal). */
+      amount: number;
+      amountNormal: number;
+      amountAssociado?: number;
+      description?: string;
+    };
 
 function resolvePaymentProvider(c: Pick<Campaign, 'paymentConfig'>): CampaignPaymentProvider {
   const p = c.paymentConfig;
@@ -21,12 +28,17 @@ export function getEffectivePayment(c: Pick<Campaign, 'paymentConfig'>): Effecti
   const provider = resolvePaymentProvider(c);
 
   if (provider === 'asaas') {
-    const amount = Number(p.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return { kind: 'none' };
+    const amountNormal = Number(p.amount);
+    if (!Number.isFinite(amountNormal) || amountNormal <= 0) return { kind: 'none' };
+    const amountAssociado = Number(p.amountAssociado);
     const description = p.description?.trim();
     return {
       kind: 'asaas',
-      amount,
+      amount: amountNormal,
+      amountNormal,
+      ...(Number.isFinite(amountAssociado) && amountAssociado > 0
+        ? { amountAssociado }
+        : {}),
       ...(description ? { description } : {}),
     };
   }

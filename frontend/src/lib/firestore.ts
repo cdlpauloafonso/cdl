@@ -1,12 +1,14 @@
 import { getApps } from 'firebase/app';
 import { onlyDigitsCnpj } from './brasil-api-cnpj';
 import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
+import { normalizeVoucherCodeInput } from './event-vouchers-admin';
 import { initFirebase } from './firebase';
 import {
   getFirestore,
   collection,
   getDocs,
   getDoc,
+  onSnapshot,
   doc,
   addDoc,
   setDoc,
@@ -80,14 +82,37 @@ export type CampaignPaymentProvider = 'manual_pix' | 'asaas';
 /** Pagamento na inscrição do evento: PIX manual ou cobrança Asaas. */
 export type CampaignPaymentConfig = {
   provider?: CampaignPaymentProvider;
-  /** Valor em reais (Asaas). */
+  /** Valor em reais (não associado / padrão). */
   amount?: number;
+  /** Valor em reais para CNPJ cadastrado como associado CDL (opcional). */
+  amountAssociado?: number;
   /** Descrição na fatura Asaas. */
   description?: string;
   /** PIX manual: imagem (ex.: QR no ImgBB) + código copia e cola. */
   pixImageUrl?: string;
   pixCopyPaste?: string;
   pixObservationText?: string;
+};
+
+export type EventVoucherDiscountType = 'percent' | 'fixed';
+
+/** Voucher de desconto configurável por evento (admin). */
+export type EventVoucher = {
+  id: string;
+  /** Código que o participante digita (normalizado em maiúsculas, sem espaços). */
+  code: string;
+  /** Rótulo interno opcional (ex.: «Parceiro X»). */
+  label?: string;
+  discountType: EventVoucherDiscountType;
+  /** `percent`: 1–100; `fixed`: valor em reais. */
+  discountValue: number;
+  /** Limite de utilizações; ausente = ilimitado. */
+  maxUses?: number;
+  /** Contador de utilizações confirmadas (pagamento). */
+  usedCount?: number;
+  active?: boolean;
+  /** Validade inclusive (YYYY-MM-DD). */
+  expiresAt?: string;
 };
 
 export type Campaign = {
@@ -109,6 +134,8 @@ export type Campaign = {
   registrationUrl?: string;
   /** Pagamento PIX opcional (eventos). */
   paymentConfig?: CampaignPaymentConfig;
+  /** Vouchers de desconto na inscrição (eventos). */
+  vouchers?: EventVoucher[];
   /**
    * Contador público de inscrições pelo site (só incrementa quando há limite configurado).
    * Usado para exibir «ingressos esgotados» sem listar a subcoleção.
@@ -203,10 +230,11 @@ export async function listCampaignsByCreatedAtDesc(): Promise<Campaign[]> {
 
 export async function updateCampaign(
   id: string,
-  data: Partial<Omit<Campaign, 'registrationUrl' | 'registrationConfig' | 'paymentConfig'>> & {
+  data: Partial<Omit<Campaign, 'registrationUrl' | 'registrationConfig' | 'paymentConfig' | 'vouchers'>> & {
     registrationUrl?: string | null;
     registrationConfig?: CampaignRegistrationConfig | null;
     paymentConfig?: CampaignPaymentConfig | null;
+    vouchers?: EventVoucher[] | null;
   }
 ) {
   const db = getDb();
@@ -214,7 +242,10 @@ export async function updateCampaign(
   const payload: Record<string, any> = {};
   Object.entries(data as Record<string, any>).forEach(([k, v]) => {
     if (v === undefined) return;
-    if (v === null && (k === 'registrationConfig' || k === 'registrationUrl' || k === 'paymentConfig')) {
+    if (
+      v === null &&
+      (k === 'registrationConfig' || k === 'registrationUrl' || k === 'paymentConfig' || k === 'vouchers')
+    ) {
       payload[k] = deleteField();
       return;
     }
@@ -241,6 +272,12 @@ export type EventInscriptionRecord = {
   certificateEmailLastError?: string | null;
   paymentStatus?: EventInscriptionPaymentStatus;
   paymentProvider?: CampaignPaymentProvider;
+  /** Valor efetivamente cobrado (Asaas), em reais. */
+  paymentAmountApplied?: number;
+  /** Tarifa aplicada na cobrança. */
+  paymentAmountTier?: 'normal' | 'associado';
+  voucherCode?: string;
+  voucherId?: string;
   asaasPaymentId?: string;
   asaasInvoiceUrl?: string;
   asaasCustomerId?: string;
@@ -284,6 +321,7 @@ export async function createEventInscription(
   options?: {
     paymentStatus?: EventInscriptionPaymentStatus;
     paymentProvider?: CampaignPaymentProvider;
+    voucherCode?: string;
     /** Admin testando evento em rascunho (published === false). */
     allowUnpublished?: boolean;
   }
@@ -312,12 +350,14 @@ export async function createEventInscription(
     throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
   }
 
+  const voucherCode = options?.voucherCode?.trim();
   const newInscRef = doc(inscricoesCol);
   const record: EventInscriptionRecord = {
     createdAt: new Date().toISOString(),
     fields,
     ...(options?.paymentStatus ? { paymentStatus: options.paymentStatus } : {}),
     ...(options?.paymentProvider ? { paymentProvider: options.paymentProvider } : {}),
+    ...(voucherCode ? { voucherCode: normalizeVoucherCodeInput(voucherCode) } : {}),
   };
 
   try {
@@ -347,6 +387,26 @@ export async function listEventInscriptions(campaignId: string): Promise<(EventI
   const q = query(col, orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as EventInscriptionRecord) }));
+}
+
+/** Atualização em tempo real (ex.: webhook Asaas grava paymentStatus no Firestore). */
+export function subscribeEventInscriptions(
+  campaignId: string,
+  onData: (rows: (EventInscriptionRecord & { id: string })[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const db = getDb();
+  const col = collection(db, 'campaigns', campaignId, 'inscricoes');
+  const q = query(col, orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snap) => {
+      onData(snap.docs.map((d) => ({ id: d.id, ...(d.data() as EventInscriptionRecord) })));
+    },
+    (err) => {
+      onError?.(err instanceof Error ? err : new Error(String(err)));
+    },
+  );
 }
 
 export async function updateEventInscriptionPaymentStatus(

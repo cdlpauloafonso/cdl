@@ -10,9 +10,15 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import type { InscriptionDocumentMode } from '@/lib/firestore';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
+import { EventVouchersSection } from '@/components/admin/EventVouchersSection';
 import { EventDateTimeFields } from '@/components/admin/EventDateTimeFields';
 import type { CampaignPaymentProvider } from '@/lib/firestore';
 import { buildCampaignPaymentConfigFromAdmin, parsePaymentAmountInput } from '@/lib/campaign-payment-admin';
+import {
+  buildEventVouchersForSave,
+  validateEventVoucherDrafts,
+  type EventVoucherDraft,
+} from '@/lib/event-vouchers-admin';
 
 type CreateCampaignFormProps = {
   variant: 'campaign' | 'event';
@@ -59,10 +65,12 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [wantsEventPayment, setWantsEventPayment] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CampaignPaymentProvider>('asaas');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentAmountAssociado, setPaymentAmountAssociado] = useState('');
   const [paymentDescription, setPaymentDescription] = useState('');
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [pixObservationText, setPixObservationText] = useState('');
+  const [voucherDrafts, setVoucherDrafts] = useState<EventVoucherDraft[]>([]);
   /** Apenas eventos: salvar já publicado no site (padrão: sim). */
   const [publishOnSite, setPublishOnSite] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -125,7 +133,13 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
       if (variant === 'event' && wantsEventPayment) {
         if (paymentProvider === 'asaas') {
           if (parsePaymentAmountInput(paymentAmount) == null) {
-            setError('Pagamento Asaas: informe o valor da inscrição em reais, ou desmarque a opção.');
+            setError('Pagamento Asaas: informe o valor normal da inscrição, ou desmarque a opção.');
+            setLoading(false);
+            return;
+          }
+          const assocRaw = paymentAmountAssociado.trim();
+          if (assocRaw && parsePaymentAmountInput(assocRaw) == null) {
+            setError('Pagamento Asaas: valor de associado inválido. Corrija ou deixe em branco.');
             setLoading(false);
             return;
           }
@@ -140,18 +154,31 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         }
       }
 
+      if (variant === 'event') {
+        const voucherError = validateEventVoucherDrafts(voucherDrafts);
+        if (voucherError) {
+          setError(voucherError);
+          setLoading(false);
+          return;
+        }
+      }
+
       const paymentConfig =
         variant === 'event'
           ? buildCampaignPaymentConfigFromAdmin({
               enabled: wantsEventPayment,
               provider: paymentProvider,
               amount: paymentAmount,
+              amountAssociado: paymentAmountAssociado,
               description: paymentDescription,
               pixImageUrl,
               pixCopyPaste,
               pixObservationText,
             })
           : null;
+
+      const vouchersBuilt =
+        variant === 'event' ? buildEventVouchersForSave(voucherDrafts) : undefined;
 
       await createCampaign({
         title,
@@ -181,6 +208,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
             }
           : {}),
         ...(paymentConfig ? { paymentConfig } : {}),
+        ...(vouchersBuilt && vouchersBuilt.length > 0 ? { vouchers: vouchersBuilt } : {}),
       });
       router.push(c.successPath);
     } catch (err: unknown) {
@@ -382,6 +410,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                       onProviderChange: setPaymentProvider,
                       amount: paymentAmount,
                       onAmountChange: setPaymentAmount,
+                      amountAssociado: paymentAmountAssociado,
+                      onAmountAssociadoChange: setPaymentAmountAssociado,
                       paymentDescription,
                       onPaymentDescriptionChange: setPaymentDescription,
                       pixImageUrl,
@@ -402,6 +432,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                 onProviderChange={setPaymentProvider}
                 amount={paymentAmount}
                 onAmountChange={setPaymentAmount}
+                amountAssociado={paymentAmountAssociado}
+                onAmountAssociadoChange={setPaymentAmountAssociado}
                 paymentDescription={paymentDescription}
                 onPaymentDescriptionChange={setPaymentDescription}
                 pixImageUrl={pixImageUrl}
@@ -412,6 +444,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
                 onPixObservationTextChange={setPixObservationText}
               />
             )}
+            <EventVouchersSection vouchers={voucherDrafts} onVouchersChange={setVoucherDrafts} />
           </>
         )}
         {variant === 'event' && (

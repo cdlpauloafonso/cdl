@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getCampaign, updateCampaign, countEventInscriptions, Campaign } from '@/lib/firestore';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
+import { EventVouchersSection } from '@/components/admin/EventVouchersSection';
 import { getEffectiveRegistration, resolveInscriptionDocumentMode } from '@/lib/event-registration-fields';
 import type { InscriptionDocumentMode } from '@/lib/firestore';
 import { parsePositiveInscriptionLimit } from '@/lib/inscription-limit';
@@ -17,6 +18,12 @@ import {
   parsePaymentAmountInput,
 } from '@/lib/campaign-payment-admin';
 import { campaignPublicPageUrl } from '@/lib/campaign-preview';
+import {
+  buildEventVouchersForSave,
+  loadEventVoucherDraftsFromCampaign,
+  validateEventVoucherDrafts,
+  type EventVoucherDraft,
+} from '@/lib/event-vouchers-admin';
 
 // imgbb upload key
 const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -42,10 +49,12 @@ export default function AdminCampanhaEditByQueryPage() {
   const [wantsEventPayment, setWantsEventPayment] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CampaignPaymentProvider>('asaas');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentAmountAssociado, setPaymentAmountAssociado] = useState('');
   const [paymentDescription, setPaymentDescription] = useState('');
   const [pixImageUrl, setPixImageUrl] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [pixObservationText, setPixObservationText] = useState('');
+  const [voucherDrafts, setVoucherDrafts] = useState<EventVoucherDraft[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -111,11 +120,17 @@ export default function AdminCampanhaEditByQueryPage() {
     setWantsEventPayment(loaded.enabled);
     setPaymentProvider(loaded.provider);
     setPaymentAmount(loaded.amount);
+    setPaymentAmountAssociado(loaded.amountAssociado);
     setPaymentDescription(loaded.description);
     setPixImageUrl(loaded.pixImageUrl);
     setPixCopyPaste(loaded.pixCopyPaste);
     setPixObservationText(loaded.pixObservationText);
   }, [campanha?.id, campanha?.paymentConfig]);
+
+  useEffect(() => {
+    if (!campanha?.id) return;
+    setVoucherDrafts(loadEventVoucherDraftsFromCampaign(campanha));
+  }, [campanha?.id, campanha?.vouchers]);
 
   if (loading) return <p className="text-cdl-gray-text">Carregando...</p>;
   if (!id) {
@@ -166,7 +181,12 @@ export default function AdminCampanhaEditByQueryPage() {
     if (wantsEventPayment) {
       if (paymentProvider === 'asaas') {
         if (parsePaymentAmountInput(paymentAmount) == null) {
-          setError('Pagamento Asaas: informe o valor da inscrição em reais, ou desmarque a opção.');
+          setError('Pagamento Asaas: informe o valor normal da inscrição, ou desmarque a opção.');
+          return;
+        }
+        const assocRaw = paymentAmountAssociado.trim();
+        if (assocRaw && parsePaymentAmountInput(assocRaw) == null) {
+          setError('Pagamento Asaas: valor de associado inválido. Corrija ou deixe em branco.');
           return;
         }
       } else {
@@ -179,15 +199,23 @@ export default function AdminCampanhaEditByQueryPage() {
       }
     }
 
+    const voucherError = validateEventVoucherDrafts(voucherDrafts);
+    if (voucherError) {
+      setError(voucherError);
+      return;
+    }
+
     const paymentConfig = buildCampaignPaymentConfigFromAdmin({
       enabled: wantsEventPayment,
       provider: paymentProvider,
       amount: paymentAmount,
+      amountAssociado: paymentAmountAssociado,
       description: paymentDescription,
       pixImageUrl,
       pixCopyPaste,
       pixObservationText,
     });
+    const vouchersBuilt = buildEventVouchersForSave(voucherDrafts, campanha.vouchers);
     setSaving(true);
     setError('');
     try {
@@ -239,6 +267,9 @@ export default function AdminCampanhaEditByQueryPage() {
               }
           : { registrationConfig: null, registrationUrl: null }),
         paymentConfig: paymentConfig ?? null,
+        ...(vouchersBuilt && vouchersBuilt.length > 0
+          ? { vouchers: vouchersBuilt }
+          : { vouchers: null }),
       });
       router.push('/admin/eventos');
     } catch {
@@ -561,6 +592,8 @@ export default function AdminCampanhaEditByQueryPage() {
                 onProviderChange={setPaymentProvider}
                 amount={paymentAmount}
                 onAmountChange={setPaymentAmount}
+                amountAssociado={paymentAmountAssociado}
+                onAmountAssociadoChange={setPaymentAmountAssociado}
                 paymentDescription={paymentDescription}
                 onPaymentDescriptionChange={setPaymentDescription}
                 pixImageUrl={pixImageUrl}
@@ -570,6 +603,7 @@ export default function AdminCampanhaEditByQueryPage() {
                 pixObservationText={pixObservationText}
                 onPixObservationTextChange={setPixObservationText}
               />
+              <EventVouchersSection vouchers={voucherDrafts} onVouchersChange={setVoucherDrafts} />
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <label className="flex cursor-pointer items-start gap-3">
                   <input

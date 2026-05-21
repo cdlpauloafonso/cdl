@@ -35,6 +35,12 @@ import {
   inscriptionDisplayLabel,
 } from '@/lib/event-registration-fields';
 import { formatPaymentAmountBrl, getEffectivePayment } from '@/lib/event-payment-fields';
+import {
+  resolveInscriptionChargeAmount,
+  type InscriptionPaymentTier,
+} from '@/lib/inscription-payment-amount';
+import { normalizeVoucherCodeInput } from '@/lib/event-vouchers-admin';
+import { resolveVoucherForCharge } from '@/lib/event-voucher-utils';
 import { createAsaasInscriptionPayment } from '@/lib/asaas-api';
 import {
   applyInscriptionFieldMask,
@@ -98,6 +104,10 @@ function inscriptionSubmitErrorMessage(err: unknown): string {
   if (msg === 'CAMPAIGN_NOT_FOUND' || msg === 'INSCRIPTION_NOT_FOUND') {
     return 'Não foi possível concluir o pagamento. Tente enviar novamente ou fale com a CDL.';
   }
+  if (msg === 'VOUCHER_INVALID') return 'Código de voucher inválido.';
+  if (msg === 'VOUCHER_INACTIVE') return 'Este voucher está inativo.';
+  if (msg === 'VOUCHER_EXPIRED') return 'Este voucher expirou.';
+  if (msg === 'VOUCHER_EXHAUSTED') return 'Este voucher atingiu o limite de utilizações.';
   if (msg === 'CAMPAIGN_NOT_PUBLISHED') {
     return 'Este evento ainda não está publicado. Faça login como administrador para testar a inscrição em rascunho.';
   }
@@ -271,6 +281,15 @@ export function EventInscriptionClient({
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
   const [cnpjLookupHint, setCnpjLookupHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [cnpjRejeitadoNaoAssociado, setCnpjRejeitadoNaoAssociado] = useState(false);
+  /** CNPJ reconhecido na base de associados para tarifa reduzida (Asaas). */
+  const [associadoPaymentTier, setAssociadoPaymentTier] = useState(false);
+  const [completedAsaasCharge, setCompletedAsaasCharge] = useState<{
+    amount: number;
+    tier: InscriptionPaymentTier;
+    voucherApplied?: boolean;
+  } | null>(null);
+  const [voucherCodeInput, setVoucherCodeInput] = useState('');
+  const [voucherHint, setVoucherHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   /** Participante optou por pular a etapa de CNPJ e preencher o formulário com CPF. */
   const [inscricaoViaCpf, setInscricaoViaCpf] = useState(false);
   const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
@@ -489,6 +508,39 @@ export function EventInscriptionClient({
       ? reg.observationText.trim()
       : '';
   const payment = getEffectivePayment(campanha);
+  const hasAssociadoPrice =
+    payment.kind === 'asaas' &&
+    payment.amountAssociado != null &&
+    payment.amountAssociado > 0;
+  const baseAsaasCharge =
+    payment.kind === 'asaas'
+      ? resolveInscriptionChargeAmount(payment, associadoPaymentTier)
+      : null;
+
+  const asaasChargePreview = (() => {
+    if (!baseAsaasCharge || payment.kind !== 'asaas') return null;
+    const code = normalizeVoucherCodeInput(voucherCodeInput);
+    if (!code) return baseAsaasCharge;
+    const resolved = resolveVoucherForCharge(campanha?.vouchers, code, baseAsaasCharge.amount);
+    if (!resolved.ok) return baseAsaasCharge;
+    return { ...baseAsaasCharge, amount: resolved.applied.amountAfter };
+  })();
+
+  async function refreshAssociadoPaymentTierFromCnpj(cnpjRaw: string): Promise<boolean> {
+    if (!hasAssociadoPrice || inscricaoViaCpf) {
+      setAssociadoPaymentTier(false);
+      return false;
+    }
+    const d = onlyDigitsCnpj(cnpjRaw);
+    if (d.length !== 14) {
+      setAssociadoPaymentTier(false);
+      return false;
+    }
+    const ok = await isCnpjCadastradoComoAssociado(cnpjRaw);
+    setAssociadoPaymentTier(ok);
+    return ok;
+  }
+
   const inscriptionDocumentMode = reg.kind === 'form' ? reg.documentMode : 'cpf_allowed';
   const needsCnpjValidationStep = needsCnpjInscriptionStep(inscriptionDocumentMode, userInputKeys);
   const podeInscreverComCpf = canOfferInscricaoComCpf(inscriptionDocumentMode, userInputKeys);
@@ -522,6 +574,17 @@ export function EventInscriptionClient({
         setCnpjRejeitadoNaoAssociado(false);
       }
 
+      let associadoTarifaHint = '';
+      if (hasAssociadoPrice) {
+        const isAssocPay = await isCnpjCadastradoComoAssociado(raw);
+        if (req !== cnpjLookupReq.current) return false;
+        setAssociadoPaymentTier(isAssocPay);
+        if (isAssocPay && payment.kind === 'asaas') {
+          const { amount } = resolveInscriptionChargeAmount(payment, true);
+          associadoTarifaHint = ` Tarifa de associado CDL: ${formatPaymentAmountBrl(amount)}.`;
+        }
+      }
+
       const data = await fetchCnpjBrasilApi(digits);
       if (req !== cnpjLookupReq.current) return false;
       const patch = associadoFormPatchFromBrasilApi(data);
@@ -531,7 +594,7 @@ export function EventInscriptionClient({
       setCnpjStepValue(maskedCnpj);
       setCnpjLookupHint({
         type: 'ok',
-        text: 'Dados preenchidos via Brasil API (CNPJ / Minha Receita). Revise antes de enviar.',
+        text: `Dados preenchidos via Brasil API (CNPJ / Minha Receita). Revise antes de enviar.${associadoTarifaHint}`,
       });
       return true;
     } catch (err) {
@@ -562,6 +625,7 @@ export function EventInscriptionClient({
         onDirty: () => {
           setCnpjLookupHint(null);
           setCnpjRejeitadoNaoAssociado(false);
+          setAssociadoPaymentTier(false);
         },
       }
     : undefined;
@@ -588,6 +652,9 @@ export function EventInscriptionClient({
           setCnpjRejeitadoNaoAssociado(true);
           return false;
         }
+      }
+      if (hasAssociadoPrice) {
+        await refreshAssociadoPaymentTierFromCnpj(values.cnpj ?? '');
       }
     }
     for (const key of userInputKeys) {
@@ -629,14 +696,55 @@ export function EventInscriptionClient({
         setCampanha(fresh);
         return;
       }
+      const voucherCode =
+        payment.kind === 'asaas' ? normalizeVoucherCodeInput(voucherCodeInput) : '';
+      if (payment.kind === 'asaas' && voucherCode) {
+        if (!campanha?.vouchers?.length) {
+          setError('Código de voucher inválido.');
+          setSubmitting(false);
+          return;
+        }
+        let tierFlag = associadoPaymentTier;
+        if (hasAssociadoPrice && !inscricaoViaCpf) {
+          tierFlag = await refreshAssociadoPaymentTierFromCnpj(
+            values.cnpj?.trim() ? values.cnpj : cnpjStepValue,
+          );
+        }
+        const base = resolveInscriptionChargeAmount(payment, tierFlag);
+        const check = resolveVoucherForCharge(campanha.vouchers, voucherCode, base.amount);
+        if (!check.ok) {
+          setError(check.error);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       if (!inscriptionId) {
         inscriptionId = await createEventInscription(slug, fields, {
           allowUnpublished: isDraftPreview,
+          ...(voucherCode ? { voucherCode } : {}),
         });
         setPendingInscriptionId(inscriptionId);
       }
 
       if (payment.kind === 'asaas') {
+        let tierFlag = associadoPaymentTier;
+        if (hasAssociadoPrice && !inscricaoViaCpf) {
+          tierFlag = await refreshAssociadoPaymentTierFromCnpj(
+            values.cnpj?.trim() ? values.cnpj : cnpjStepValue,
+          );
+        }
+        let charge = resolveInscriptionChargeAmount(payment, tierFlag);
+        if (voucherCode && campanha?.vouchers?.length) {
+          const applied = resolveVoucherForCharge(campanha.vouchers, voucherCode, charge.amount);
+          if (applied.ok) {
+            charge = { ...charge, amount: applied.applied.amountAfter };
+          }
+        }
+        setCompletedAsaasCharge({
+          ...charge,
+          voucherApplied: Boolean(voucherCode),
+        });
         const { invoiceUrl } = await createAsaasInscriptionPayment(slug, inscriptionId);
         setAsaasInvoiceUrl(invoiceUrl);
       }
@@ -690,6 +798,7 @@ export function EventInscriptionClient({
     setError('');
     setCnpjLookupHint(null);
     setCnpjRejeitadoNaoAssociado(false);
+    setAssociadoPaymentTier(false);
     setCnpjStepValue('');
     setValues((prev) => {
       const next = { ...prev };
@@ -723,10 +832,18 @@ export function EventInscriptionClient({
               <>
                 <p className="text-cdl-gray-text mb-6 text-left sm:text-center">
                   Seus dados foram salvos. Para confirmar a participação, conclua o pagamento de{' '}
-                  <strong>{formatPaymentAmountBrl(payment.amount)}</strong> pelo link abaixo.
+                  <strong>
+                    {formatPaymentAmountBrl(
+                      completedAsaasCharge?.amount ?? payment.amountNormal,
+                    )}
+                  </strong>
+                  {completedAsaasCharge?.tier === 'associado' ? (
+                    <span className="text-cdl-blue"> (tarifa associado CDL)</span>
+                  ) : null}{' '}
+                  pelo link abaixo.
                 </p>
                 <AsaasPaymentPublicBlock
-                  amount={payment.amount}
+                  amount={completedAsaasCharge?.amount ?? payment.amountNormal}
                   description={payment.description}
                   invoiceUrl={asaasInvoiceUrl}
                   className="text-left mb-6"
@@ -1018,6 +1135,74 @@ export function EventInscriptionClient({
                 <PixPaymentPublicBlock payment={payment} className="mt-2" />
               </section>
             )}
+            {payment.kind === 'asaas' && asaasChargePreview ? (
+              <div className="rounded-lg border border-cdl-blue/20 bg-cdl-blue/5 px-4 py-3 space-y-3">
+                <p className="text-sm text-cdl-gray-text">
+                  Valor da inscrição:{' '}
+                  <strong className="text-gray-900">
+                    {formatPaymentAmountBrl(asaasChargePreview.amount)}
+                  </strong>
+                  {asaasChargePreview.tier === 'associado' ? (
+                    <span className="ml-1 text-xs font-medium text-cdl-blue">
+                      (tarifa associado CDL)
+                    </span>
+                  ) : null}
+                  {baseAsaasCharge &&
+                  voucherCodeInput.trim() &&
+                  asaasChargePreview.amount < baseAsaasCharge.amount ? (
+                    <span className="ml-1 text-xs font-medium text-green-700">(com voucher)</span>
+                  ) : null}
+                </p>
+                {hasAssociadoPrice &&
+                asaasChargePreview.tier === 'normal' &&
+                userInputKeys.includes('cnpj') &&
+                !inscricaoViaCpf ? (
+                  <p className="text-xs text-cdl-gray-text">
+                    CNPJs cadastrados como associados CDL podem ter valor diferente, aplicado
+                    automaticamente na cobrança.
+                  </p>
+                ) : null}
+                {(campanha?.vouchers?.length ?? 0) > 0 ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Código de voucher (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={voucherCodeInput}
+                      onChange={(e) => {
+                        const v = normalizeVoucherCodeInput(e.target.value);
+                        setVoucherCodeInput(v);
+                        if (!v) {
+                          setVoucherHint(null);
+                          return;
+                        }
+                        if (!baseAsaasCharge) return;
+                        const r = resolveVoucherForCharge(campanha?.vouchers, v, baseAsaasCharge.amount);
+                        if (r.ok) {
+                          setVoucherHint({
+                            type: 'ok',
+                            text: `Desconto aplicado: ${formatPaymentAmountBrl(r.applied.amountAfter)}`,
+                          });
+                        } else {
+                          setVoucherHint({ type: 'err', text: r.error });
+                        }
+                      }}
+                      placeholder="Ex.: CDL2026"
+                      className="mt-1 block w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm uppercase"
+                    />
+                    {voucherHint ? (
+                      <p
+                        className={`mt-1 text-xs ${voucherHint.type === 'ok' ? 'text-green-800' : 'text-red-700'}`}
+                      >
+                        {voucherHint.text}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="pt-2 flex flex-wrap gap-2">
               {payment.kind === 'pix' && pixStepActive && (

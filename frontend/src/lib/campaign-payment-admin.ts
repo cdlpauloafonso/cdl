@@ -32,6 +32,7 @@ export function buildCampaignPaymentConfigFromAdmin(input: {
   enabled: boolean;
   provider: CampaignPaymentProvider;
   amount: string;
+  amountAssociado: string;
   description: string;
   pixImageUrl: string;
   pixCopyPaste: string;
@@ -42,9 +43,11 @@ export function buildCampaignPaymentConfigFromAdmin(input: {
   if (input.provider === 'asaas') {
     const amount = parsePaymentAmountInput(input.amount);
     if (amount == null) return null;
+    const amountAssociado = parsePaymentAmountInput(input.amountAssociado);
     return {
       provider: 'asaas',
       amount,
+      ...(amountAssociado != null ? { amountAssociado } : {}),
       ...(input.description.trim() ? { description: input.description.trim() } : {}),
     };
   }
@@ -65,11 +68,17 @@ export function isPixPaymentSummaryOk(props: {
   enabled: boolean;
   provider: CampaignPaymentProvider;
   amount: string;
+  amountAssociado: string;
   pixImageUrl: string;
   pixCopyPaste: string;
 }): boolean {
   if (!props.enabled) return false;
-  if (props.provider === 'asaas') return parsePaymentAmountInput(props.amount) != null;
+  if (props.provider === 'asaas') {
+    if (parsePaymentAmountInput(props.amount) == null) return false;
+    const assoc = props.amountAssociado.trim();
+    if (assoc && parsePaymentAmountInput(assoc) == null) return false;
+    return true;
+  }
   return Boolean(props.pixImageUrl.trim() || props.pixCopyPaste.trim());
 }
 
@@ -77,6 +86,7 @@ export function loadPaymentAdminStateFromConfig(cfg?: CampaignPaymentConfig | nu
   enabled: boolean;
   provider: CampaignPaymentProvider;
   amount: string;
+  amountAssociado: string;
   description: string;
   pixImageUrl: string;
   pixCopyPaste: string;
@@ -87,6 +97,7 @@ export function loadPaymentAdminStateFromConfig(cfg?: CampaignPaymentConfig | nu
       enabled: false,
       provider: 'asaas',
       amount: '',
+      amountAssociado: '',
       description: '',
       pixImageUrl: '',
       pixCopyPaste: '',
@@ -107,6 +118,10 @@ export function loadPaymentAdminStateFromConfig(cfg?: CampaignPaymentConfig | nu
     provider,
     amount:
       typeof cfg.amount === 'number' && cfg.amount > 0 ? formatBrlCurrencyFromNumber(cfg.amount) : '',
+    amountAssociado:
+      typeof cfg.amountAssociado === 'number' && cfg.amountAssociado > 0
+        ? formatBrlCurrencyFromNumber(cfg.amountAssociado)
+        : '',
     description: cfg.description ?? '',
     pixImageUrl: cfg.pixImageUrl ?? '',
     pixCopyPaste: cfg.pixCopyPaste ?? '',
