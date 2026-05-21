@@ -6,7 +6,7 @@ set -e
 APP_DIR="/www/wwwroot/apiassas.cdlpauloafonso.com"
 BACKEND_DIR="$APP_DIR/backend"
 PM2_NAME="cdl-api"
-export NODE_ENV=production
+# NODE_ENV=production só na execução do PM2 — durante npm ci/build precisa das devDependencies (typescript/tsc)
 
 log() { printf '\n[deploy] %s\n' "$*"; }
 fail() { printf '\n[deploy] ERRO: %s\n' "$*" >&2; exit 1; }
@@ -38,9 +38,9 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
   fi
 fi
 
-log "Instalando dependências..."
+log "Instalando dependências (inclui devDependencies para o build)..."
 if [ -f package-lock.json ]; then
-  npm ci --no-audit --no-fund
+  npm ci --no-audit --no-fund --include=dev
 else
   npm install --no-audit --no-fund
 fi
@@ -59,9 +59,9 @@ log "Reiniciando PM2 ($PM2_NAME)..."
 command -v pm2 >/dev/null 2>&1 || fail "PM2 não instalado. Rode: npm i -g pm2"
 
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 reload "$PM2_NAME" --update-env
+  NODE_ENV=production pm2 reload "$PM2_NAME" --update-env
 else
-  pm2 start "$BACKEND_DIR/dist/index.js" --name "$PM2_NAME" --cwd "$BACKEND_DIR" --time --max-memory-restart 600M
+  NODE_ENV=production pm2 start "$BACKEND_DIR/dist/index.js" --name "$PM2_NAME" --cwd "$BACKEND_DIR" --time --max-memory-restart 600M
   pm2 save
 fi
 

@@ -16,7 +16,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/www/wwwroot/apiassas.cdlpauloafonso.com}"
 BACKEND_DIR="$APP_DIR/backend"
 PM2_NAME="${PM2_NAME:-cdl-api}"
-export NODE_ENV="${NODE_ENV:-production}"
+# Não exportar NODE_ENV=production antes do npm ci — senão o TypeScript (devDependency) não é instalado
 
 log() { printf '\n\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 fail() { printf '\n\033[1;31m[deploy]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -56,9 +56,9 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
 fi
 
 # 3) Dependências (usa cache do npm; ci é reprodutível)
-log "Instalando dependências (npm ci)..."
+log "Instalando dependências (npm ci, inclui dev para build)..."
 if [ -f "$BACKEND_DIR/package-lock.json" ]; then
-  npm ci --no-audit --no-fund
+  npm ci --no-audit --no-fund --include=dev
 else
   npm install --no-audit --no-fund
 fi
@@ -83,9 +83,9 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 reload "$PM2_NAME" --update-env
+  NODE_ENV=production pm2 reload "$PM2_NAME" --update-env
 else
-  pm2 start "$BACKEND_DIR/dist/index.js" \
+  NODE_ENV=production pm2 start "$BACKEND_DIR/dist/index.js" \
     --name "$PM2_NAME" \
     --cwd "$BACKEND_DIR" \
     --time \
