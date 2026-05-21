@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { AppEventCredentialingClient } from '@/components/mobile-web/AppEventCredentialingClient';
+import { AppParticipantCheckInClient } from '@/components/mobile-web/AppParticipantCheckInClient';
 import { listCampaignIdsAtBuild } from '@/lib/firestore-build';
 import { getMobileWebviewToken, isValidMobileWebviewToken } from '@/lib/mobile-webview-token';
 
 export const metadata: Metadata = {
-  title: 'Credenciamento — CDL Paulo Afonso',
+  title: 'Check-in — CDL Paulo Afonso',
   robots: { index: false, follow: false },
 };
 
@@ -22,7 +22,7 @@ export async function generateStaticParams() {
   return [{ token, eventId: '_' }];
 }
 
-export default async function MobileAppEventCredentialingPage({
+export default async function MobileAppCheckInPage({
   params,
 }: {
   params: Promise<{ token: string; eventId: string }>;
@@ -32,5 +32,5 @@ export default async function MobileAppEventCredentialingPage({
     notFound();
   }
 
-  return <AppEventCredentialingClient eventId={eventId.trim()} mobileToken={token} />;
+  return <AppParticipantCheckInClient eventId={eventId.trim()} />;
 }

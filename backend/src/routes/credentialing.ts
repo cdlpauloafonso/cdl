@@ -31,8 +31,8 @@ router.post('/credentialing/app-session', async (req, res) => {
       res.status(404).json({ ok: false, error: 'Evento não encontrado.' });
       return;
     }
-    if (camp.credentialingOnApp !== true) {
-      res.status(403).json({ ok: false, error: 'Credenciamento no app não está ativo para este evento.' });
+    if (camp.checkInOnApp !== true && camp.credentialingOnApp !== true) {
+      res.status(403).json({ ok: false, error: 'Check-in no app não está ativo para este evento.' });
       return;
     }
     if (camp.published === false) {

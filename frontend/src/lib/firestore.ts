@@ -153,9 +153,11 @@ export type Campaign = {
    */
   published?: boolean;
   /**
-   * Quando `true`, o evento aparece na home do app (/m/…) com botão «Credenciar».
+   * Quando `true`, o evento aparece na home do app (/m/…) na área de check-in do inscrito.
    * Requer inscrição por formulário e evento publicado.
    */
+  checkInOnApp?: boolean;
+  /** @deprecated usar `checkInOnApp` */
   credentialingOnApp?: boolean;
 };
 
@@ -416,6 +418,28 @@ export async function createEventInscription(
   }
 
   return newInscRef.id;
+}
+
+/** Localiza inscrição pelo CPF (índice `inscricoesByCpf` ou busca nos campos). */
+export async function getEventInscriptionByCpf(
+  campaignId: string,
+  cpfRaw: string,
+): Promise<(EventInscriptionRecord & { id: string }) | null> {
+  const digits = cpfRaw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length !== 11) return null;
+
+  const db = getDb();
+  const cpfRef = doc(db, 'campaigns', campaignId, 'inscricoesByCpf', digits);
+  const cpfSnap = await getDoc(cpfRef);
+  if (cpfSnap.exists()) {
+    const inscriptionId = (cpfSnap.data() as { inscriptionId?: string }).inscriptionId;
+    if (typeof inscriptionId === 'string' && inscriptionId.trim()) {
+      return getEventInscription(campaignId, inscriptionId.trim());
+    }
+  }
+
+  const list = await listEventInscriptions(campaignId);
+  return list.find((row) => normalizeInscriptionCpfDigits(row.fields ?? {}) === digits) ?? null;
 }
 
 /** Verifica se o CPF já possui inscrição neste evento (quando a opção CPF está ativa). */

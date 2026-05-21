@@ -991,7 +991,7 @@ export function EventInscriptionClient({
                   }}
                 />
                 <p className="mt-6 text-xs text-cdl-gray-text text-center">
-                  O QR Code de credenciamento será exibido após a confirmação do pagamento.
+                  O QR Code de check-in será exibido após a confirmação do pagamento.
                 </p>
               </>
             ) : showSuccessAfterPayment ? (
@@ -1002,7 +1002,7 @@ export function EventInscriptionClient({
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
                 <p className="text-cdl-gray-text mb-6">
                   {payment.kind === 'asaas'
-                    ? 'Sua inscrição e pagamento foram confirmados. Apresente o QR Code abaixo na entrada do evento.'
+                    ? 'Sua inscrição e pagamento foram confirmados. Apresente o QR Code de check-in abaixo na entrada do evento.'
                     : 'Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.'}
                 </p>
                 {showCheckInQr ? (

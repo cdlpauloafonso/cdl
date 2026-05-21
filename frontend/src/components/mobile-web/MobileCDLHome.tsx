@@ -8,7 +8,7 @@ import { getMarketingSiteHomeAbsoluteUrl, resolveAppShellHref, segmentFromMobile
 import { HOME_PAGE_STATS } from '@/constants/home-stats';
 import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
 import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore, type Campaign } from '@/lib/firestore';
-import { listAppCredentialingCampaigns } from '@/lib/credentialing-app';
+import { listAppCheckInCampaigns } from '@/lib/check-in-app';
 import { MobileHomeFixedBlueBackdrop } from '@/components/mobile-web/MobileHomeFixedBlueBackdrop';
 
 type HeroSlideVM = {
@@ -105,6 +105,20 @@ const QUICK_TILES = [
   },
 ] as const;
 
+/** Mesmo degradê do atalho «Serviços» nos acessos rápidos. */
+const CHECK_IN_TILE_GRADIENT = 'from-blue-600/90 to-blue-900/95';
+
+const CHECK_IN_TILE_ICON = (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
 /** Imagem de destaque Paulo Afonso (ponte metálica / São Francisco) — mesmo ficheiro usado nos pontos turísticos. */
 const APP_HOME_NOSSA_CIDADE_IMAGE =
   'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Gleidson_Santos_-_Ponte_Metalica_-_Liga_os_Estados_da_Bahia_e_Alagoas_Paulo_Afonso_BA_%2839151930800%29.jpg/960px-Gleidson_Santos_-_Ponte_Metalica_-_Liga_os_Estados_da_Bahia_e_Alagoas_Paulo_Afonso_BA_%2839151930800%29.jpg';
@@ -200,7 +214,7 @@ export function MobileCDLHome() {
 
   const [slides, setSlides] = useState<HeroSlideVM[]>(MOCK_SLIDES);
   const [news, setNews] = useState<NewsItemFirestore[]>([]);
-  const [credentialingEvents, setCredentialingEvents] = useState<Campaign[]>([]);
+  const [checkInEvents, setCheckInEvents] = useState<Campaign[]>([]);
   const [feedError, setFeedError] = useState(false);
 
   useEffect(() => {
@@ -211,7 +225,7 @@ export function MobileCDLHome() {
         const [carousel, newsRows, credEvents] = await Promise.all([
           listCarouselSlides().catch(() => [] as CarouselSlide[]),
           listNews(true, 24).catch(() => [] as NewsItemFirestore[]),
-          listAppCredentialingCampaigns().catch(() => [] as Campaign[]),
+          listAppCheckInCampaigns().catch(() => [] as Campaign[]),
         ]);
         if (cancelled) return;
 
@@ -227,7 +241,7 @@ export function MobileCDLHome() {
           return tb - ta;
         });
         setNews(sortedNews.slice(0, 6));
-        setCredentialingEvents(credEvents);
+        setCheckInEvents(credEvents);
         setFeedError(false);
       } catch {
         if (!cancelled) {
@@ -367,33 +381,53 @@ export function MobileCDLHome() {
 
       <main className="relative z-10 -mt-16 flex min-h-0 flex-1 flex-col rounded-t-[1.75rem] bg-gradient-to-b from-slate-100 to-[#eef2fb] px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-7 text-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.35)]">
         <div className="flex flex-1 flex-col">
-        {credentialingEvents.length > 0 && (
+        {checkInEvents.length > 0 && (
           <section className="mb-6 space-y-2">
-            <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Credenciamento
-            </p>
-            {credentialingEvents.map((ev) => {
+            <div className="px-0.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Check-in</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+                Área do inscrito — informe seu CPF e apresente o QR Code na entrada.
+              </p>
+            </div>
+            {checkInEvents.map((ev) => {
               const eventId = ev.id ?? '';
               const title = (ev.title || 'Evento').trim();
-              const href = eventId ? mobileAppShellHref(`/eventos/${eventId}/credenciamento`) : '#';
-              return (
-                <div
-                  key={eventId || title}
-                  className="flex items-center gap-3 rounded-xl border border-emerald-200/90 bg-white px-3 py-3 shadow-sm shadow-slate-900/[0.04]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-semibold text-slate-900">{title}</p>
+              const href = eventId ? mobileAppShellHref(`/eventos/${eventId}/check-in`) : '#';
+              if (!eventId) {
+                return (
+                  <div
+                    key={title}
+                    className={`flex items-center gap-2 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-2.5 py-2.5 opacity-60 shadow-md shadow-slate-900/12`}
+                  >
+                    <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{CHECK_IN_TILE_ICON}</span>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <p className="line-clamp-2 text-xs font-bold text-white">{title}</p>
+                      <p className="text-[10px] text-white/85">Check-in</p>
+                    </div>
                   </div>
-                  {eventId ? (
-                    <Link
-                      href={href}
-                      prefetch={false}
-                      className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
-                    >
-                      Credenciar
-                    </Link>
-                  ) : null}
-                </div>
+                );
+              }
+              return (
+                <Link
+                  key={eventId}
+                  href={href}
+                  prefetch={false}
+                  className={`group flex min-h-0 items-center gap-2 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-2.5 py-2.5 shadow-md shadow-slate-900/12 transition-[filter] duration-200 hover:brightness-[1.06] active:scale-[0.99]`}
+                >
+                  <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{CHECK_IN_TILE_ICON}</span>
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <p className="line-clamp-2 text-xs font-bold text-white">{title}</p>
+                    <p className="text-[10px] text-white/85">Check-in</p>
+                  </div>
+                  <span
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white group-hover:border-white/35"
+                    aria-hidden
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </Link>
               );
             })}
           </section>

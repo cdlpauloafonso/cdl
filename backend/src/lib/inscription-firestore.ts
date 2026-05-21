@@ -27,6 +27,8 @@ export type CampaignDoc = {
   vouchers?: EventVoucherDoc[];
   registrationClosed?: boolean;
   published?: boolean;
+  checkInOnApp?: boolean;
+  /** @deprecated usar checkInOnApp */
   credentialingOnApp?: boolean;
   registrationConfig?: CampaignRegistrationConfigDoc;
 };

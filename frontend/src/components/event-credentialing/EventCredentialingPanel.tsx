@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { Campaign, EventInscriptionRecord } from '@/lib/firestore';
 import {
   getEffectiveRegistration,
@@ -10,14 +9,7 @@ import {
   normalizeInscriptionCpfDigits,
   shouldShowInscriptionCpfBesideLabel,
 } from '@/lib/event-registration-fields';
-import { formatCpfDisplay } from '@/lib/input-masks-br';
-import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
 import { getEffectivePayment } from '@/lib/event-payment-fields';
-import {
-  isInscriptionPaymentPending,
-  normalizeInscriptionPaymentStatus,
-  paymentStatusLabel,
-} from '@/lib/inscription-payment-status';
 import {
   formatCredentialedAt,
   isInscriptionCredentialed,
@@ -39,49 +31,101 @@ const badgeSm =
 
 const AUTOCOMPLETE_LIMIT = 8;
 
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function inscriptionCnpjDigits(fields: Record<string, string> | undefined): string {
+  return onlyDigits(fields?.cnpj ?? '').slice(0, 14);
+}
+
 function inscriptionSearchBlob(row: EventInscriptionRecord): string {
+  const fields = row.fields ?? {};
+  const cpfDigits = normalizeInscriptionCpfDigits(fields) ?? '';
+  const cnpjDigits = inscriptionCnpjDigits(fields);
   return [
-    inscriptionDisplayLabel(row.fields),
-    inscriptionDisplaySubtitle(row.fields) ?? '',
+    inscriptionDisplayLabel(fields),
+    inscriptionDisplaySubtitle(fields) ?? '',
     formatCredentialedAt(row.credentialedAt),
-    ...Object.values(row.fields || {}).map((x) => String(x)),
+    cpfDigits,
+    cnpjDigits,
+    ...Object.values(fields).map((x) => String(x)),
   ]
     .join(' ')
     .toLowerCase();
 }
 
-function matchesInscriptionSearch(blob: string, term: string): boolean {
-  const tokens = term
+function inscriptionSearchDigitsBlob(row: EventInscriptionRecord): string {
+  const fields = row.fields ?? {};
+  const parts = [
+    normalizeInscriptionCpfDigits(fields),
+    inscriptionCnpjDigits(fields) || null,
+    ...Object.values(fields).map((x) => onlyDigits(String(x ?? ''))),
+  ].filter((x): x is string => Boolean(x && x.length > 0));
+  return parts.join(' ');
+}
+
+function matchesInscriptionSearch(row: EventInscriptionRecord, term: string): boolean {
+  const trimmed = term.trim();
+  if (!trimmed) return true;
+
+  const termDigits = onlyDigits(trimmed);
+  if (termDigits.length >= 3 && inscriptionSearchDigitsBlob(row).includes(termDigits)) {
+    return true;
+  }
+
+  const blob = inscriptionSearchBlob(row);
+  const tokens = trimmed
     .toLowerCase()
-    .trim()
     .split(/\s+/)
     .filter(Boolean);
   if (tokens.length === 0) return true;
-  return tokens.every((t) => blob.includes(t));
+  return tokens.every((t) => {
+    const tokenDigits = onlyDigits(t);
+    if (tokenDigits.length >= 3 && inscriptionSearchDigitsBlob(row).includes(tokenDigits)) {
+      return true;
+    }
+    return blob.includes(t);
+  });
 }
 
-function findInscriptionsByCpf(
-  rows: (EventInscriptionRecord & { id: string })[],
-  cpfDigits: string,
-): (EventInscriptionRecord & { id: string })[] {
-  if (cpfDigits.length !== 11) return [];
-  return rows.filter((row) => normalizeInscriptionCpfDigits(row.fields ?? {}) === cpfDigits);
-}
+function searchMatchScore(row: EventInscriptionRecord, term: string): number {
+  const trimmed = term.trim();
+  if (!trimmed) return 0;
 
-function searchMatchScore(label: string, subtitle: string | null, term: string): number {
-  const tokens = term
+  const fields = row.fields ?? {};
+  const label = inscriptionDisplayLabel(fields);
+  const subtitle = inscriptionDisplaySubtitle(fields);
+  const termDigits = onlyDigits(trimmed);
+  const cpf = normalizeInscriptionCpfDigits(fields);
+  const cnpj = inscriptionCnpjDigits(fields);
+
+  if (termDigits.length >= 3) {
+    if (cpf && cpf === termDigits) return 250;
+    if (cpf && cpf.startsWith(termDigits)) return 200;
+    if (cnpj.length >= 3 && (cnpj === termDigits || cnpj.startsWith(termDigits))) return 190;
+    if (inscriptionSearchDigitsBlob(row).includes(termDigits)) return 150;
+  }
+
+  const tokens = trimmed
     .toLowerCase()
-    .trim()
     .split(/\s+/)
     .filter(Boolean);
   if (tokens.length === 0) return 0;
   const l = label.toLowerCase();
   const s = (subtitle ?? '').toLowerCase();
+  const blob = inscriptionSearchBlob(row);
   let score = 0;
   for (const t of tokens) {
+    const tokenDigits = onlyDigits(t);
+    if (tokenDigits.length >= 3 && inscriptionSearchDigitsBlob(row).includes(tokenDigits)) {
+      score += 80;
+      continue;
+    }
     if (l.startsWith(t)) score += 100;
     else if (l.includes(t)) score += 50;
     else if (s.includes(t)) score += 25;
+    else if (blob.includes(t)) score += 20;
     else return -1;
   }
   return score;
@@ -113,8 +157,6 @@ export type EventCredentialingPanelProps = {
   footerLink?: React.ReactNode;
   /** Exibe faixa “Área sensível” nos modais (admin). Desligue no link público de credenciamento. */
   showSensitiveConfirmBanner?: boolean;
-  /** App: link para retomar pagamento quando a inscrição Asaas ainda está pendente. */
-  paymentResumeHref?: (inscriptionId: string) => string;
 };
 
 export function EventCredentialingPanel({
@@ -125,9 +167,7 @@ export function EventCredentialingPanel({
   onToggle,
   footerLink,
   showSensitiveConfirmBanner = true,
-  paymentResumeHref,
 }: EventCredentialingPanelProps) {
-  const [cpfLookup, setCpfLookup] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -155,15 +195,6 @@ export function EventCredentialingPanel({
   }, [rows]);
 
   const trimmedSearch = searchTerm.trim();
-  const cpfDigits = cpfLookup.replace(/\D/g, '').slice(0, 11);
-
-  const cpfMatches = useMemo(
-    () => findInscriptionsByCpf(rows, cpfDigits),
-    [rows, cpfDigits],
-  );
-
-  const cpfLookupRow = cpfDigits.length === 11 ? (cpfMatches[0] ?? null) : null;
-  const cpfLookupAmbiguous = cpfDigits.length === 11 && cpfMatches.length > 1;
 
   const suggestions = useMemo(() => {
     if (trimmedSearch.length < 1) return [];
@@ -171,7 +202,7 @@ export function EventCredentialingPanel({
       .map((row) => {
         const label = inscriptionDisplayLabel(row.fields);
         const subtitle = inscriptionDisplaySubtitle(row.fields);
-        const score = searchMatchScore(label, subtitle, trimmedSearch);
+        const score = searchMatchScore(row, trimmedSearch);
         if (score < 0) return null;
         return { row, label, subtitle, score };
       })
@@ -206,7 +237,7 @@ export function EventCredentialingPanel({
       if (filter === 'credentialed' && !isInscriptionCredentialed(r)) return false;
       if (filter === 'pending' && isInscriptionCredentialed(r)) return false;
       if (!term) return true;
-      return matchesInscriptionSearch(inscriptionSearchBlob(r), term);
+      return matchesInscriptionSearch(r, term);
     });
 
     list = [...list].sort((a, b) => {
@@ -381,116 +412,12 @@ export function EventCredentialingPanel({
       </div>
 
       <div className="mt-4 space-y-2">
-        <div className="rounded-xl border border-cdl-blue/25 bg-white p-3 shadow-sm sm:p-4">
-          <label htmlFor="credentialing-cpf-lookup" className="block text-sm font-medium text-gray-900">
-            Digite o CPF
-          </label>
-          <p className="mt-0.5 text-xs text-cdl-gray-text">
-            {paymentResumeHref
-              ? 'Ao informar o CPF completo, exibimos o status da inscrição. O QR Code só aparece após o pagamento confirmado.'
-              : 'Ao informar o CPF completo, o QR Code do participante aparece abaixo para conferência na entrada.'}
-          </p>
-          <input
-            id="credentialing-cpf-lookup"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="000.000.000-00"
-            value={cpfLookup}
-            onChange={(e) => setCpfLookup(formatCpfDisplay(e.target.value))}
-            className="mt-2 w-full rounded-lg border border-gray-300 py-2.5 px-3 text-sm tabular-nums tracking-wide focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
-          />
-
-          {cpfDigits.length === 11 && cpfMatches.length === 0 ? (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Nenhum inscrito encontrado com este CPF neste evento.
-            </p>
-          ) : null}
-
-          {cpfLookupAmbiguous ? (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Mais de uma inscrição com este CPF — exibindo a primeira. Use a busca por nome se precisar de outra.
-            </p>
-          ) : null}
-
-          {cpfLookupRow ? (
-            <div className="mt-4 space-y-3">
-              {paymentResumeHref &&
-              isInscriptionPaymentPending(cpfLookupRow, payment) &&
-              paymentResumeHref(cpfLookupRow.id) ? (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4">
-                  <p className="text-sm font-semibold text-amber-950">Pagamento pendente</p>
-                  <p className="mt-2 text-sm leading-relaxed text-amber-900">
-                    Este participante ainda não realizou o pagamento da inscrição (
-                    {paymentStatusLabel(normalizeInscriptionPaymentStatus(cpfLookupRow))}). O QR Code de
-                    credenciamento ficará disponível após a confirmação do pagamento.
-                  </p>
-                  <Link
-                    href={paymentResumeHref(cpfLookupRow.id)}
-                    prefetch={false}
-                    className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-cdl-blue px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cdl-blue-dark sm:w-auto"
-                  >
-                    Ver opções de pagamento
-                  </Link>
-                </div>
-              ) : (
-                <EventInscriptionCheckInQr
-                  eventId={eventId}
-                  inscriptionId={cpfLookupRow.id}
-                  participantLabel={inscriptionDisplayLabel(cpfLookupRow.fields)}
-                  className="border-cdl-blue/15 bg-slate-50/80"
-                />
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0 text-sm text-gray-700">
-                  {isInscriptionCredentialed(cpfLookupRow) ? (
-                    <span className="font-medium text-emerald-800">
-                      Já credenciado
-                      {cpfLookupRow.credentialedAt
-                        ? ` · ${formatDateTimeCompact(cpfLookupRow.credentialedAt)}`
-                        : ''}
-                    </span>
-                  ) : (
-                    <span className="text-amber-900">Aguardando credenciamento</span>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openInscriptionDetail(cpfLookupRow)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Ver detalhes
-                  </button>
-                  {isInscriptionCredentialed(cpfLookupRow) ? (
-                    <button
-                      type="button"
-                      disabled={updatingId === cpfLookupRow.id}
-                      onClick={() => void handleToggle(cpfLookupRow)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {updatingId === cpfLookupRow.id ? '…' : 'Desfazer'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={updatingId === cpfLookupRow.id}
-                      onClick={() => void handleCredential(cpfLookupRow)}
-                      className="rounded-md bg-cdl-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-cdl-blue-dark disabled:opacity-50"
-                    >
-                      {updatingId === cpfLookupRow.id ? '…' : 'Credenciar'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Ou busque por nome</p>
-
+        <label htmlFor="credentialing-search" className="sr-only">
+          Buscar inscrito por nome, CPF ou CNPJ
+        </label>
         <div className="relative">
           <input
+            id="credentialing-search"
             ref={searchInputRef}
             type="search"
             role="combobox"
@@ -502,7 +429,7 @@ export function EventCredentialingPanel({
                 ? `credentialing-suggest-${suggestions[highlightIndex].row.id}`
                 : undefined
             }
-            placeholder="Digite o nome para buscar…"
+            placeholder="Buscar por nome, CPF ou CNPJ…"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -735,8 +662,9 @@ export function EventCredentialingPanel({
       <EventInscriptionDetailModal
         open={detailRow !== null}
         row={detailRow}
+        eventId={eventId}
         campanhaTitle={campanha.title}
-        paymentConfigured={paymentConfigured}
+        payment={payment}
         busy={Boolean(detailRow && updatingId === detailRow.id)}
         onClose={() => setDetailRow(null)}
         onCredential={(row) => void credentialFromDetail(row)}

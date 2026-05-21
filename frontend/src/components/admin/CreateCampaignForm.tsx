@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createCampaign, ensureCredentialingAccessToken } from '@/lib/firestore';
+import { createCampaign } from '@/lib/firestore';
 import { initFirebase } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
@@ -73,8 +73,8 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
   const [voucherDrafts, setVoucherDrafts] = useState<EventVoucherDraft[]>([]);
   /** Apenas eventos: salvar já publicado no site (padrão: sim). */
   const [publishOnSite, setPublishOnSite] = useState(true);
-  /** Apenas eventos: botão «Credenciar» na home do app. */
-  const [credentialingOnApp, setCredentialingOnApp] = useState(false);
+  /** Apenas eventos: área de check-in do inscrito na home do app. */
+  const [checkInOnApp, setCheckInOnApp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -192,7 +192,7 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         ...(variant === 'event'
           ? {
               published: publishOnSite,
-              ...(credentialingOnApp ? { credentialingOnApp: true } : {}),
+              ...(checkInOnApp ? { checkInOnApp: true } : {}),
             }
           : {}),
         ...(variant === 'event' && wantsRegistrationLink
@@ -217,9 +217,6 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
         ...(paymentConfig ? { paymentConfig } : {}),
         ...(vouchersBuilt && vouchersBuilt.length > 0 ? { vouchers: vouchersBuilt } : {}),
       });
-      if (variant === 'event' && credentialingOnApp && newId) {
-        await ensureCredentialingAccessToken(newId);
-      }
       router.push(c.successPath);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : c.errorCreate;
@@ -477,14 +474,14 @@ export function CreateCampaignForm({ variant }: CreateCampaignFormProps) {
               <input
                 type="checkbox"
                 className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
-                checked={credentialingOnApp}
-                onChange={(e) => setCredentialingOnApp(e.target.checked)}
+                checked={checkInOnApp}
+                onChange={(e) => setCheckInOnApp(e.target.checked)}
               />
               <span>
-                <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+                <span className="block text-sm font-medium text-gray-900">Check-in no site</span>
                 <span className="mt-1 block text-xs text-cdl-gray-text">
-                  Quando ativo, exibe na home do app um atalho com o nome do evento e o botão «Credenciar» (somente no
-                  aplicativo).
+                  Quando ativo, o inscrito acessa na home do app a área de check-in (CPF e QR Code), somente no
+                  aplicativo.
                 </span>
               </span>
             </label>

@@ -24,6 +24,13 @@ export type InscriptionPaymentPixCheckout = {
   expirationDate?: string;
 };
 
+/** Data URL para exibir QR Code PIX retornado pelo Asaas (base64). */
+export function pixQrImageSrc(encodedImage: string): string {
+  const raw = encodedImage.trim();
+  if (raw.startsWith('data:')) return raw;
+  return `data:image/png;base64,${raw}`;
+}
+
 export type InscriptionPaymentBoletoCheckout = {
   identificationField: string;
   barCode?: string;

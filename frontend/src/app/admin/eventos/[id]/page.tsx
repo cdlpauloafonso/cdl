@@ -9,7 +9,6 @@ import {
   listEventInscriptions,
   subscribeEventInscriptions,
   updateCampaign,
-  ensureCredentialingAccessToken,
   type Campaign,
   type EventInscriptionRecord,
 } from '@/lib/firestore';
@@ -169,7 +168,7 @@ export default function AdminEventoDetalhePage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingRegistration, setTogglingRegistration] = useState(false);
   const [togglingPublished, setTogglingPublished] = useState(false);
-  const [togglingCredentialingOnApp, setTogglingCredentialingOnApp] = useState(false);
+  const [togglingCheckInOnApp, setTogglingCheckInOnApp] = useState(false);
 
   useEffect(() => {
     if (!eventId) {
@@ -289,20 +288,19 @@ export default function AdminEventoDetalhePage() {
     }
   }
 
-  async function setCredentialingOnApp(enabled: boolean) {
+  async function setCheckInOnApp(enabled: boolean) {
     if (!evento?.id) return;
     try {
-      setTogglingCredentialingOnApp(true);
+      setTogglingCheckInOnApp(true);
       setError('');
-      await updateCampaign(evento.id, { credentialingOnApp: enabled });
-      if (enabled) {
-        await ensureCredentialingAccessToken(evento.id);
-      }
-      setEvento((prev) => (prev ? { ...prev, credentialingOnApp: enabled } : prev));
+      await updateCampaign(evento.id, { checkInOnApp: enabled, credentialingOnApp: false });
+      setEvento((prev) =>
+        prev ? { ...prev, checkInOnApp: enabled, credentialingOnApp: false } : prev,
+      );
     } catch {
-      setError('Erro ao atualizar credenciamento no app');
+      setError('Erro ao atualizar check-in no app');
     } finally {
-      setTogglingCredentialingOnApp(false);
+      setTogglingCheckInOnApp(false);
     }
   }
 
@@ -472,20 +470,20 @@ export default function AdminEventoDetalhePage() {
             <input
               type="checkbox"
               className="mt-0.5 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue disabled:opacity-50"
-              checked={evento.credentialingOnApp === true}
-              disabled={togglingCredentialingOnApp || evento.published === false}
-              onChange={(e) => void setCredentialingOnApp(e.target.checked)}
+              checked={evento.checkInOnApp === true || evento.credentialingOnApp === true}
+              disabled={togglingCheckInOnApp || evento.published === false}
+              onChange={(e) => void setCheckInOnApp(e.target.checked)}
             />
             <span>
-              <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+              <span className="block text-sm font-medium text-gray-900">Check-in no site</span>
               <span className="mt-1 block text-xs text-cdl-gray-text">
-                {togglingCredentialingOnApp
+                {togglingCheckInOnApp
                   ? 'Salvando…'
                   : evento.published === false
-                    ? 'Publique o evento no site para ativar o atalho na home do app.'
-                    : evento.credentialingOnApp === true
-                      ? 'Atalho «Credenciar» visível na home do aplicativo.'
-                      : 'Desativado — o app não exibirá este evento para credenciamento.'}
+                    ? 'Publique o evento no site para ativar a área de check-in na home do app.'
+                    : evento.checkInOnApp === true || evento.credentialingOnApp === true
+                      ? 'Inscritos podem fazer check-in pelo app (CPF e QR Code).'
+                      : 'Desativado — o app não exibirá este evento na área de check-in.'}
               </span>
             </span>
           </label>

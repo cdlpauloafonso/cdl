@@ -1,28 +1,38 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { EventInscriptionRecord } from '@/lib/firestore';
 import {
   formatCredentialedAt,
   isInscriptionCredentialed,
 } from '@/lib/event-credentialing';
-import { formatPaymentAmountBrl } from '@/lib/event-payment-fields';
+import { formatPaymentAmountBrl, type EffectivePayment } from '@/lib/event-payment-fields';
 import {
   labelForInscriptionField,
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
 import { applyInscriptionFieldMask, hasInscriptionFieldMask } from '@/lib/input-masks-br';
 import {
+  isAsaasManagedInscription,
+  isInscriptionPaymentPending,
   normalizeInscriptionPaymentStatus,
   paymentStatusBadgeClass,
   paymentStatusLabel,
 } from '@/lib/inscription-payment-status';
 import { inscriptionDisplayLabel } from '@/lib/event-registration-fields';
+import {
+  fetchInscriptionCheckoutMethod,
+  pixQrImageSrc,
+  type InscriptionPaymentPixCheckout,
+} from '@/lib/asaas-api';
+import { isApiConfiguredForClient } from '@/lib/api-base';
 
 export type EventInscriptionDetailModalProps = {
   open: boolean;
   row: (EventInscriptionRecord & { id: string }) | null;
+  eventId: string;
   campanhaTitle?: string;
-  paymentConfigured: boolean;
+  payment: EffectivePayment;
   busy?: boolean;
   onClose: () => void;
   onCredential?: (row: EventInscriptionRecord & { id: string }) => void;
@@ -66,13 +76,32 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export function EventInscriptionDetailModal({
   open,
   row,
+  eventId,
   campanhaTitle,
-  paymentConfigured,
+  payment,
   busy = false,
   onClose,
   onCredential,
   onUndoCredential,
 }: EventInscriptionDetailModalProps) {
+  const [pixOpen, setPixOpen] = useState(false);
+  const [pixLoading, setPixLoading] = useState(false);
+  const [pixError, setPixError] = useState('');
+  const [pixData, setPixData] = useState<InscriptionPaymentPixCheckout | null>(null);
+  const [pixAmount, setPixAmount] = useState<number | null>(null);
+  const [copyOk, setCopyOk] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setPixOpen(false);
+      setPixLoading(false);
+      setPixError('');
+      setPixData(null);
+      setPixAmount(null);
+      setCopyOk(false);
+    }
+  }, [open, row?.id]);
+
   if (!open || !row) return null;
 
   const title = inscriptionDisplayLabel(row.fields);
@@ -93,9 +122,54 @@ export function EventInscriptionDetailModal({
         ? 'Tarifa normal'
         : null;
 
+  const paymentConfigured = payment.kind !== 'none';
+  const showAsaasPix =
+    payment.kind === 'asaas' &&
+    isAsaasManagedInscription(row) &&
+    isInscriptionPaymentPending(row, payment);
+
+  async function loadPixQr() {
+    if (!row?.id || !eventId) return;
+    if (!isApiConfiguredForClient()) {
+      setPixError('Pagamento online indisponível neste ambiente.');
+      return;
+    }
+    setPixOpen(true);
+    setPixLoading(true);
+    setPixError('');
+    setPixData(null);
+    setCopyOk(false);
+    try {
+      const checkout = await fetchInscriptionCheckoutMethod(eventId, row.id, 'pix');
+      if (checkout.pix?.payload && checkout.pix?.encodedImage) {
+        setPixData(checkout.pix);
+        setPixAmount(checkout.amount > 0 ? checkout.amount : null);
+      } else {
+        setPixError(
+          'Não foi possível obter o QR Code PIX. Verifique se o PIX está habilitado na conta Asaas.',
+        );
+      }
+    } catch (err) {
+      setPixError(err instanceof Error ? err.message : 'Não foi possível gerar o PIX.');
+    } finally {
+      setPixLoading(false);
+    }
+  }
+
+  async function copyPixPayload() {
+    if (!pixData?.payload) return;
+    try {
+      await navigator.clipboard.writeText(pixData.payload);
+      setCopyOk(true);
+      setTimeout(() => setCopyOk(false), 2500);
+    } catch {
+      setPixError('Não foi possível copiar o código PIX.');
+    }
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 pt-[max(1rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="inscription-detail-title"
@@ -104,7 +178,7 @@ export function EventInscriptionDetailModal({
       }}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        className="mx-auto flex max-h-[min(88dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
@@ -167,6 +241,87 @@ export function EventInscriptionDetailModal({
                 </>
               ) : null}
             </dl>
+
+            {showAsaasPix ? (
+              <div className="space-y-3">
+                {!pixOpen ? (
+                  <button
+                    type="button"
+                    disabled={busy || pixLoading}
+                    onClick={() => void loadPixQr()}
+                    className="w-full rounded-lg bg-cdl-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-cdl-blue-dark disabled:opacity-50"
+                  >
+                    Pagar via PIX
+                  </button>
+                ) : null}
+
+                {pixOpen ? (
+                  <div className="rounded-lg border border-cdl-blue/20 bg-white p-3 shadow-inner">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-900">Pagamento PIX</p>
+                      <button
+                        type="button"
+                        disabled={pixLoading}
+                        onClick={() => void loadPixQr()}
+                        className="text-xs font-medium text-cdl-blue hover:underline disabled:opacity-50"
+                      >
+                        Atualizar QR
+                      </button>
+                    </div>
+                    {pixAmount != null && pixAmount > 0 ? (
+                      <p className="mt-1 text-sm text-gray-700">
+                        Valor: <span className="font-semibold">{formatPaymentAmountBrl(pixAmount)}</span>
+                      </p>
+                    ) : null}
+
+                    {pixLoading ? (
+                      <p className="mt-4 text-center text-sm text-cdl-gray-text">Gerando QR Code PIX…</p>
+                    ) : null}
+
+                    {pixError ? (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        {pixError}
+                      </p>
+                    ) : null}
+
+                    {!pixLoading && pixData ? (
+                      <div className="mt-3 text-center">
+                        <p className="text-xs text-cdl-gray-text">
+                          Escaneie o QR Code no app do banco ou copie o PIX copia e cola.
+                        </p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pixQrImageSrc(pixData.encodedImage)}
+                          alt="QR Code PIX"
+                          className="mx-auto mt-3 max-h-56 w-auto rounded-lg border border-gray-200 bg-white p-2"
+                        />
+                        {pixData.expirationDate ? (
+                          <p className="mt-2 text-xs text-cdl-gray-text">
+                            Validade do QR: {pixData.expirationDate}
+                          </p>
+                        ) : null}
+                        <label className="mt-3 block text-left text-xs font-medium text-gray-600">
+                          PIX copia e cola
+                        </label>
+                        <textarea
+                          readOnly
+                          rows={3}
+                          value={pixData.payload}
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-2 py-1.5 text-xs font-mono text-gray-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void copyPixPayload()}
+                          className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                        >
+                          {copyOk ? 'Código copiado!' : 'Copiar código PIX'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
           {fieldEntries.length > 0 ? (

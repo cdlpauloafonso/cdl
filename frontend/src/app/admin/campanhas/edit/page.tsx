@@ -7,7 +7,6 @@ import {
   getCampaign,
   updateCampaign,
   countEventInscriptions,
-  ensureCredentialingAccessToken,
   Campaign,
 } from '@/lib/firestore';
 import { hasEventFormRegistration } from '@/lib/event-registration-fields';
@@ -250,7 +249,9 @@ export default function AdminCampanhaEditByQueryPage() {
 
       await updateCampaign(id, {
         ...rest,
-        credentialingOnApp: campanha.credentialingOnApp === true,
+        checkInOnApp:
+          campanha.checkInOnApp === true || campanha.credentialingOnApp === true,
+        credentialingOnApp: false,
         ...(inscriptionWebCountSync !== undefined ? { inscriptionWebCount: inscriptionWebCountSync } : {}),
         ...(wantsRegistrationLink
           ? registrationMode === 'external'
@@ -279,9 +280,6 @@ export default function AdminCampanhaEditByQueryPage() {
           ? { vouchers: vouchersBuilt }
           : { vouchers: null }),
       });
-      if (campanha.credentialingOnApp === true) {
-        await ensureCredentialingAccessToken(id);
-      }
       router.push('/admin/eventos');
     } catch {
       setError('Erro ao salvar evento');
@@ -636,18 +634,22 @@ export default function AdminCampanhaEditByQueryPage() {
                     <input
                       type="checkbox"
                       className="mt-1 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
-                      checked={campanha.credentialingOnApp === true}
+                      checked={campanha.checkInOnApp === true || campanha.credentialingOnApp === true}
                       disabled={campanha.published === false}
                       onChange={(e) =>
-                        setCampanha({ ...campanha, credentialingOnApp: e.target.checked })
+                        setCampanha({
+                          ...campanha,
+                          checkInOnApp: e.target.checked,
+                          credentialingOnApp: false,
+                        })
                       }
                     />
                     <span>
-                      <span className="block text-sm font-medium text-gray-900">Credenciamento no site</span>
+                      <span className="block text-sm font-medium text-gray-900">Check-in no site</span>
                       <span className="mt-1 block text-xs text-cdl-gray-text">
                         {campanha.published === false
-                          ? 'Publique o evento no site para ativar o atalho na home do app.'
-                          : 'Quando ativo, exibe na home do app o nome do evento e o botão «Credenciar».'}
+                          ? 'Publique o evento no site para ativar a área de check-in na home do app.'
+                          : 'Quando ativo, o inscrito acessa check-in pelo app (CPF e QR Code).'}
                       </span>
                     </span>
                   </label>
