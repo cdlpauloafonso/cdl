@@ -10,8 +10,10 @@ import {
   type AsaasIntegrationPublic,
   type AsaasIntegrationStatus,
 } from '@/lib/asaas-api';
+import { API_NOT_CONFIGURED_MESSAGE, getApiBaseUrl, isApiConfiguredForClient } from '@/lib/api-base';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+const API_BASE = getApiBaseUrl();
+const apiConfigured = isApiConfiguredForClient();
 const WEBHOOK_URL = `${API_BASE}/api/asaas/webhook`;
 
 type FeedbackKind = 'ok' | 'err' | null;
@@ -183,6 +185,17 @@ export default function AdminConfiguracoesApisPage() {
         aqui apenas em forma mascarada.
       </p>
 
+      {!apiConfigured && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">API não configurada no frontend</p>
+          <p className="mt-1">{API_NOT_CONFIGURED_MESSAGE}</p>
+          <p className="mt-2 text-xs">
+            Valor esperado no Netlify:{' '}
+            <code className="rounded bg-amber-100 px-1">https://apiassas.cdlpauloafonso.com</code>
+          </p>
+        </div>
+      )}
+
       {/* Feedback */}
       {feedback.kind && (
         <div
@@ -231,10 +244,15 @@ export default function AdminConfiguracoesApisPage() {
           </div>
         ) : (
           <p className="mt-3 text-sm text-red-700">
-            Não foi possível contactar o backend em{' '}
-            <code className="text-xs">{API_BASE}</code>. Verifique se o servidor está em
-            execução e se <code className="text-xs">NEXT_PUBLIC_API_URL</code> está
-            correto no frontend.
+            {!apiConfigured
+              ? API_NOT_CONFIGURED_MESSAGE
+              : (
+                  <>
+                    Não foi possível contactar o backend em{' '}
+                    <code className="text-xs">{API_BASE}</code>. Verifique se o servidor está em
+                    execução (aaPanel / PM2) e se o DNS aponta para este host.
+                  </>
+                )}
           </p>
         )}
       </section>
@@ -368,7 +386,7 @@ export default function AdminConfiguracoesApisPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !apiConfigured}
                 className="btn-primary text-sm disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : 'Salvar'}
@@ -376,7 +394,7 @@ export default function AdminConfiguracoesApisPage() {
               <button
                 type="button"
                 onClick={handleTest}
-                disabled={testing}
+                disabled={testing || !apiConfigured}
                 className="btn-secondary text-sm disabled:opacity-50"
               >
                 {testing ? 'Testando...' : 'Testar conexão'}

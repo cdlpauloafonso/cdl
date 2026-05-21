@@ -1,6 +1,17 @@
 import { waitForFirebaseAuthUser } from '@/lib/admin-auth';
+import {
+  API_NOT_CONFIGURED_MESSAGE,
+  getApiBaseUrl,
+  isApiConfiguredForClient,
+} from '@/lib/api-base';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+const API_BASE = getApiBaseUrl();
+
+function assertApiReachable(): void {
+  if (!isApiConfiguredForClient()) {
+    throw new Error(API_NOT_CONFIGURED_MESSAGE);
+  }
+}
 
 export type AsaasIntegrationStatus = {
   configured: boolean;
@@ -39,16 +50,24 @@ export type AsaasIntegrationUpdate = {
 };
 
 async function adminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  assertApiReachable();
   const user = await waitForFirebaseAuthUser();
   if (!user) throw new Error('Sessão administrativa expirada. Faça login novamente.');
   const idToken = await user.getIdToken();
   const headers = new Headers(init.headers ?? {});
   headers.set('Authorization', `Bearer ${idToken}`);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  return fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+  try {
+    return await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor (${API_BASE}). Verifique se a API está no ar e se NEXT_PUBLIC_API_URL está correta.`,
+    );
+  }
 }
 
 export async function fetchAsaasIntegrationStatus(): Promise<AsaasIntegrationStatus | null> {
+  if (!isApiConfiguredForClient()) return null;
   try {
     const res = await fetch(`${API_BASE}/api/asaas/status`, { cache: 'no-store' });
     if (!res.ok) return null;
