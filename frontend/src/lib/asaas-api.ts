@@ -1,3 +1,5 @@
+import { waitForFirebaseAuthUser } from '@/lib/admin-auth';
+
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 
 export type AsaasIntegrationStatus = {
@@ -11,6 +13,41 @@ export type CreateInscriptionPaymentResponse = {
   customerId: string;
 };
 
+export type AsaasIntegrationPublic = {
+  environment: 'sandbox' | 'production';
+  enabled: boolean;
+  hasSandboxKey: boolean;
+  hasProductionKey: boolean;
+  hasWebhookToken: boolean;
+  apiKeySandboxMasked: string;
+  apiKeyProductionMasked: string;
+  webhookTokenMasked: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  source: 'firestore' | 'env' | 'none';
+};
+
+export type AsaasIntegrationUpdate = {
+  environment?: 'sandbox' | 'production';
+  enabled?: boolean;
+  apiKeySandbox?: string;
+  apiKeyProduction?: string;
+  webhookToken?: string;
+  clearSandboxKey?: boolean;
+  clearProductionKey?: boolean;
+  clearWebhookToken?: boolean;
+};
+
+async function adminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const user = await waitForFirebaseAuthUser();
+  if (!user) throw new Error('Sessão administrativa expirada. Faça login novamente.');
+  const idToken = await user.getIdToken();
+  const headers = new Headers(init.headers ?? {});
+  headers.set('Authorization', `Bearer ${idToken}`);
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  return fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+}
+
 export async function fetchAsaasIntegrationStatus(): Promise<AsaasIntegrationStatus | null> {
   try {
     const res = await fetch(`${API_BASE}/api/asaas/status`, { cache: 'no-store' });
@@ -18,6 +55,51 @@ export async function fetchAsaasIntegrationStatus(): Promise<AsaasIntegrationSta
     return (await res.json()) as AsaasIntegrationStatus;
   } catch {
     return null;
+  }
+}
+
+export async function fetchAsaasIntegration(): Promise<AsaasIntegrationPublic> {
+  const res = await adminFetch('/api/asaas/integration');
+  const data = (await res.json().catch(() => ({}))) as Partial<AsaasIntegrationPublic> & {
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error ?? `Erro ${res.status}`);
+  return data as AsaasIntegrationPublic;
+}
+
+export async function saveAsaasIntegration(
+  patch: AsaasIntegrationUpdate
+): Promise<AsaasIntegrationPublic> {
+  const res = await adminFetch('/api/asaas/integration', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+  const data = (await res.json().catch(() => ({}))) as Partial<AsaasIntegrationPublic> & {
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error ?? `Erro ${res.status}`);
+  return data as AsaasIntegrationPublic;
+}
+
+export async function testAsaasIntegration(): Promise<{
+  ok: boolean;
+  environment?: string;
+  error?: string;
+}> {
+  try {
+    const res = await adminFetch('/api/asaas/integration/test', { method: 'POST' });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      environment?: string;
+      error?: string;
+    };
+    return {
+      ok: Boolean(data.ok),
+      environment: data.environment,
+      error: data.error,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Falha de rede.' };
   }
 }
 

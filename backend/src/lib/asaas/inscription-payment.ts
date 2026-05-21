@@ -1,4 +1,5 @@
 import { asaasRequest } from './client.js';
+import { getAsaasConfigEffective } from './config.js';
 import type { AsaasCustomer, AsaasPayment, AsaasWebhookEvent } from './types.js';
 import { buildInscriptionExternalReference, parseInscriptionExternalReference } from './types.js';
 import {
@@ -33,26 +34,36 @@ function dueDatePlusDays(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-async function findOrCreateCustomer(input: {
-  name: string;
-  cpfCnpj: string;
-  email?: string;
-}): Promise<AsaasCustomer> {
+async function findOrCreateCustomer(
+  input: {
+    name: string;
+    cpfCnpj: string;
+    email?: string;
+  },
+  config: Awaited<ReturnType<typeof getAsaasConfigEffective>>
+): Promise<AsaasCustomer> {
   if (input.cpfCnpj.length >= 11) {
     const listed = await asaasRequest<{ data: AsaasCustomer[] }>(
       'GET',
-      `/customers?cpfCnpj=${encodeURIComponent(input.cpfCnpj)}&limit=1`
+      `/customers?cpfCnpj=${encodeURIComponent(input.cpfCnpj)}&limit=1`,
+      undefined,
+      config
     );
     const existing = listed.data?.[0];
     if (existing?.id) return existing;
   }
 
-  return asaasRequest<AsaasCustomer>('POST', '/customers', {
-    name: input.name,
-    cpfCnpj: input.cpfCnpj || undefined,
-    email: input.email,
-    notificationDisabled: true,
-  });
+  return asaasRequest<AsaasCustomer>(
+    'POST',
+    '/customers',
+    {
+      name: input.name,
+      cpfCnpj: input.cpfCnpj || undefined,
+      email: input.email,
+      notificationDisabled: true,
+    },
+    config
+  );
 }
 
 export type CreateInscriptionPaymentResult = {
@@ -65,6 +76,11 @@ export async function createAsaasInscriptionPayment(
   campaignId: string,
   inscriptionId: string
 ): Promise<CreateInscriptionPaymentResult> {
+  const config = await getAsaasConfigEffective();
+  if (!config.enabled) {
+    throw new Error('ASAAS_NOT_CONFIGURED');
+  }
+
   const campaign = await getCampaignDoc(campaignId);
   if (!campaign) throw new Error('CAMPAIGN_NOT_FOUND');
 
@@ -97,19 +113,24 @@ export async function createAsaasInscriptionPayment(
     throw new Error('CUSTOMER_DOCUMENT_REQUIRED');
   }
 
-  const customer = await findOrCreateCustomer(customerInput);
+  const customer = await findOrCreateCustomer(customerInput, config);
   const description =
     paymentCfg.description?.trim() ||
     `Inscrição — ${campaign.title?.trim() || 'Evento CDL'}`;
 
-  const payment = await asaasRequest<AsaasPayment>('POST', '/payments', {
-    customer: customer.id,
-    billingType: 'UNDEFINED',
-    value: amount,
-    dueDate: dueDatePlusDays(7),
-    description,
-    externalReference: buildInscriptionExternalReference(campaignId, inscriptionId),
-  });
+  const payment = await asaasRequest<AsaasPayment>(
+    'POST',
+    '/payments',
+    {
+      customer: customer.id,
+      billingType: 'UNDEFINED',
+      value: amount,
+      dueDate: dueDatePlusDays(7),
+      description,
+      externalReference: buildInscriptionExternalReference(campaignId, inscriptionId),
+    },
+    config
+  );
 
   const invoiceUrl = payment.invoiceUrl ?? payment.bankSlipUrl;
   if (!payment.id || !invoiceUrl) {

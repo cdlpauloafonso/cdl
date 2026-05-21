@@ -413,6 +413,12 @@ service cloud.firestore {
       allow get, list, create, update, delete: if isAdmin();
     }
 
+    // Integrações (credenciais sensíveis: Asaas etc.).
+    // Acesso direto do cliente totalmente bloqueado. Somente backend via Admin SDK.
+    match /integrations/{integrationId} {
+      allow read, write: if false;
+    }
+
     // Currículos: criação pública sem login; leitura/gestão apenas admin
     match /curriculos/{curriculoId} {
       allow create: if true;

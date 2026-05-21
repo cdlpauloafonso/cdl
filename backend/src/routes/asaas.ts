@@ -1,15 +1,24 @@
 import { Router } from 'express';
-import { getAsaasConfig, isAsaasConfigured } from '../lib/asaas/config.js';
+import { requireAdminAuth, type AdminAuthInfo } from '../lib/admin-auth.js';
+import { getAsaasConfigEffective } from '../lib/asaas/config.js';
+import { asaasRequest } from '../lib/asaas/client.js';
 import { createAsaasInscriptionPayment, handleAsaasWebhookPayload } from '../lib/asaas/inscription-payment.js';
 import type { AsaasWebhookEvent } from '../lib/asaas/types.js';
+import {
+  buildIntegrationPublic,
+  clearAsaasIntegrationSecret,
+  readAsaasIntegrationDoc,
+  writeAsaasIntegrationDoc,
+  type AsaasIntegrationPatch,
+} from '../lib/asaas/integration-store.js';
 
 const router = Router();
 
-/** Status da integração (sem expor segredos). */
-router.get('/status', (_req, res) => {
-  const cfg = getAsaasConfig();
+/** Status da integração (público). Sem segredos. */
+router.get('/status', async (_req, res) => {
+  const cfg = await getAsaasConfigEffective();
   res.json({
-    configured: isAsaasConfigured(),
+    configured: cfg.enabled,
     environment: cfg.env,
   });
 });
@@ -19,9 +28,10 @@ router.get('/status', (_req, res) => {
  * Body: { campaignId, inscriptionId }
  */
 router.post('/inscription-payment', async (req, res) => {
-  if (!isAsaasConfigured()) {
+  const cfg = await getAsaasConfigEffective();
+  if (!cfg.enabled) {
     res.status(503).json({
-      error: 'Asaas não configurado. Defina ASAAS_API_KEY no servidor (sandbox ou produção).',
+      error: 'Asaas não configurado. Defina a chave em Configurações → APIs (Asaas) ou no backend.',
     });
     return;
   }
@@ -56,12 +66,12 @@ router.post('/inscription-payment', async (req, res) => {
 
 /** Webhook Asaas (pagamentos confirmados). */
 router.post('/webhook', async (req, res) => {
-  const { webhookToken } = getAsaasConfig();
-  if (webhookToken) {
+  const cfg = await getAsaasConfigEffective();
+  if (cfg.webhookToken) {
     const headerToken =
       (req.headers['asaas-access-token'] as string | undefined) ??
       (req.headers['x-asaas-access-token'] as string | undefined);
-    if (headerToken !== webhookToken) {
+    if (headerToken !== cfg.webhookToken) {
       res.status(401).json({ error: 'Token de webhook inválido' });
       return;
     }
@@ -73,6 +83,99 @@ router.post('/webhook', async (req, res) => {
   } catch (err) {
     console.error('[asaas/webhook]', err);
     res.status(200).json({ received: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Admin: leitura/escrita das credenciais (sempre mascaradas na resposta)
+// ---------------------------------------------------------------------------
+
+router.get('/integration', requireAdminAuth, async (_req, res) => {
+  const cfg = await getAsaasConfigEffective();
+  const doc = await readAsaasIntegrationDoc().catch(() => null);
+
+  res.json(
+    buildIntegrationPublic(doc, {
+      environment: cfg.env,
+      enabled: cfg.enabled,
+      sandboxKey:
+        doc?.apiKeySandbox || (cfg.env === 'sandbox' ? cfg.apiKey : '') || '',
+      productionKey:
+        doc?.apiKeyProduction || (cfg.env === 'production' ? cfg.apiKey : '') || '',
+      webhookToken: cfg.webhookToken || '',
+    })
+  );
+});
+
+router.put('/integration', requireAdminAuth, async (req, res) => {
+  const body = (req.body ?? {}) as Partial<AsaasIntegrationPatch> & {
+    clearSandboxKey?: boolean;
+    clearProductionKey?: boolean;
+    clearWebhookToken?: boolean;
+  };
+
+  const updatedBy =
+    (req as typeof req & { admin?: AdminAuthInfo }).admin?.email ??
+    (req as typeof req & { admin?: AdminAuthInfo }).admin?.uid ??
+    null;
+
+  try {
+    const patch: AsaasIntegrationPatch = {
+      ...(body.environment === 'sandbox' || body.environment === 'production'
+        ? { environment: body.environment }
+        : {}),
+      ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
+      ...(typeof body.apiKeySandbox === 'string' ? { apiKeySandbox: body.apiKeySandbox } : {}),
+      ...(typeof body.apiKeyProduction === 'string'
+        ? { apiKeyProduction: body.apiKeyProduction }
+        : {}),
+      ...(typeof body.webhookToken === 'string' ? { webhookToken: body.webhookToken } : {}),
+      ...(updatedBy ? { updatedBy } : {}),
+    };
+
+    await writeAsaasIntegrationDoc(patch);
+
+    if (body.clearSandboxKey) await clearAsaasIntegrationSecret('apiKeySandbox', updatedBy ?? undefined);
+    if (body.clearProductionKey)
+      await clearAsaasIntegrationSecret('apiKeyProduction', updatedBy ?? undefined);
+    if (body.clearWebhookToken)
+      await clearAsaasIntegrationSecret('webhookToken', updatedBy ?? undefined);
+
+    const cfg = await getAsaasConfigEffective();
+    const doc = await readAsaasIntegrationDoc();
+    res.json(
+      buildIntegrationPublic(doc, {
+        environment: cfg.env,
+        enabled: cfg.enabled,
+        sandboxKey: doc?.apiKeySandbox || (cfg.env === 'sandbox' ? cfg.apiKey : '') || '',
+        productionKey:
+          doc?.apiKeyProduction || (cfg.env === 'production' ? cfg.apiKey : '') || '',
+        webhookToken: cfg.webhookToken || '',
+      })
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao salvar integração';
+    const status = message === 'FIREBASE_ADMIN_NOT_CONFIGURED' ? 503 : 500;
+    res.status(status).json({ error: message });
+  }
+});
+
+/** Testa a chave atual fazendo uma chamada inofensiva no Asaas (lista 1 cliente). */
+router.post('/integration/test', requireAdminAuth, async (_req, res) => {
+  const cfg = await getAsaasConfigEffective();
+  if (!cfg.enabled) {
+    res.status(503).json({
+      ok: false,
+      error: 'Integração desativada ou sem chave para o ambiente selecionado.',
+    });
+    return;
+  }
+  try {
+    await asaasRequest<{ data: unknown[] }>('GET', '/customers?limit=1', undefined, cfg);
+    res.json({ ok: true, environment: cfg.env });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Falha ao contactar Asaas';
+    res.status(502).json({ ok: false, error: message, environment: cfg.env });
   }
 });
 

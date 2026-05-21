@@ -1,4 +1,4 @@
-import { getAsaasConfig } from './config.js';
+import { getAsaasConfig, type AsaasEffectiveConfig } from './config.js';
 
 export class AsaasApiError extends Error {
   constructor(
@@ -14,9 +14,10 @@ export class AsaasApiError extends Error {
 export async function asaasRequest<T>(
   method: string,
   path: string,
-  body?: Record<string, unknown>
+  body?: Record<string, unknown>,
+  configOverride?: AsaasEffectiveConfig
 ): Promise<T> {
-  const { apiKey, baseUrl, enabled } = getAsaasConfig();
+  const { apiKey, baseUrl, enabled } = configOverride ?? getAsaasConfig();
   if (!enabled) {
     throw new Error('ASAAS_NOT_CONFIGURED');
   }
