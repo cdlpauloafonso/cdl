@@ -80,29 +80,44 @@ export type CreateInscriptionPaymentResult = {
   customerId: string;
   amount: number;
   paymentStatus: string;
-  pix: InscriptionPaymentPixCheckout;
+  /** Ausente quando o Asaas ainda não disponibilizou o QR (cliente usa invoiceUrl). */
+  pix?: InscriptionPaymentPixCheckout | null;
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** QR PIX pode demorar alguns instantes após criar a cobrança — tenta com pequenos intervalos. */
 async function fetchPaymentPixQrCode(
   paymentId: string,
   config: Awaited<ReturnType<typeof getAsaasConfigEffective>>,
-): Promise<InscriptionPaymentPixCheckout> {
-  const qr = await asaasRequest<AsaasPaymentPixQrCode>(
-    'GET',
-    `/payments/${encodeURIComponent(paymentId)}/pixQrCode`,
-    undefined,
-    config,
-  );
-  const payload = qr.payload?.trim();
-  const encodedImage = qr.encodedImage?.trim();
-  if (!payload || !encodedImage) {
-    throw new Error('ASAAS_PIX_QR_UNAVAILABLE');
+): Promise<InscriptionPaymentPixCheckout | null> {
+  const delaysMs = [0, 500, 1200, 2500];
+  for (const delay of delaysMs) {
+    if (delay > 0) await sleep(delay);
+    try {
+      const qr = await asaasRequest<AsaasPaymentPixQrCode>(
+        'GET',
+        `/payments/${encodeURIComponent(paymentId)}/pixQrCode`,
+        undefined,
+        config,
+      );
+      const payload = qr.payload?.trim();
+      const encodedImage = qr.encodedImage?.trim();
+      if (payload && encodedImage) {
+        return {
+          encodedImage,
+          payload,
+          ...(qr.expirationDate ? { expirationDate: qr.expirationDate } : {}),
+        };
+      }
+    } catch (err) {
+      const status = err && typeof err === 'object' && 'status' in err ? (err as { status: number }).status : 0;
+      if (status === 404) continue;
+    }
   }
-  return {
-    encodedImage,
-    payload,
-    ...(qr.expirationDate ? { expirationDate: qr.expirationDate } : {}),
-  };
+  return null;
 }
 
 export async function createAsaasInscriptionPayment(
@@ -136,14 +151,15 @@ export async function createAsaasInscriptionPayment(
   const existingUrl = inscription.asaasInvoiceUrl as string | undefined;
   const existingStatus = String(inscription.paymentStatus ?? 'pending');
   if (existingPaymentId && existingUrl) {
+    const applied = Number(inscription.paymentAmountApplied);
     const pix = await fetchPaymentPixQrCode(existingPaymentId, config);
     return {
       paymentId: existingPaymentId,
       invoiceUrl: existingUrl,
       customerId: String(inscription.asaasCustomerId ?? ''),
-      amount,
+      amount: Number.isFinite(applied) && applied > 0 ? applied : amount,
       paymentStatus: existingStatus,
-      pix,
+      ...(pix ? { pix } : { pix: null }),
     };
   }
 
@@ -196,7 +212,7 @@ export async function createAsaasInscriptionPayment(
     customerId: customer.id,
     amount,
     paymentStatus: payment.status ?? 'PENDING',
-    pix,
+    ...(pix ? { pix } : { pix: null }),
   };
 }
 

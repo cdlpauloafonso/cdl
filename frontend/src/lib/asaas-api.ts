@@ -30,8 +30,49 @@ export type CreateInscriptionPaymentResponse = {
   customerId: string;
   amount: number;
   paymentStatus: string;
-  pix: InscriptionPaymentPixCheckout;
+  pix: InscriptionPaymentPixCheckout | null;
 };
+
+function parsePixFromResponse(
+  data: Record<string, unknown>
+): InscriptionPaymentPixCheckout | null {
+  const pix = data.pix;
+  if (pix && typeof pix === 'object') {
+    const p = pix as Record<string, unknown>;
+    const payload = typeof p.payload === 'string' ? p.payload.trim() : '';
+    const encodedImage = typeof p.encodedImage === 'string' ? p.encodedImage.trim() : '';
+    if (payload && encodedImage) {
+      return {
+        encodedImage,
+        payload,
+        ...(typeof p.expirationDate === 'string' && p.expirationDate
+          ? { expirationDate: p.expirationDate }
+          : {}),
+      };
+    }
+  }
+  return null;
+}
+
+function normalizeInscriptionPaymentResponse(
+  data: Record<string, unknown>
+): CreateInscriptionPaymentResponse {
+  const paymentId = typeof data.paymentId === 'string' ? data.paymentId : '';
+  const invoiceUrl = typeof data.invoiceUrl === 'string' ? data.invoiceUrl : '';
+  if (!paymentId || !invoiceUrl) {
+    throw new Error('Resposta inválida do servidor de pagamento.');
+  }
+  const amountRaw = Number(data.amount);
+  return {
+    paymentId,
+    invoiceUrl,
+    customerId: typeof data.customerId === 'string' ? data.customerId : '',
+    amount: Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0,
+    paymentStatus:
+      typeof data.paymentStatus === 'string' && data.paymentStatus ? data.paymentStatus : 'pending',
+    pix: parsePixFromResponse(data),
+  };
+}
 
 export type AsaasIntegrationPublic = {
   environment: 'sandbox' | 'production';
@@ -147,14 +188,11 @@ export async function createAsaasInscriptionPayment(
       `Não foi possível contactar o servidor de pagamento (${API_BASE}). Verifique sua conexão ou tente mais tarde.`,
     );
   }
-  const data = (await res.json().catch(() => ({}))) as { error?: string } & Partial<
-    CreateInscriptionPaymentResponse
-  >;
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
   if (!res.ok) {
-    throw new Error(data.error ?? 'Não foi possível gerar o link de pagamento.');
+    throw new Error(
+      typeof data.error === 'string' && data.error ? data.error : 'Não foi possível gerar o link de pagamento.',
+    );
   }
-  if (!data.invoiceUrl || !data.paymentId || !data.pix?.payload || !data.pix?.encodedImage) {
-    throw new Error('Resposta inválida do servidor de pagamento.');
-  }
-  return data as CreateInscriptionPaymentResponse;
+  return normalizeInscriptionPaymentResponse(data);
 }

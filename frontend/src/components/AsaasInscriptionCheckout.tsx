@@ -11,7 +11,7 @@ type Props = {
   amount: number;
   description?: string;
   invoiceUrl: string;
-  pix: InscriptionPaymentPixCheckout;
+  pix: InscriptionPaymentPixCheckout | null;
   className?: string;
   onPaid?: () => void;
 };
@@ -49,6 +49,7 @@ export function AsaasInscriptionCheckout({
   }, [campaignId, inscriptionId, onPaid]);
 
   async function copyPixPayload() {
+    if (!pix?.payload) return;
     try {
       await navigator.clipboard.writeText(pix.payload);
       setCopied(true);
@@ -60,6 +61,7 @@ export function AsaasInscriptionCheckout({
 
   const isPaid = paymentStatus === 'paid';
   const isPending = !paymentStatus || paymentStatus === 'pending';
+  const hasPix = Boolean(pix?.payload?.trim() && pix?.encodedImage?.trim());
 
   return (
     <section
@@ -73,7 +75,7 @@ export function AsaasInscriptionCheckout({
         <p className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Pagamento confirmado. Seu QR Code de credenciamento aparecerá abaixo em instantes.
         </p>
-      ) : (
+      ) : hasPix ? (
         <>
           <p className="mt-4 text-sm text-cdl-gray-text leading-relaxed">
             Escaneie o QR Code PIX abaixo ou copie o código. A confirmação é automática — não feche esta página
@@ -84,16 +86,16 @@ export function AsaasInscriptionCheckout({
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={pixImageSrc(pix.encodedImage)}
+                src={pixImageSrc(pix!.encodedImage)}
                 alt="QR Code PIX para pagamento da inscrição"
                 width={220}
                 height={220}
                 className="mx-auto h-[220px] w-[220px]"
               />
             </div>
-            {pix.expirationDate ? (
+            {pix!.expirationDate ? (
               <p className="mt-2 text-xs text-cdl-gray-text">
-                Validade do QR: {pix.expirationDate}
+                Validade do QR: {pix!.expirationDate}
               </p>
             ) : null}
           </div>
@@ -104,7 +106,7 @@ export function AsaasInscriptionCheckout({
               <input
                 type="text"
                 readOnly
-                value={pix.payload}
+                value={pix!.payload}
                 className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-mono text-gray-800"
               />
               <button type="button" onClick={copyPixPayload} className="btn-secondary shrink-0 text-sm">
@@ -139,6 +141,28 @@ export function AsaasInscriptionCheckout({
               </a>
             </div>
           </details>
+        </>
+      ) : (
+        <>
+          <p className="mt-4 text-sm text-cdl-gray-text leading-relaxed">
+            O QR Code PIX nesta página não está disponível no momento. Use o botão abaixo para pagar com PIX,
+            boleto ou cartão na página segura do Asaas. Volte aqui após pagar — a confirmação atualiza
+            automaticamente.
+          </p>
+          <a
+            href={invoiceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary inline-block mt-6 w-full sm:w-auto text-center"
+          >
+            Ir para pagamento
+          </a>
+          {isPending ? (
+            <p className="mt-4 flex items-center justify-center gap-2 text-sm text-cdl-blue">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-cdl-blue border-t-transparent" />
+              Aguardando confirmação do pagamento…
+            </p>
+          ) : null}
         </>
       )}
     </section>
