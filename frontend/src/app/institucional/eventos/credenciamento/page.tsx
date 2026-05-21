@@ -36,6 +36,28 @@ function PublicEventCredentialingContent() {
   }, [eventId, token]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) return;
+    const previousViewport = viewportMeta.getAttribute('content');
+    viewportMeta.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no',
+    );
+    return () => {
+      if (previousViewport) viewportMeta.setAttribute('content', previousViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    const blockPinchZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    document.addEventListener('touchmove', blockPinchZoom, { passive: false });
+    return () => document.removeEventListener('touchmove', blockPinchZoom);
+  }, []);
+
+  useEffect(() => {
     async function load() {
       if (!eventId || !token) {
         setError('Link incompleto. Solicite um novo link ao administrador do evento.');
@@ -91,7 +113,10 @@ function PublicEventCredentialingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div
+      data-credentialing-public-page
+      className="min-h-screen touch-manipulation bg-gray-100"
+    >
       <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <Image
@@ -134,6 +159,7 @@ function PublicEventCredentialingContent() {
               campanha={campanha}
               rows={rows}
               onToggle={handleToggle}
+              showSensitiveConfirmBanner={false}
             />
           </>
         ) : null}

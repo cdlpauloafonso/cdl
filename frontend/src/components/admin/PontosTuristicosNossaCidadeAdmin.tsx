@@ -11,6 +11,35 @@ import {
 } from '@/lib/nossa-cidade-pontos-metadata';
 import type { PontoTuristicoIconKind } from '@/lib/firestore';
 
+const iconBtn =
+  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors';
+
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className ?? 'h-4 w-4'} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className ?? 'h-4 w-4'} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8"
+      />
+    </svg>
+  );
+}
+
 function initialPontosFromCms(cms: Awaited<ReturnType<typeof getNossaCidadeCMS>>): PontoTuristicoCMS[] {
   if (cms == null) {
     return sortPontosTuristicos(
@@ -112,7 +141,7 @@ export function PontosTuristicosNossaCidadeAdmin() {
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-bold text-gray-900 sm:text-lg">Pontos turísticos</h2>
           <p className="mt-0.5 text-xs leading-snug text-cdl-gray-text sm:text-sm sm:leading-normal">
-            Lista dos cartões na página pública. Use <strong>Editar</strong> para texto, imagem e ícone.
+            Lista dos cartões na página pública. Use o ícone de lápis para texto, imagem e ícone.
           </p>
         </div>
         <Link
@@ -178,16 +207,20 @@ export function PontosTuristicosNossaCidadeAdmin() {
                 </button>
                 <Link
                   href={`/admin/nossa-cidade/pontos/${p.id}`}
-                  className="rounded-md bg-cdl-blue/10 px-2.5 py-1.5 text-xs font-medium text-cdl-blue ring-1 ring-cdl-blue/15"
+                  title="Editar ponto"
+                  aria-label="Editar ponto"
+                  className={`${iconBtn} bg-cdl-blue/10 text-cdl-blue ring-1 ring-cdl-blue/15 hover:bg-cdl-blue/15`}
                 >
-                  Editar
+                  <EditIcon />
                 </Link>
                 <button
                   type="button"
                   onClick={() => void removePonto(p)}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  title="Excluir ponto"
+                  aria-label="Excluir ponto"
+                  className={`${iconBtn} text-red-600 ring-1 ring-red-200/80 hover:bg-red-50`}
                 >
-                  Excluir
+                  <TrashIcon />
                 </button>
               </div>
             </article>
@@ -228,30 +261,45 @@ export function PontosTuristicosNossaCidadeAdmin() {
                 <td className="px-4 py-3 text-sm text-gray-700">{labelPontoTuristicoIcon(p.iconKind)}</td>
                 <td className="px-4 py-3 text-sm tabular-nums text-gray-700">{index + 1}</td>
                 <td className="px-4 py-3 text-right text-sm">
-                  <button
-                    type="button"
-                    disabled={movingId === p.id || index === 0}
-                    onClick={() => void movePonto(p.id, -1)}
-                    className="mr-1 rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                    title="Subir"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={movingId === p.id || index >= pontos.length - 1}
-                    onClick={() => void movePonto(p.id, 1)}
-                    className="mr-3 rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                    title="Descer"
-                  >
-                    ↓
-                  </button>
-                  <Link href={`/admin/nossa-cidade/pontos/${p.id}`} className="mr-3 text-cdl-blue hover:underline">
-                    Editar
-                  </Link>
-                  <button type="button" onClick={() => void removePonto(p)} className="text-red-600 hover:underline">
-                    Excluir
-                  </button>
+                  <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      disabled={movingId === p.id || index === 0}
+                      onClick={() => void movePonto(p.id, -1)}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                      title="Subir"
+                      aria-label="Subir ordem"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={movingId === p.id || index >= pontos.length - 1}
+                      onClick={() => void movePonto(p.id, 1)}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                      title="Descer"
+                      aria-label="Descer ordem"
+                    >
+                      ↓
+                    </button>
+                    <Link
+                      href={`/admin/nossa-cidade/pontos/${p.id}`}
+                      title="Editar ponto"
+                      aria-label="Editar ponto"
+                      className={`${iconBtn} bg-cdl-blue/10 text-cdl-blue ring-1 ring-cdl-blue/15 hover:bg-cdl-blue/15`}
+                    >
+                      <EditIcon />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void removePonto(p)}
+                      title="Excluir ponto"
+                      aria-label="Excluir ponto"
+                      className={`${iconBtn} text-red-600 ring-1 ring-red-200/80 hover:bg-red-50`}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

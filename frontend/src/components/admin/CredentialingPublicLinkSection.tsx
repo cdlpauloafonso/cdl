@@ -86,38 +86,39 @@ export function CredentialingPublicLinkSection({ eventId, eventTitle }: Credenti
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-      <p className="text-sm font-medium text-gray-900">Link público administrativo</p>
-      <p className="mt-1 text-xs text-cdl-gray-text">
-        Compartilhe com a equipe na portaria do evento. Quem tiver o link acessa apenas esta tela de credenciamento,
-        sem login no painel admin.
-      </p>
+    <div className="mt-4 rounded-lg border border-sky-200/80 bg-sky-50/50 p-2.5 sm:p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">Link público administrativo</p>
+        <p className="text-[10px] leading-snug text-sky-800/90">
+          Portaria — credenciamento sem login no admin
+        </p>
+      </div>
 
-      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
 
       {loading ? (
-        <p className="mt-3 text-sm text-cdl-gray-text">Preparando link…</p>
+        <p className="mt-2 text-xs text-cdl-gray-text">Preparando link…</p>
       ) : publicUrl ? (
-        <div className="mt-3 space-y-3">
-          <p className="break-all rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <p className="min-w-0 flex-1 break-all rounded-md border border-sky-200/60 bg-white px-2 py-1.5 font-mono text-[10px] leading-snug text-gray-700 sm:text-[11px]">
             {publicUrl}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap gap-1.5 sm:flex-col sm:justify-center">
             <button
               type="button"
               disabled={busy}
               onClick={() => void copyLink()}
-              className="rounded-lg border border-cdl-blue bg-white px-3 py-2 text-sm font-medium text-cdl-blue hover:bg-blue-50 disabled:opacity-50"
+              className="rounded-md border border-cdl-blue bg-white px-2.5 py-1 text-xs font-medium text-cdl-blue hover:bg-blue-50 disabled:opacity-50"
             >
-              {busy ? 'Aguarde…' : 'Copiar / compartilhar link'}
+              {busy ? '…' : 'Copiar / compartilhar'}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={() => void handleRegenerate()}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
-              Gerar novo link
+              Novo link
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import { formatEventDateForDisplay } from '@/lib/event-datetime';
+import { registerCertificatePdfFonts, setCertificateFont } from '@/lib/certificate-pdf-fonts';
+import { formatCertificateEventSchedule } from '@/lib/event-datetime';
 import { inscriptionDisplayLabel } from '@/lib/event-registration-fields';
 
 export type EventCertificateParticipant = {
@@ -10,6 +11,44 @@ export type EventCertificateEventInfo = {
   title: string;
   date?: string;
 };
+
+const COLORS = {
+  navy: [30, 58, 95] as [number, number, number],
+  navyLight: [51, 78, 120] as [number, number, number],
+  slate: [55, 65, 81] as [number, number, number],
+  ink: [17, 24, 39] as [number, number, number],
+  muted: [100, 116, 139] as [number, number, number],
+  line: [203, 213, 225] as [number, number, number],
+  panel: [248, 250, 252] as [number, number, number],
+  gold: [166, 139, 68] as [number, number, number],
+};
+
+function normalizeCertificateText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+/** Quebra por palavras — evita cortes no meio. */
+function wrapTextByWords(
+  doc: import('jspdf').jsPDF,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (doc.getTextWidth(candidate) > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
 
 async function loadLogoDataUrl(): Promise<string | null> {
   try {
@@ -35,90 +74,197 @@ function drawCertificatePage(
 ) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 18;
-  const innerW = pageW - margin * 2;
-  const innerH = pageH - margin * 2;
+  const margin = 14;
+  const frame = 6;
+  const innerX = margin + frame;
+  const innerY = margin + frame;
+  const innerW = pageW - (margin + frame) * 2;
+  const innerH = pageH - (margin + frame) * 2;
   const cx = pageW / 2;
+  const innerBottom = innerY + innerH;
+  const safeInset = 5;
+  const contentW = innerW - 36;
+  const panelW = innerW - 24;
+  const panelX = innerX + (innerW - panelW) / 2;
+  const panelPadX = 12;
 
-  doc.setDrawColor(30, 64, 175);
-  doc.setLineWidth(1.2);
-  doc.rect(margin, margin, innerW, innerH);
-  doc.setLineWidth(0.4);
-  doc.rect(margin + 4, margin + 4, innerW - 8, innerH - 8);
+  // Moldura
+  doc.setDrawColor(...COLORS.navy);
+  doc.setLineWidth(0.9);
+  doc.rect(margin, margin, pageW - margin * 2, pageH - margin * 2);
 
-  let y = margin + 16;
+  doc.setDrawColor(...COLORS.line);
+  doc.setLineWidth(0.25);
+  doc.rect(innerX, innerY, innerW, innerH);
 
+  // Cabeçalho
+  const headerH = 42;
+  doc.setFillColor(...COLORS.navy);
+  doc.rect(innerX, innerY, innerW, headerH, 'F');
+
+  doc.setFillColor(...COLORS.gold);
+  doc.rect(innerX, innerY + headerH, innerW, 1.2, 'F');
+
+  let hy = innerY + 8;
   if (logoDataUrl) {
-    const logoW = 48;
-    const logoH = 18;
-    doc.addImage(logoDataUrl, 'PNG', cx - logoW / 2, y, logoW, logoH);
-    y += logoH + 10;
+    const logoW = 42;
+    const logoH = 15;
+    doc.addImage(logoDataUrl, 'PNG', cx - logoW / 2, hy, logoW, logoH);
+    hy += logoH + 5;
   }
 
-  doc.setTextColor(30, 64, 175);
-  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(9);
+  doc.text('CÂMARA DE DIRIGENTES LOJISTAS', cx, hy, { align: 'center' });
+  hy += 5;
+  setCertificateFont(doc, 'normal');
+  doc.setFontSize(9);
+  doc.text('Paulo Afonso - Bahia', cx, hy, { align: 'center' });
+
+  // Título do certificado
+  let y = innerY + headerH + 10;
+  doc.setTextColor(...COLORS.navy);
+  setCertificateFont(doc, 'bold');
   doc.setFontSize(26);
   doc.text('CERTIFICADO', cx, y, { align: 'center' });
-  y += 10;
-  doc.setFontSize(14);
+
+  y += 8;
+  setCertificateFont(doc, 'normal');
+  doc.setFontSize(10.5);
+  doc.setTextColor(...COLORS.navyLight);
   doc.text('DE PARTICIPAÇÃO', cx, y, { align: 'center' });
-  y += 18;
 
-  doc.setTextColor(55, 65, 81);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  const intro =
-    'A CDL Paulo Afonso certifica, para os devidos fins, que o(a) participante abaixo identificado(a) participou do evento:';
-  const introLines = doc.splitTextToSize(intro, innerW - 24) as string[];
-  introLines.forEach((line) => {
-    doc.text(line, cx, y, { align: 'center' });
-    y += 6;
-  });
-  y += 6;
-
-  doc.setTextColor(17, 24, 39);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  const nameLines = doc.splitTextToSize(participantName.trim() || 'Participante', innerW - 32) as string[];
-  nameLines.forEach((line) => {
-    doc.text(line, cx, y, { align: 'center' });
-    y += 9;
-  });
   y += 4;
+  doc.setDrawColor(...COLORS.gold);
+  doc.setLineWidth(0.6);
+  const ruleW = 48;
+  doc.line(cx - ruleW / 2, y, cx + ruleW / 2, y);
 
-  doc.setTextColor(55, 65, 81);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  const eventTitleLines = doc.splitTextToSize(event.title.trim() || 'Evento CDL', innerW - 24) as string[];
-  eventTitleLines.forEach((line) => {
-    doc.text(line, cx, y, { align: 'center' });
-    y += 7;
+  y += 11;
+  doc.setTextColor(...COLORS.slate);
+  setCertificateFont(doc, 'normal');
+  doc.setFontSize(10.5);
+  doc.text('Certificamos, para os devidos fins, que', cx, y, { align: 'center' });
+
+  y += 10;
+  const nameY = y;
+  const name = normalizeCertificateText(participantName) || 'Participante';
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(22);
+  const nameLines = wrapTextByWords(doc, name, contentW);
+  const nameLineH = 8.5;
+  const nameBlockH = Math.max(nameLineH, nameLines.length * nameLineH);
+
+  y = nameY + nameBlockH + 1.5;
+  setCertificateFont(doc, 'normal');
+  doc.setFontSize(10.5);
+  doc.setTextColor(...COLORS.slate);
+  doc.text('participou do evento', cx, y, { align: 'center' });
+
+  const bodyEndY = y;
+
+  // Painel do evento + rodapé (tudo dentro da moldura)
+  const schedule = formatCertificateEventSchedule(event.date);
+  const eventTitle = normalizeCertificateText(event.title) || 'Evento CDL';
+  const titleMaxW = panelW - panelPadX * 2;
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(11);
+  const titleLines = wrapTextByWords(doc, eventTitle, titleMaxW);
+
+  const panelPadY = 7;
+  const titleLineH = 5;
+  const titleBlockH = titleLines.length * titleLineH + 2;
+  const scheduleBlockH = schedule.dateLine ? (schedule.timeLine ? 11.5 : 7) : 0;
+  const panelFooterH = 14;
+  const panelH =
+    panelPadY * 2 + 5 + titleBlockH + (scheduleBlockH > 0 ? scheduleBlockH + 4 : 0) + panelFooterH;
+
+  const panelBottomMax = innerBottom - safeInset;
+  const gapAfterBody = 6;
+  let panelY = bodyEndY + gapAfterBody;
+  if (panelY + panelH > panelBottomMax) {
+    panelY = panelBottomMax - panelH;
+  }
+  if (panelY < bodyEndY + 4) {
+    panelY = bodyEndY + 4;
+  }
+  const panelDrawH = Math.min(panelH, panelBottomMax - panelY);
+
+  doc.setFillColor(...COLORS.panel);
+  doc.setDrawColor(...COLORS.line);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(panelX, panelY, panelW, panelDrawH, 2, 2, 'FD');
+
+  let py = panelY + panelPadY;
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.muted);
+  doc.text('EVENTO', panelX + panelPadX, py);
+
+  py += 5;
+  doc.setTextColor(...COLORS.navy);
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(11);
+  titleLines.forEach((line) => {
+    doc.text(line, cx, py, { align: 'center' });
+    py += titleLineH;
   });
 
-  const eventDateLabel = formatEventDateForDisplay(event.date);
-  if (eventDateLabel) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.text(`Realizado em ${eventDateLabel}`, cx, y + 4, { align: 'center' });
-    y += 12;
+  if (schedule.dateLine) {
+    py += 2;
+    doc.setDrawColor(...COLORS.line);
+    doc.setLineWidth(0.2);
+    doc.line(panelX + panelPadX, py, panelX + panelW - panelPadX, py);
+    py += 4;
+
+    doc.setTextColor(...COLORS.slate);
+    setCertificateFont(doc, 'bold');
+    doc.setFontSize(9.5);
+    doc.text('Data: ', panelX + panelPadX, py);
+    const dateLabelW = doc.getTextWidth('Data: ');
+    setCertificateFont(doc, 'normal');
+    doc.text(schedule.dateLine, panelX + panelPadX + dateLabelW, py);
+
+    if (schedule.timeLine) {
+      py += 4.5;
+      setCertificateFont(doc, 'bold');
+      doc.text('Horário: ', panelX + panelPadX, py);
+      const timeLabelW = doc.getTextWidth('Horário: ');
+      setCertificateFont(doc, 'normal');
+      doc.text(schedule.timeLine, panelX + panelPadX + timeLabelW, py);
+    }
   }
 
-  y = Math.max(y + 8, pageH - margin - 28);
-  doc.setDrawColor(209, 213, 219);
-  doc.setLineWidth(0.3);
-  doc.line(cx - 45, y, cx + 45, y);
-  y += 6;
-  doc.setFontSize(10);
-  doc.setTextColor(107, 114, 128);
-  doc.text('CDL Paulo Afonso', cx, y, { align: 'center' });
-  y += 5;
-  doc.setFontSize(8);
-  doc.text(
-    `Emitido em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-    cx,
-    y,
-    { align: 'center' },
-  );
+  const panelFooterY = panelY + panelDrawH - panelPadY - 1;
+  doc.setDrawColor(...COLORS.line);
+  doc.setLineWidth(0.2);
+  doc.line(panelX + panelPadX, panelFooterY - 7, panelX + panelW - panelPadX, panelFooterY - 7);
+
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...COLORS.navy);
+  doc.text('CDL Paulo Afonso', cx, panelFooterY - 2, { align: 'center' });
+
+  setCertificateFont(doc, 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.muted);
+  const issued = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  doc.text(`Documento emitido em ${issued}`, cx, panelFooterY + 3, { align: 'center' });
+
+  // Nome do participante por cima do painel (evita ficar oculto pelo fundo cinza)
+  doc.setTextColor(...COLORS.ink);
+  setCertificateFont(doc, 'bold');
+  doc.setFontSize(22);
+  let ny = nameY;
+  nameLines.forEach((line) => {
+    doc.text(line, cx, ny, { align: 'center' });
+    ny += nameLineH;
+  });
 }
 
 export async function buildEventCertificatesPdf(
@@ -129,6 +275,7 @@ export async function buildEventCertificatesPdf(
   const { jsPDF } = await import('jspdf');
   const logoDataUrl = await loadLogoDataUrl();
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  await registerCertificatePdfFonts(doc);
 
   participants.forEach((p, index) => {
     if (index > 0) doc.addPage();

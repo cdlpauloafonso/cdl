@@ -39,6 +39,9 @@ const REALIZACAO_LOGOS: PartnerLogoConfig[] = [
   },
 ];
 
+/** Patrocinadores comerciais (logos em public/eventos/cenarios-tendencias-2026/patrocinadores/). */
+const PATROCINADORES_LOGOS: PartnerLogoConfig[] = [];
+
 const APOIO_LOGOS: PartnerLogoConfig[] = [
   {
     src: '/eventos/cenarios-tendencias-2026/parceiros/sebrae.png',
@@ -90,9 +93,9 @@ const INFO_CARDS = [
 
 const STRUCTURE = [
   { time: '16h', label: 'Atividades externas', detail: 'Integração, networking e ações com parceiros no entorno do auditório.' },
-  { time: '17h30', label: 'Abertura oficial', detail: 'Autoridades, CDL, Sebrae e instituições parceiras.' },
-  { time: '18h', label: 'Credenciamento', detail: 'Recepção dos participantes e início da programação no auditório.' },
-  { time: '19h', label: 'Palestras e painéis', detail: 'Conteúdo técnico com especialistas nacionais e regionais.' },
+  { time: '18h', label: 'Credenciamento', detail: 'Recepção dos participantes e check-in no auditório.' },
+  { time: '19h', label: 'Abertura oficial', detail: 'Autoridades, CDL, Sebrae e instituições parceiras.' },
+  { time: '19h40', label: 'Palestras e painéis', detail: 'Conteúdo técnico com especialistas nacionais e regionais.' },
   { time: '22h', label: 'Encerramento', detail: 'Coquetel de encerramento e relacionamento empresarial.' },
 ] as const;
 
@@ -102,12 +105,20 @@ type ScheduleItem = {
   time: string;
   type: string;
   theme?: string;
+  /** Texto curto quando não há lista de participantes (ex.: credenciamento). */
+  note?: string;
   participants: ScheduleParticipant[];
 };
 
 const SCHEDULE: ScheduleItem[] = [
   {
-    time: '17:30',
+    time: '18:00',
+    type: 'Credenciamento',
+    note: 'Recepção e check-in no auditório.',
+    participants: [],
+  },
+  {
+    time: '19:00',
     type: 'Abertura',
     participants: [
       { name: 'Caio Arruda', role: 'Presidente da CDL Paulo Afonso' },
@@ -118,23 +129,23 @@ const SCHEDULE: ScheduleItem[] = [
     ],
   },
   {
-    time: '18:00',
+    time: '19:40',
     type: 'Palestra 1',
     theme: 'Pós-NRF: o som da confiança em tempos artificiais',
     participants: [{ name: 'Marcela Cabral', role: 'Palestrante' }],
   },
   {
-    time: '18:40',
+    time: '20:30',
     type: 'Painel 1',
-    theme: 'Sistema financeiro e meios de pagamento',
+    theme: 'A importância do associativismo',
     participants: [
-      { name: 'Rafael Miranda Neiva', role: 'Superintendente da CAIXA — Paulo Afonso' },
-      { name: 'Sinvaldo Vieira', role: 'Superintendente do Banco do Brasil — BA' },
-      { name: 'Pedro Neto', role: 'Superintendente do Banco do Nordeste — BA' },
+      { name: 'Pedro Luiz Failla', role: 'Presidente da FCDL Bahia' },
+      { name: 'Paulo Cavalcanti', role: 'Presidente da FACEB' },
+      { name: 'Kelsor Fernandes', role: 'Presidente da Fecomércio — BA' },
     ],
   },
   {
-    time: '19:40',
+    time: '21:00',
     type: 'Palestra 2',
     theme: 'Teses vinculantes do TST: impactos nas relações de trabalho',
     participants: [
@@ -142,17 +153,7 @@ const SCHEDULE: ScheduleItem[] = [
     ],
   },
   {
-    time: '20:20',
-    type: 'Painel 2',
-    theme: 'A importância do associativismo',
-    participants: [
-      { name: 'Pedro Luiz Failla', role: 'Presidente da FCDL Bahia' },
-      { name: 'Paulo Cavalcanti', role: 'Presidente da FACEB' },
-      { name: 'Genilson Brito', role: 'Presidente da Fecomércio — BA' },
-    ],
-  },
-  {
-    time: '21:20',
+    time: '21:30',
     type: 'Palestra 3',
     theme: 'Reforma Tributária',
     participants: [
@@ -163,16 +164,44 @@ const SCHEDULE: ScheduleItem[] = [
 
 const HIGHLIGHTS = [
   {
-    name: 'Fred Alecrim',
-    role: 'Empresário e referência nacional em varejo',
-    topic: 'Tendências e aprendizados da NRF — inovação, consumidor e futuro do comércio.',
-  },
-  {
-    name: 'Especialistas convidados',
-    role: 'Painéis institucionais e palestras técnicas',
-    topic: 'Reforma tributária, relações de trabalho, sistema financeiro e associativismo.',
+    name: 'Marcela Cabral',
+    role: 'Palestrante',
+    topic: 'Pós-NRF: o som da confiança em tempos artificiais',
   },
 ] as const;
+
+function ScheduleProgramCard({ item }: { item: ScheduleItem }) {
+  return (
+    <article className="rounded-xl border border-sky-500/15 bg-slate-900/40 p-4 transition hover:border-sky-400/30">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-lg font-bold leading-none text-sky-300">{item.time}</span>
+        <span className="shrink-0 rounded-full bg-sky-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+          {item.type}
+        </span>
+      </div>
+      {item.note ? <p className="mt-2 text-xs leading-snug text-slate-400">{item.note}</p> : null}
+      {item.theme ? (
+        <p className="mt-2 text-xs font-medium leading-snug text-sky-200/90">
+          <span className="text-sky-400/80">Tema: </span>
+          <span className="italic text-white">&ldquo;{item.theme}&rdquo;</span>
+        </p>
+      ) : null}
+      {item.participants.length > 0 ? (
+        <ul className={`space-y-1.5 ${item.theme || item.note ? 'mt-2.5' : 'mt-2'}`}>
+          {item.participants.map((p) => (
+            <li key={p.name} className="flex gap-1.5 text-xs leading-snug sm:text-sm">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-sky-400" aria-hidden />
+              <span>
+                <span className="font-semibold text-white">{p.name}</span>
+                <span className="text-slate-400"> — {p.role}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
 
 export function CenariosTendencias2026Landing() {
   const [whatsappHref, setWhatsappHref] = useState(() =>
@@ -392,39 +421,15 @@ export function CenariosTendencias2026Landing() {
               Painéis e palestras
             </h2>
             <p className="mt-3 max-w-2xl text-slate-400">
-              Credenciamento com presidente da CDL, representantes do Governo, Prefeitura e Sebrae. Conteúdo técnico
-              com especialistas de referência nacional e regional.
+              Credenciamento às 18h, abertura às 19h e programação técnica a partir das 19h40, com especialistas de
+              referência nacional e regional.
             </p>
           </RevealSection>
 
-          <div className="mt-12 grid gap-4 md:grid-cols-2">
+          <div className="mt-10 grid items-start gap-3 sm:grid-cols-2">
             {SCHEDULE.map((item, i) => (
               <RevealSection key={item.time + item.type} delayMs={i * 50}>
-                <article className="flex h-full flex-col rounded-2xl border border-sky-500/15 bg-slate-900/40 p-6 transition hover:border-sky-400/30">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-xl font-bold text-sky-300">{item.time}</span>
-                    <span className="rounded-full bg-sky-500/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-sky-300">
-                      {item.type}
-                    </span>
-                  </div>
-                  {item.theme ? (
-                    <p className="mt-4 text-sm font-medium text-sky-200/90">
-                      <span className="text-sky-400/80">Tema: </span>
-                      <span className="italic text-white">&ldquo;{item.theme}&rdquo;</span>
-                    </p>
-                  ) : null}
-                  <ul className={`space-y-3 ${item.theme ? 'mt-4' : 'mt-5'} flex-1`}>
-                    {item.participants.map((p) => (
-                      <li key={p.name} className="flex gap-2 text-sm leading-snug">
-                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-sky-400" aria-hidden />
-                        <span>
-                          <span className="font-semibold text-white">{p.name}</span>
-                          <span className="text-slate-400"> — {p.role}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
+                <ScheduleProgramCard item={item} />
               </RevealSection>
             ))}
           </div>
@@ -440,7 +445,7 @@ export function CenariosTendencias2026Landing() {
               Referências que movem o mercado
             </h2>
           </RevealSection>
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-10 max-w-xl">
             {HIGHLIGHTS.map((h, i) => (
               <RevealSection key={h.name} delayMs={i * 100}>
                 <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-950/50 to-slate-900/30 p-8">
@@ -517,6 +522,21 @@ export function CenariosTendencias2026Landing() {
               >
                 Fale com a CDL
               </a>
+            </div>
+
+            <div className="mt-16 border-t border-white/10 pt-12">
+              <SectionLabel>Patrocinadores</SectionLabel>
+              {PATROCINADORES_LOGOS.length > 0 ? (
+                <div className="mx-auto mt-8 grid max-w-3xl grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 sm:gap-4">
+                  {PATROCINADORES_LOGOS.map((logo, i) => (
+                    <RevealSection key={logo.alt} delayMs={i * 60}>
+                      <PartnerLogoCard logo={logo} />
+                    </RevealSection>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-6 text-sm text-slate-500">Em breve divulgaremos nossos patrocinadores.</p>
+              )}
             </div>
           </RevealSection>
         </div>

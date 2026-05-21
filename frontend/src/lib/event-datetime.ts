@@ -77,3 +77,32 @@ export function formatEventDateForDisplay(raw?: string): string {
 
   return s;
 }
+
+/** Data e horário separados para certificados e documentos formais. */
+export function formatCertificateEventSchedule(raw?: string): {
+  dateLine: string;
+  timeLine: string | null;
+} {
+  const s = (raw ?? '').trim();
+  if (!s) return { dateLine: '', timeLine: null };
+
+  const { date, time } = decodeEventDateTime(s);
+  if (date) {
+    const y = parseInt(date.slice(0, 4), 10);
+    const mo = parseInt(date.slice(5, 7), 10) - 1;
+    const day = parseInt(date.slice(8, 10), 10);
+    const dt = new Date(y, mo, day);
+    const rawDateLine = new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(dt);
+    const dateLine = rawDateLine.charAt(0).toUpperCase() + rawDateLine.slice(1);
+    const timeLine = time ? time.replace(':', 'h') : null;
+    return { dateLine, timeLine };
+  }
+
+  const fallback = formatEventDateForDisplay(s);
+  return { dateLine: fallback, timeLine: null };
+}

@@ -236,6 +236,9 @@ export type EventInscriptionRecord = {
   fields: Record<string, string>;
   /** ISO — preenchido no credenciamento (check-in) do participante. */
   credentialedAt?: string | null;
+  /** ISO — certificado enviado por e-mail (admin). */
+  certificateEmailSentAt?: string | null;
+  certificateEmailLastError?: string | null;
   paymentStatus?: EventInscriptionPaymentStatus;
   paymentProvider?: CampaignPaymentProvider;
   asaasPaymentId?: string;

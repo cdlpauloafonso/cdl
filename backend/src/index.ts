@@ -15,6 +15,7 @@ import about from './routes/about.js';
 import nossaCidade from './routes/nossa-cidade.js';
 import asaas from './routes/asaas.js';
 import credentialing from './routes/credentialing.js';
+import certificates from './routes/certificates.js';
 
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/upload', upload);
 app.use('/api/about', about);
 app.use('/api/asaas', asaas);
 app.use('/api', credentialing);
+app.use('/api', certificates);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

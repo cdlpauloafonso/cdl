@@ -10,9 +10,17 @@ import {
   type EventInscriptionRecord,
 } from '@/lib/firestore';
 import {
+  fetchCertificateEmailConfig,
+  sendCertificateEmailOne,
+  sendCertificateEmailsManaged,
+  type CertificateEmailConfig,
+  type CertificateEmailItemResult,
+} from '@/lib/certificate-email-api';
+import {
   hasEventFormRegistration,
   inscriptionDisplayLabel,
   inscriptionDisplaySubtitle,
+  inscriptionParticipantEmail,
 } from '@/lib/event-registration-fields';
 import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
@@ -32,6 +40,36 @@ import { EventAdminBackLink } from '@/components/admin/EventAdminBackLink';
 
 type CertificateFilter = 'credentialed' | 'all';
 
+type Row = EventInscriptionRecord & { id: string };
+
+function formatSentAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return null;
+  }
+}
+
+function applyEmailResults(rows: Row[], results: CertificateEmailItemResult[]): Row[] {
+  const byId = new Map(results.map((r) => [r.inscriptionId, r]));
+  return rows.map((row) => {
+    const hit = byId.get(row.id);
+    if (!hit?.ok || !hit.sentAt) return row;
+    return {
+      ...row,
+      certificateEmailSentAt: hit.sentAt,
+      certificateEmailLastError: null,
+    };
+  });
+}
+
 export default function AdminEventoCertificadosPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -43,13 +81,19 @@ export default function AdminEventoCertificadosPage() {
   const currentPath = currentAdminPath(pathname, searchParams.toString());
 
   const [campanha, setCampanha] = useState<Campaign | null>(null);
-  const [rows, setRows] = useState<(EventInscriptionRecord & { id: string })[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<CertificateFilter>('credentialed');
   const [exportingBulk, setExportingBulk] = useState(false);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [emailConfig, setEmailConfig] = useState<CertificateEmailConfig | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendingBulk, setSendingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!eventId) {
@@ -60,8 +104,13 @@ export default function AdminEventoCertificadosPage() {
     setLoading(true);
     setError('');
     try {
-      const c = await getCampaign(eventId);
+      const [c, list, cfg] = await Promise.all([
+        getCampaign(eventId),
+        listEventInscriptions(eventId),
+        fetchCertificateEmailConfig(eventId),
+      ]);
       setCampanha(c);
+      setEmailConfig(cfg);
       if (!c) {
         setError('Evento não encontrado.');
         setRows([]);
@@ -72,7 +121,6 @@ export default function AdminEventoCertificadosPage() {
         setRows([]);
         return;
       }
-      const list = await listEventInscriptions(eventId);
       setRows(list);
     } catch {
       setError('Erro ao carregar inscrições.');
@@ -97,6 +145,7 @@ export default function AdminEventoCertificadosPage() {
       const blob = [
         inscriptionDisplayLabel(r.fields),
         inscriptionDisplaySubtitle(r.fields) ?? '',
+        inscriptionParticipantEmail(r.fields) ?? '',
         ...Object.values(r.fields || {}).map((x) => String(x)),
       ]
         .join(' ')
@@ -104,6 +153,11 @@ export default function AdminEventoCertificadosPage() {
       return blob.includes(term);
     });
   }, [eligibleRows, searchTerm]);
+
+  const selectableRows = useMemo(
+    () => filteredRows.filter((r) => inscriptionParticipantEmail(r.fields) && !r.certificateEmailSentAt),
+    [filteredRows]
+  );
 
   const eventInfo = useMemo(
     () => ({
@@ -113,7 +167,45 @@ export default function AdminEventoCertificadosPage() {
     [campanha],
   );
 
-  async function handleDownloadOne(row: EventInscriptionRecord & { id: string }) {
+  const emailPrepMessage = useMemo(() => {
+    if (!emailConfig) return 'Carregando configuração de e-mail…';
+    if (!emailConfig.smtpConfigured) {
+      return 'SMTP ainda não configurado no servidor (Gmail: SMTP_USER, SMTP_PASS, smtp.gmail.com).';
+    }
+    if (!emailConfig.enabled) {
+      return 'Envio preparado. Ative com CERTIFICATE_EMAIL_ENABLED=true no backend quando for liberar o disparo.';
+    }
+    return null;
+  }, [emailConfig]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    const ids = selectableRows.map((r) => r.id);
+    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }
+
+  async function handleDownloadOne(row: Row) {
     if (!campanha) return;
     const name = inscriptionDisplayLabel(row.fields);
     setExportingId(row.id);
@@ -150,6 +242,89 @@ export default function AdminEventoCertificadosPage() {
     }
   }
 
+  async function handleSendOne(row: Row) {
+    if (!eventId) return;
+    const email = inscriptionParticipantEmail(row.fields);
+    if (!email) {
+      setError('Este participante não tem e-mail na inscrição.');
+      return;
+    }
+    if (row.certificateEmailSentAt) {
+      setInfo('Certificado já consta como enviado por e-mail.');
+      return;
+    }
+
+    setSendingId(row.id);
+    setError('');
+    setInfo('');
+    const result = await sendCertificateEmailOne(eventId, row.id);
+    setSendingId(null);
+
+    if (result.ok && result.sentAt) {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? { ...r, certificateEmailSentAt: result.sentAt, certificateEmailLastError: null }
+            : r
+        )
+      );
+      setInfo('Certificado enviado por e-mail.');
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      return;
+    }
+
+    if ('skipped' in result && result.skipped) {
+      setInfo(result.error);
+      return;
+    }
+
+    setError(result.error);
+  }
+
+  async function handleSendSelected() {
+    if (!eventId || selectedIds.size === 0) return;
+
+    const ids = [...selectedIds];
+    const chunkSize = emailConfig?.clientChunkSize ?? 15;
+
+    setSendingBulk(true);
+    setBulkProgress({ done: 0, total: ids.length });
+    setError('');
+    setInfo('');
+
+    try {
+      const batch = await sendCertificateEmailsManaged(eventId, ids, chunkSize, (done, total) => {
+        setBulkProgress({ done, total });
+      });
+
+      setRows((prev) => applyEmailResults(prev, batch.results));
+
+      const { sent, failed, skipped } = batch.summary;
+      if (sent > 0) {
+        setInfo(
+          `Processamento concluído: ${sent} enviado(s)${skipped ? `, ${skipped} já enviado(s)` : ''}${failed ? `, ${failed} com falha` : ''}.`
+        );
+      } else if (failed > 0) {
+        setError(
+          `Nenhum e-mail enviado. ${failed} falha(s). Verifique SMTP e CERTIFICATE_EMAIL_ENABLED no servidor.`
+        );
+      } else if (skipped > 0) {
+        setInfo('Todos os selecionados já estavam marcados como enviados.');
+      }
+
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao enviar lote de e-mails.');
+    } finally {
+      setSendingBulk(false);
+      setBulkProgress(null);
+    }
+  }
+
   if (!eventId) {
     return (
       <div>
@@ -170,6 +345,9 @@ export default function AdminEventoCertificadosPage() {
     );
   }
 
+  const allVisibleSelected =
+    selectableRows.length > 0 && selectableRows.every((r) => selectedIds.has(r.id));
+
   return (
     <div className="w-full max-w-3xl">
       <EventAdminBackLink href={backHref} />
@@ -182,13 +360,25 @@ export default function AdminEventoCertificadosPage() {
         )}
       </p>
       <p className="mt-2 text-sm text-cdl-gray-text">
-        Gere certificados de participação em PDF para os inscritos. Por padrão, a lista mostra apenas quem foi
-        credenciado no evento.
+        Gere PDFs e envie certificados por e-mail. Lotes grandes são divididos automaticamente pelo sistema
+        (pausa entre cada envio no servidor).
       </p>
+
+      {emailPrepMessage ? (
+        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          {emailPrepMessage}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {error}
+        </div>
+      ) : null}
+
+      {info ? (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {info}
         </div>
       ) : null}
 
@@ -205,7 +395,10 @@ export default function AdminEventoCertificadosPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setFilter(tab.id)}
+                  onClick={() => {
+                    setFilter(tab.id);
+                    setSelectedIds(new Set());
+                  }}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition-colors ${
                     filter === tab.id
                       ? 'bg-cdl-blue text-white ring-cdl-blue'
@@ -216,23 +409,49 @@ export default function AdminEventoCertificadosPage() {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              disabled={exportingBulk || filteredRows.length === 0}
-              onClick={() => void handleDownloadBulk()}
-              className="btn-primary text-sm disabled:opacity-50"
-            >
-              {exportingBulk ? 'Gerando PDF…' : `Baixar todos (${filteredRows.length})`}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={exportingBulk || filteredRows.length === 0}
+                onClick={() => void handleDownloadBulk()}
+                className="btn-secondary text-sm disabled:opacity-50"
+              >
+                {exportingBulk ? 'Gerando PDF…' : `Baixar todos (${filteredRows.length})`}
+              </button>
+              <button
+                type="button"
+                disabled={sendingBulk || selectedIds.size === 0 || !emailConfig}
+                onClick={() => void handleSendSelected()}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {sendingBulk
+                  ? bulkProgress
+                    ? `Enviando ${bulkProgress.done}/${bulkProgress.total}…`
+                    : 'Enviando…'
+                  : `Enviar selecionados (${selectedIds.size})`}
+              </button>
+            </div>
           </div>
 
-          <div className="relative mt-4">
+          {selectableRows.length > 0 ? (
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+              />
+              Selecionar enviáveis ({selectableRows.length})
+            </label>
+          ) : null}
+
+          <div className="relative mt-3">
             <input
               type="search"
               placeholder="Buscar participante..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 pl-10 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue"
               autoComplete="off"
             />
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -254,32 +473,101 @@ export default function AdminEventoCertificadosPage() {
                 : 'Nenhuma inscrição encontrada.'}
             </div>
           ) : (
-            <ul className="mt-6 space-y-3">
+            <ul className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
               {filteredRows.map((row) => {
-                const subtitle = inscriptionDisplaySubtitle(row.fields);
-                const busy = exportingId === row.id;
+                const name = inscriptionDisplayLabel(row.fields);
+                const email = inscriptionParticipantEmail(row.fields);
+                const rawSubtitle = inscriptionDisplaySubtitle(row.fields);
+                const subtitleNorm = rawSubtitle?.trim().toLowerCase() ?? '';
+                const subtitle =
+                  rawSubtitle &&
+                  subtitleNorm !== (email ?? '') &&
+                  subtitleNorm !== name.trim().toLowerCase()
+                    ? rawSubtitle
+                    : null;
+                const sentLabel = formatSentAt(row.certificateEmailSentAt);
+                const busyPdf = exportingId === row.id;
+                const busyEmail = sendingId === row.id;
+                const canSelect = Boolean(email && !row.certificateEmailSentAt);
+                const checked = selectedIds.has(row.id);
+
                 return (
                   <li
                     key={row.id}
-                    className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 px-2.5 py-2 sm:flex-row sm:items-center sm:gap-2 sm:py-1.5"
                   >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">{inscriptionDisplayLabel(row.fields)}</p>
-                      {subtitle ? <p className="mt-0.5 text-sm text-gray-600">{subtitle}</p> : null}
-                      {isInscriptionCredentialed(row) ? (
-                        <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                          Credenciado
-                        </span>
+                    <div className="flex shrink-0 items-center">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!canSelect || sendingBulk}
+                        onChange={() => toggleSelect(row.id)}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue disabled:opacity-40"
+                        aria-label={`Selecionar ${inscriptionDisplayLabel(row.fields)}`}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 leading-snug">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                        <p className="text-sm font-semibold text-gray-900">{name}</p>
+                        {subtitle ? (
+                          <span className="text-xs text-gray-500">{subtitle}</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {email ? (
+                          <span className="text-[11px] text-gray-500">{email}</span>
+                        ) : (
+                          <span className="text-[11px] text-amber-700">Sem e-mail</span>
+                        )}
+                        {isInscriptionCredentialed(row) ? (
+                          <span className="inline-flex rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-800">
+                            Credenciado
+                          </span>
+                        ) : null}
+                        {sentLabel ? (
+                          <span className="inline-flex rounded bg-sky-100 px-1.5 py-px text-[10px] font-semibold text-sky-900">
+                            Enviado · {sentLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                      {row.certificateEmailLastError && !row.certificateEmailSentAt ? (
+                        <p className="mt-0.5 line-clamp-1 text-[10px] text-amber-800">
+                          {row.certificateEmailLastError}
+                        </p>
                       ) : null}
                     </div>
-                    <button
-                      type="button"
-                      disabled={busy || exportingBulk}
-                      onClick={() => void handleDownloadOne(row)}
-                      className="btn-secondary shrink-0 text-sm !px-4 !py-2 disabled:opacity-50"
-                    >
-                      {busy ? 'Gerando…' : 'Baixar PDF'}
-                    </button>
+                    <div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
+                      <button
+                        type="button"
+                        disabled={busyPdf || busyEmail || exportingBulk || sendingBulk}
+                        onClick={() => void handleDownloadOne(row)}
+                        className="btn-secondary shrink-0 text-xs !px-2.5 !py-1 disabled:opacity-50"
+                      >
+                        {busyPdf ? '…' : 'PDF'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          !email ||
+                          Boolean(row.certificateEmailSentAt) ||
+                          busyEmail ||
+                          busyPdf ||
+                          sendingBulk ||
+                          !emailConfig
+                        }
+                        title={
+                          row.certificateEmailSentAt
+                            ? 'Já enviado'
+                            : !email
+                              ? 'Sem e-mail'
+                              : emailPrepMessage ?? undefined
+                        }
+                        onClick={() => void handleSendOne(row)}
+                        className="btn-primary shrink-0 text-xs !px-2.5 !py-1 disabled:opacity-50"
+                      >
+                        {busyEmail ? '…' : row.certificateEmailSentAt ? 'Enviado' : 'E-mail'}
+                      </button>
+                    </div>
                   </li>
                 );
               })}

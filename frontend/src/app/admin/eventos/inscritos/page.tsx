@@ -19,6 +19,7 @@ import {
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
 import { getEffectivePayment } from '@/lib/event-payment-fields';
+import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
   EVENT_ADMIN_LIST_PATH,
   eventDetailsPath,
@@ -66,6 +67,19 @@ function paymentStatusOf(row: EventInscriptionRecord): EventInscriptionPaymentSt
   return row.paymentStatus === 'paid' ? 'paid' : 'pending';
 }
 
+function CredentialingStatusBadge({ row }: { row: EventInscriptionRecord }) {
+  const credentialed = isInscriptionCredentialed(row);
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+        credentialed ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/80' : 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/60'
+      }`}
+    >
+      {credentialed ? 'Credenciado' : 'Aguardando'}
+    </span>
+  );
+}
+
 export default function AdminEventoInscritosPage() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('eventId') ?? '';
@@ -84,8 +98,10 @@ export default function AdminEventoInscritosPage() {
   const [filterCidade, setFilterCidade] = useState('todas');
   const [filterEstado, setFilterEstado] = useState('todos');
   const [filterPayment, setFilterPayment] = useState<'all' | EventInscriptionPaymentStatus>('all');
+  const [filterCredentialing, setFilterCredentialing] = useState<'all' | 'credentialed' | 'pending'>('all');
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>([]);
   const [showPaymentColumn, setShowPaymentColumn] = useState(true);
+  const [showCredentialingColumn, setShowCredentialingColumn] = useState(true);
   const [showDateColumn, setShowDateColumn] = useState(true);
   const [showSignatureColumn, setShowSignatureColumn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -187,7 +203,7 @@ export default function AdminEventoInscritosPage() {
   );
 
   useEffect(() => {
-    if (sortBy === 'createdAt' || sortBy === 'paymentStatus') return;
+    if (sortBy === 'createdAt' || sortBy === 'paymentStatus' || sortBy === 'credentialingStatus') return;
     if (!displayedColumnKeys.includes(sortBy)) {
       setSortBy('createdAt');
     }
@@ -230,10 +246,17 @@ export default function AdminEventoInscritosPage() {
       if (filterPayment !== 'all' && paymentStatusOf(r) !== filterPayment) {
         return false;
       }
+      if (filterCredentialing === 'credentialed' && !isInscriptionCredentialed(r)) {
+        return false;
+      }
+      if (filterCredentialing === 'pending' && isInscriptionCredentialed(r)) {
+        return false;
+      }
       if (!term) return true;
       const blob = [
         r.createdAt,
         paymentStatusOf(r) === 'paid' ? 'pago' : 'pendente',
+        isInscriptionCredentialed(r) ? 'credenciado' : 'aguardando',
         ...Object.values(r.fields || {}).map((x) => String(x)),
       ]
         .join(' ')
@@ -253,6 +276,12 @@ export default function AdminEventoInscritosPage() {
         const cmp = va.localeCompare(vb, 'pt-BR');
         return sortDirection === 'desc' ? -cmp : cmp;
       }
+      if (sortBy === 'credentialingStatus') {
+        const ca = isInscriptionCredentialed(a) ? 1 : 0;
+        const cb = isInscriptionCredentialed(b) ? 1 : 0;
+        const cmp = ca - cb;
+        return sortDirection === 'desc' ? -cmp : cmp;
+      }
       const va = (a.fields?.[sortBy] || '').toString().toLowerCase();
       const vb = (b.fields?.[sortBy] || '').toString().toLowerCase();
       const cmp = va.localeCompare(vb, 'pt-BR');
@@ -260,7 +289,18 @@ export default function AdminEventoInscritosPage() {
     });
 
     return list;
-  }, [rows, searchTerm, sortBy, sortDirection, filterCidade, filterEstado, filterPayment, hasCidade, hasEstado]);
+  }, [
+    rows,
+    searchTerm,
+    sortBy,
+    sortDirection,
+    filterCidade,
+    filterEstado,
+    filterPayment,
+    filterCredentialing,
+    hasCidade,
+    hasEstado,
+  ]);
 
   const allFilteredSelected =
     filteredRows.length > 0 && filteredRows.every((r) => selectedIds.includes(r.id));
@@ -393,6 +433,7 @@ export default function AdminEventoInscritosPage() {
         ...displayedColumnKeys.map((k) => labelForInscriptionField(k)),
         ...(showDateColumn ? ['Data'] : []),
         ...(displayPaymentColumn ? ['Pagamento'] : []),
+        ...(showCredentialingColumn ? ['Credenciamento'] : []),
         ...(showSignatureColumn ? ['Assinatura'] : []),
       ];
       const colCount = Math.max(headers.length, 1);
@@ -440,6 +481,9 @@ export default function AdminEventoInscritosPage() {
           ...displayedColumnKeys.map((k) => (row.fields?.[k] ?? '').toString().trim() || '—'),
           ...(showDateColumn ? [formatDateBr(row.createdAt)] : []),
           ...(displayPaymentColumn ? [paymentStatusOf(row) === 'paid' ? 'Pago' : 'Pendente'] : []),
+          ...(showCredentialingColumn
+            ? [isInscriptionCredentialed(row) ? 'Credenciado' : 'Aguardando']
+            : []),
           ...(showSignatureColumn ? [''] : []),
         ];
         const wrapped = rowValues.map((v) => doc.splitTextToSize(v, colW - 2) as string[]);
@@ -652,12 +696,24 @@ export default function AdminEventoInscritosPage() {
                 </select>
               )}
               <select
+                value={filterCredentialing}
+                onChange={(e) =>
+                  setFilterCredentialing(e.target.value as 'all' | 'credentialed' | 'pending')
+                }
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
+              >
+                <option value="all">Todo credenciamento</option>
+                <option value="credentialed">Credenciados</option>
+                <option value="pending">Aguardando</option>
+              </select>
+              <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-cdl-blue"
               >
                 <option value="createdAt">Ordenar por data da inscrição</option>
                 {eventHasConfiguredPayment && <option value="paymentStatus">Ordenar por pagamento</option>}
+                <option value="credentialingStatus">Ordenar por credenciamento</option>
                 {displayedColumnKeys.map((k) => (
                   <option key={k} value={k}>
                     Ordenar por {labelForInscriptionField(k)}
@@ -679,6 +735,7 @@ export default function AdminEventoInscritosPage() {
                   setFilterCidade('todas');
                   setFilterEstado('todos');
                   setFilterPayment('all');
+                  setFilterCredentialing('all');
                   setSortBy('createdAt');
                   setSortDirection('desc');
                 }}
@@ -706,6 +763,7 @@ export default function AdminEventoInscritosPage() {
                       setVisibleColumnKeys([...columnKeys]);
                       setShowDateColumn(true);
                       setShowPaymentColumn(eventHasConfiguredPayment);
+                      setShowCredentialingColumn(true);
                       setShowSignatureColumn(false);
                     }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
@@ -718,6 +776,7 @@ export default function AdminEventoInscritosPage() {
                       setVisibleColumnKeys([]);
                       setShowDateColumn(false);
                       setShowPaymentColumn(false);
+                      setShowCredentialingColumn(false);
                       setShowSignatureColumn(false);
                     }}
                     className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
@@ -754,6 +813,14 @@ export default function AdminEventoInscritosPage() {
                       Pagamento
                     </label>
                   )}
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showCredentialingColumn}
+                      onChange={(e) => setShowCredentialingColumn(e.target.checked)}
+                    />
+                    Credenciamento
+                  </label>
                   <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                     <input
                       type="checkbox"
@@ -826,8 +893,13 @@ export default function AdminEventoInscritosPage() {
                       ))}
                     </div>
 
+                    {showCredentialingColumn && (
+                      <div className="mt-2">
+                        <CredentialingStatusBadge row={row} />
+                      </div>
+                    )}
                     {displayPaymentColumn && (
-                      <div className="mt-3">
+                      <div className="mt-2">
                         {paymentStatusOf(row) === 'paid' ? (
                           <button
                             type="button"
@@ -900,6 +972,11 @@ export default function AdminEventoInscritosPage() {
                           Pagamento
                         </th>
                       )}
+                      {showCredentialingColumn && (
+                        <th className="w-28 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
+                          Credenciamento
+                        </th>
+                      )}
                       {showSignatureColumn && (
                         <th className="w-40 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
                           Assinatura
@@ -967,6 +1044,11 @@ export default function AdminEventoInscritosPage() {
                                 {updatingPaymentId === row.id ? 'Salvando...' : 'Pendente'}
                               </button>
                             )}
+                          </td>
+                        )}
+                        {showCredentialingColumn && (
+                          <td className="px-2 py-2 align-top">
+                            <CredentialingStatusBadge row={row} />
                           </td>
                         )}
                         {showSignatureColumn && <td className="px-2 py-2 align-top" />}

@@ -360,35 +360,171 @@ export default function AdminCampanhaEditByQueryPage() {
             </>
           )}
         </div>
-        <p className="text-cdl-gray-text mb-6">Visualização e edição do evento</p>
+        <p className="mb-4 text-sm text-cdl-gray-text">Edite a apresentação do evento como ela aparece no site.</p>
 
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações do evento</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                <input value={campanha.title} onChange={(e) => setCampanha({ ...campanha, title: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-              </div>
-            {campanha.image && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Foto destaque</label>
-                <div className="mt-1">
-                  <img src={campanha.image} alt="Foto destaque" className="w-48 h-auto rounded-md border" />
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-gray-50 px-4 py-2">
+              <h2 className="text-sm font-semibold text-gray-900">Apresentação no site</h2>
+              <p className="text-[11px] leading-snug text-cdl-gray-text">
+                Como na página pública: categoria, data, título, textos e foto.
+              </p>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <div>
+                  <label
+                    htmlFor="edit-campaign-category"
+                    className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                  >
+                    Categoria
+                  </label>
+                  <input
+                    id="edit-campaign-category"
+                    value={campanha.category}
+                    onChange={(e) => setCampanha({ ...campanha, category: e.target.value })}
+                    placeholder="ex: Networking, Festival"
+                    className="block w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:border-cdl-blue focus:ring-1 focus:ring-cdl-blue/20"
+                  />
                 </div>
-              </div>
-            )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <input value={campanha.category} onChange={(e) => setCampanha({ ...campanha, category: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-              </div>
-              <div>
                 <EventDateTimeFields
                   value={campanha.date ?? ''}
                   onChange={(next) => setCampanha({ ...campanha, date: next })}
                   idPrefix="edit-campaign"
+                  compact
                 />
               </div>
+
+              <div>
+                <label
+                  htmlFor="edit-campaign-title"
+                  className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                >
+                  Título
+                </label>
+                <input
+                  id="edit-campaign-title"
+                  value={campanha.title}
+                  onChange={(e) => setCampanha({ ...campanha, title: e.target.value })}
+                  className="block w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm font-semibold leading-snug text-gray-900 shadow-sm focus:border-cdl-blue focus:ring-1 focus:ring-cdl-blue/20"
+                />
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[9.5rem_minmax(0,1fr)] lg:items-start">
+                <div className="min-w-0 shrink-0">
+                  <span className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    Foto destaque
+                  </span>
+                  <label
+                    className={`relative block w-full max-w-[9.5rem] cursor-pointer overflow-hidden rounded-md border bg-gray-100 shadow-sm transition-colors aspect-video ${
+                      campanha.image
+                        ? 'border-gray-200 hover:ring-2 hover:ring-cdl-blue/30'
+                        : 'border-dashed border-gray-300 hover:border-cdl-blue/40 hover:bg-cdl-blue/5'
+                    }`}
+                    title={campanha.image ? 'Clique para trocar' : 'Enviar foto destaque'}
+                  >
+                    {campanha.image ? (
+                      <img
+                        src={campanha.image}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-center">
+                        <svg className="h-5 w-5 text-cdl-blue/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-[10px] font-medium text-cdl-gray-text">Enviar</span>
+                      </span>
+                    )}
+                    {imageUploading && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] text-white">
+                        …
+                      </span>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={imageUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (file) void uploadImageFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <div className="mt-1.5 flex flex-wrap items-center justify-start gap-x-2 gap-y-0.5">
+                    <label className="cursor-pointer text-[11px] font-medium text-cdl-blue hover:underline">
+                      {campanha.image ? 'Trocar' : 'Enviar'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        disabled={imageUploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          if (file) void uploadImageFile(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    {imageUploading && <span className="text-[11px] text-cdl-gray-text">…</span>}
+                    {imageError && <span className="text-[11px] text-red-600">{imageError}</span>}
+                    {campanha.image && (
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        disabled={imageUploading}
+                        className="text-[11px] font-medium text-red-600 hover:underline disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <label
+                    htmlFor="edit-campaign-description"
+                    className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                  >
+                    Descrição
+                  </label>
+                  <textarea
+                    id="edit-campaign-description"
+                    value={campanha.description}
+                    onChange={(e) => setCampanha({ ...campanha, description: e.target.value })}
+                    rows={2}
+                    placeholder="Texto curto abaixo do título…"
+                    className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-1.5 text-sm leading-snug text-cdl-gray-text shadow-sm focus:border-cdl-blue focus:ring-1 focus:ring-cdl-blue/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-campaign-full-description"
+                  className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                >
+                  Descrição completa
+                </label>
+                <textarea
+                  id="edit-campaign-full-description"
+                  value={campanha.fullDescription}
+                  onChange={(e) => setCampanha({ ...campanha, fullDescription: e.target.value })}
+                  rows={5}
+                  placeholder="Conteúdo principal da página do evento…"
+                  className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-1.5 text-sm leading-snug text-cdl-gray-text shadow-sm focus:border-cdl-blue focus:ring-1 focus:ring-cdl-blue/20"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Configurações do evento</h2>
+            <div className="space-y-4">
               <RegistrationLinkSection
                 wantsLink={wantsRegistrationLink}
                 onWantsLinkChange={(v) => {
@@ -450,39 +586,6 @@ export default function AdminCampanhaEditByQueryPage() {
                     </span>
                   </span>
                 </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <textarea value={campanha.description} onChange={(e) => setCampanha({ ...campanha, description: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição Completa</label>
-                <textarea value={campanha.fullDescription} onChange={(e) => setCampanha({ ...campanha, fullDescription: e.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Foto destaque</label>
-                <div className="mt-1 flex items-center gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      if (file) uploadImageFile(file);
-                    }}
-                  />
-                  {imageUploading && <span className="text-sm text-cdl-gray-text">Enviando...</span>}
-                  {imageError && <span className="text-sm text-red-600">{imageError}</span>}
-                  {campanha.image && (
-                    <button type="button" onClick={removeImage} className="text-sm text-red-600 hover:underline">
-                      Remover foto
-                    </button>
-                  )}
-                </div>
-                {campanha.image && (
-                  <div className="mt-3">
-                    <img src={campanha.image} alt="preview" className="w-48 h-auto rounded-md border" />
-                  </div>
-                )}
               </div>
             </div>
           </div>

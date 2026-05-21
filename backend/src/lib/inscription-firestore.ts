@@ -75,3 +75,27 @@ export async function isWebhookEventProcessed(
   const data = await getInscriptionDoc(campaignId, inscriptionId);
   return data?.asaasLastWebhookEventId === eventId;
 }
+
+export async function updateInscriptionCertificateEmail(
+  campaignId: string,
+  inscriptionId: string,
+  patch: {
+    certificateEmailSentAt?: string | null;
+    certificateEmailLastError?: string | null;
+  }
+): Promise<void> {
+  const db = requireAdminFirestore();
+  const data: Record<string, unknown> = {};
+  if ('certificateEmailSentAt' in patch) {
+    data.certificateEmailSentAt = patch.certificateEmailSentAt;
+  }
+  if ('certificateEmailLastError' in patch) {
+    data.certificateEmailLastError = patch.certificateEmailLastError;
+  }
+  await db
+    .collection('campaigns')
+    .doc(campaignId)
+    .collection('inscricoes')
+    .doc(inscriptionId)
+    .set(data, { merge: true });
+}

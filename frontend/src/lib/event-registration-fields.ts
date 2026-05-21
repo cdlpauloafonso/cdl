@@ -1,4 +1,5 @@
 import type { Campaign, InscriptionDocumentMode } from './firestore';
+import { formatCpfDisplay } from './input-masks-br';
 import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
 
 export type { InscriptionDocumentMode };
@@ -122,6 +123,13 @@ export function inscriptionDisplayLabel(fields: Record<string, string> | undefin
   return 'Inscrição sem identificação';
 }
 
+/** E-mail do participante na inscrição (formulário do evento). */
+export function inscriptionParticipantEmail(fields: Record<string, string> | undefined): string | null {
+  const email = (fields?.email_pessoal ?? fields?.email ?? '').trim().toLowerCase();
+  if (!email || !email.includes('@')) return null;
+  return email;
+}
+
 /** Subtítulo opcional (empresa quando o título já é o nome, etc.). */
 export function inscriptionDisplaySubtitle(fields: Record<string, string> | undefined): string | null {
   const f = fields ?? {};
@@ -131,6 +139,26 @@ export function inscriptionDisplaySubtitle(fields: Record<string, string> | unde
   const email = (f.email ?? f.email_pessoal ?? '').trim();
   if (email && email !== nome && email !== empresa) return email;
   return null;
+}
+
+/** CPF formatado para listagens (null se vazio). */
+export function inscriptionDisplayCpf(fields: Record<string, string> | undefined): string | null {
+  const raw = (fields?.cpf ?? '').trim();
+  if (!raw) return null;
+  return formatCpfDisplay(raw);
+}
+
+/** Evita repetir CPF na linha quando o rótulo principal já é o CPF. */
+export function shouldShowInscriptionCpfBesideLabel(
+  fields: Record<string, string> | undefined,
+  label: string
+): boolean {
+  const formatted = inscriptionDisplayCpf(fields);
+  if (!formatted) return false;
+  const digits = (fields?.cpf ?? '').replace(/\D/g, '');
+  if (!digits) return false;
+  const labelDigits = label.replace(/\D/g, '');
+  return labelDigits !== digits;
 }
 
 const ASSOCIADO_FIELD_IDS = new Set<string>(ASSOCIADO_INSCRIPTION_FIELDS.map((f) => f.id));

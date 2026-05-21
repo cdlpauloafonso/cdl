@@ -24,8 +24,8 @@ import {
   inscriptionDisplayLabel,
   inscriptionDisplaySubtitle,
 } from '@/lib/event-registration-fields';
-import { getEffectivePayment } from '@/lib/event-payment-fields';
-import { formatCredentialedAt, isInscriptionCredentialed } from '@/lib/event-credentialing';
+import { getEffectivePayment, type EffectivePayment } from '@/lib/event-payment-fields';
+import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
   EVENT_ADMIN_LIST_PATH,
   eventDetailsPath,
@@ -33,9 +33,16 @@ import {
   resolveEventAdminBackHref,
 } from '@/lib/event-admin-navigation';
 import { EventAdminBackLink } from '@/components/admin/EventAdminBackLink';
+import { AdminSensitiveConfirmModal } from '@/components/ui/AdminSensitiveConfirmModal';
 
-const ULTIMOS_INSCRITOS_LIMITE = 10;
-const ULTIMOS_CREDENCIADOS_LIMITE = 10;
+const ULTIMOS_INSCRITOS_LIMITE = 5;
+const ULTIMOS_CREDENCIADOS_LIMITE = 5;
+
+function pickUltimosInscritos(lista: (EventInscriptionRecord & { id: string })[]) {
+  return [...lista]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, ULTIMOS_INSCRITOS_LIMITE);
+}
 
 function pickUltimosCredenciados(lista: (EventInscriptionRecord & { id: string })[]) {
   return lista
@@ -48,20 +55,88 @@ function pickUltimosCredenciados(lista: (EventInscriptionRecord & { id: string }
     .slice(0, ULTIMOS_CREDENCIADOS_LIMITE);
 }
 
-function formatInscriptionDate(iso: string): string {
+function formatDateTimeCompact(iso: string): string {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
   } catch {
     return iso;
   }
+}
+
+const badgeSm =
+  'inline-flex shrink-0 rounded px-1.5 py-px text-[10px] font-semibold leading-tight';
+
+function InscriptionCompactRow({
+  row,
+  meta,
+  payment,
+  variant = 'default',
+  showCredentialedBadge = false,
+  credentialedBadgeMuted = false,
+}: {
+  row: EventInscriptionRecord & { id: string };
+  meta: string;
+  payment: EffectivePayment;
+  variant?: 'default' | 'credentialed';
+  showCredentialedBadge?: boolean;
+  credentialedBadgeMuted?: boolean;
+}) {
+  const label = inscriptionDisplayLabel(row.fields);
+  const subtitle = inscriptionDisplaySubtitle(row.fields);
+  const paymentPending = row.paymentStatus === 'pending';
+  const paymentPaid = row.paymentStatus === 'paid';
+  const credentialed = isInscriptionCredentialed(row);
+
+  return (
+    <li
+      className={`flex items-center gap-2 py-1.5 ${
+        variant === 'credentialed' ? 'border-emerald-100' : 'border-gray-100'
+      }`}
+    >
+      <p className="min-w-0 flex-1 truncate text-xs leading-snug text-gray-600">
+        <span className="font-medium text-gray-900">{label}</span>
+        {subtitle ? (
+          <>
+            <span className="text-gray-400"> · </span>
+            <span>{subtitle}</span>
+          </>
+        ) : null}
+        {meta ? (
+          <>
+            <span className="text-gray-400"> · </span>
+            <span className={variant === 'credentialed' ? 'text-emerald-700' : 'text-gray-500'}>{meta}</span>
+          </>
+        ) : null}
+      </p>
+      <div className="flex shrink-0 items-center gap-1">
+        {(showCredentialedBadge || credentialed) && (
+          <span
+            className={`${badgeSm} ${
+              credentialedBadgeMuted
+                ? 'bg-emerald-200 text-emerald-900'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}
+          >
+            Cred.
+          </span>
+        )}
+        {payment.kind !== 'none' && (paymentPaid || paymentPending) && (
+          <span
+            className={`${badgeSm} ${paymentPaid ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}
+          >
+            {paymentPaid ? 'Pago' : 'Pend.'}
+          </span>
+        )}
+      </div>
+    </li>
+  );
 }
 
 async function assertAdminSession(): Promise<boolean> {
@@ -92,6 +167,7 @@ export default function AdminEventoDetalhePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCloseRegistrationModal, setShowCloseRegistrationModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingRegistration, setTogglingRegistration] = useState(false);
   const [togglingPublished, setTogglingPublished] = useState(false);
@@ -121,7 +197,7 @@ export default function AdminEventoDetalhePage() {
             if (mounted) {
               const credenciados = lista.filter(isInscriptionCredentialed);
               setInscritos(total);
-              setUltimosInscritos(lista.slice(0, ULTIMOS_INSCRITOS_LIMITE));
+              setUltimosInscritos(pickUltimosInscritos(lista));
               setTotalCredenciados(credenciados.length);
               setUltimosCredenciados(pickUltimosCredenciados(lista));
             }
@@ -149,20 +225,34 @@ export default function AdminEventoDetalhePage() {
     };
   }, [eventId]);
 
-  async function toggleRegistrationClosed() {
+  async function applyRegistrationClosed(closed: boolean) {
     if (!evento?.id) return;
     if (!hasEventRegistrationConfigured(evento)) return;
-    const next = !evento.registrationClosed;
     try {
       setTogglingRegistration(true);
       setError('');
-      await updateCampaign(evento.id, { registrationClosed: next });
-      setEvento((prev) => (prev ? { ...prev, registrationClosed: next } : prev));
+      await updateCampaign(evento.id, { registrationClosed: closed });
+      setEvento((prev) => (prev ? { ...prev, registrationClosed: closed } : prev));
     } catch {
       setError('Erro ao atualizar status da inscrição do evento');
     } finally {
       setTogglingRegistration(false);
     }
+  }
+
+  function handleRegistrationToggleClick() {
+    if (!evento) return;
+    if (evento.registrationClosed) {
+      void applyRegistrationClosed(false);
+      return;
+    }
+    setError('');
+    setShowCloseRegistrationModal(true);
+  }
+
+  async function confirmCloseRegistration() {
+    setShowCloseRegistrationModal(false);
+    await applyRegistrationClosed(true);
   }
 
   async function setPublishedOnSite(published: boolean) {
@@ -343,118 +433,83 @@ export default function AdminEventoDetalhePage() {
       </section>
 
       {hasFormRegistration && (
-        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-gray-900">Últimos inscritos</h2>
-            {inscritos > 0 && (
-              <Link
-                href={eventSubPageHref('inscritos', eventId, detailsReturnTarget)}
-                className="text-sm font-medium text-cdl-blue hover:underline"
-              >
-                Ver todos ({inscritos})
-              </Link>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <section className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Últimos inscritos</h2>
+              {inscritos > 0 && (
+                <Link
+                  href={eventSubPageHref('inscritos', eventId, detailsReturnTarget)}
+                  className="text-xs font-medium text-cdl-blue hover:underline"
+                >
+                  Ver todos ({inscritos})
+                </Link>
+              )}
+            </div>
+            {ultimosInscritos.length === 0 ? (
+              <p className="mt-2 text-xs text-cdl-gray-text">Nenhuma inscrição ainda.</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-gray-100">
+                {ultimosInscritos.map((row) => (
+                  <InscriptionCompactRow
+                    key={row.id}
+                    row={row}
+                    meta={formatDateTimeCompact(row.createdAt)}
+                    payment={payment}
+                    showCredentialedBadge={isInscriptionCredentialed(row)}
+                  />
+                ))}
+              </ul>
             )}
-          </div>
-          {ultimosInscritos.length === 0 ? (
-            <p className="mt-3 text-sm text-cdl-gray-text">Nenhuma inscrição registrada ainda.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
-              {ultimosInscritos.map((row) => {
-                const subtitle = inscriptionDisplaySubtitle(row.fields);
-                const paymentPending = row.paymentStatus === 'pending';
-                const paymentPaid = row.paymentStatus === 'paid';
-                const credentialed = isInscriptionCredentialed(row);
-                return (
-                  <li key={row.id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900">{inscriptionDisplayLabel(row.fields)}</p>
-                      {subtitle ? <p className="mt-0.5 text-sm text-gray-600">{subtitle}</p> : null}
-                      <p className="mt-1 text-xs text-gray-500">{formatInscriptionDate(row.createdAt)}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                      {credentialed && (
-                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                          Credenciado
-                        </span>
-                      )}
-                      {payment.kind !== 'none' && (paymentPaid || paymentPending) && (
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            paymentPaid ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {paymentPaid ? 'Pago' : 'Pendente'}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {inscritos > ULTIMOS_INSCRITOS_LIMITE && (
-            <p className="mt-3 text-xs text-gray-500">
-              Exibindo os {ULTIMOS_INSCRITOS_LIMITE} inscritos mais recentes.
-            </p>
-          )}
-        </section>
-      )}
+            {inscritos > ULTIMOS_INSCRITOS_LIMITE && (
+              <p className="mt-2 text-[10px] text-gray-500">
+                + {inscritos - ULTIMOS_INSCRITOS_LIMITE} inscrição(ões) anterior(es).
+              </p>
+            )}
+          </section>
 
-      {hasFormRegistration && (
-        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-gray-900">Últimos credenciados</h2>
-            {totalCredenciados > 0 && (
-              <Link
-                href={eventSubPageHref('credenciamento', eventId, detailsReturnTarget)}
-                className="text-sm font-medium text-cdl-blue hover:underline"
-              >
-                Abrir credenciamento ({totalCredenciados})
-              </Link>
+          <section className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Últimos credenciados
+              </h2>
+              {totalCredenciados > 0 && (
+                <Link
+                  href={eventSubPageHref('credenciamento', eventId, detailsReturnTarget)}
+                  className="text-xs font-medium text-cdl-blue hover:underline"
+                >
+                  Credenciamento ({totalCredenciados})
+                </Link>
+              )}
+            </div>
+            {ultimosCredenciados.length === 0 ? (
+              <p className="mt-2 text-xs text-cdl-gray-text">Nenhum credenciado ainda.</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-emerald-100/80">
+                {ultimosCredenciados.map((row) => (
+                  <InscriptionCompactRow
+                    key={row.id}
+                    row={row}
+                    meta={
+                      row.credentialedAt
+                        ? formatDateTimeCompact(row.credentialedAt)
+                        : ''
+                    }
+                    payment={payment}
+                    variant="credentialed"
+                    showCredentialedBadge
+                    credentialedBadgeMuted
+                  />
+                ))}
+              </ul>
             )}
-          </div>
-          {ultimosCredenciados.length === 0 ? (
-            <p className="mt-3 text-sm text-cdl-gray-text">Nenhum participante credenciado ainda.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-emerald-100">
-              {ultimosCredenciados.map((row) => {
-                const subtitle = inscriptionDisplaySubtitle(row.fields);
-                const paymentPending = row.paymentStatus === 'pending';
-                const paymentPaid = row.paymentStatus === 'paid';
-                return (
-                  <li key={row.id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900">{inscriptionDisplayLabel(row.fields)}</p>
-                      {subtitle ? <p className="mt-0.5 text-sm text-gray-600">{subtitle}</p> : null}
-                      <p className="mt-1 text-xs text-emerald-800">
-                        Credenciado em {formatCredentialedAt(row.credentialedAt)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                      <span className="inline-flex rounded-full bg-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
-                        Credenciado
-                      </span>
-                      {payment.kind !== 'none' && (paymentPaid || paymentPending) && (
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            paymentPaid ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {paymentPaid ? 'Pago' : 'Pendente'}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {totalCredenciados > ULTIMOS_CREDENCIADOS_LIMITE && (
-            <p className="mt-3 text-xs text-gray-500">
-              Exibindo os {ULTIMOS_CREDENCIADOS_LIMITE} credenciamentos mais recentes.
-            </p>
-          )}
-        </section>
+            {totalCredenciados > ULTIMOS_CREDENCIADOS_LIMITE && (
+              <p className="mt-2 text-[10px] text-gray-500">
+                + {totalCredenciados - ULTIMOS_CREDENCIADOS_LIMITE} credenciamento(s) anterior(es).
+              </p>
+            )}
+          </section>
+        </div>
       )}
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -490,7 +545,7 @@ export default function AdminEventoDetalhePage() {
         {hasRegistration && (
           <button
             type="button"
-            onClick={() => void toggleRegistrationClosed()}
+            onClick={() => handleRegistrationToggleClick()}
             disabled={togglingRegistration}
             title={
               inscricaoEncerrada ? 'Reabrir inscrição ao público' : 'Encerrar inscrição ao público'
@@ -599,6 +654,22 @@ export default function AdminEventoDetalhePage() {
           </div>
         </div>
       )}
+
+      <AdminSensitiveConfirmModal
+        open={showCloseRegistrationModal}
+        title="Deseja realmente encerrar a inscrição?"
+        titleId="confirm-close-registration-title"
+        confirmLabel="Sim, encerrar"
+        confirmTone="warning"
+        showSensitiveBanner={false}
+        busy={togglingRegistration}
+        onClose={() => {
+          if (!togglingRegistration) setShowCloseRegistrationModal(false);
+        }}
+        onConfirm={() => void confirmCloseRegistration()}
+      >
+        Ao encerrar, o formulário deixa de aparecer no site. Você pode reabrir a inscrição quando precisar.
+      </AdminSensitiveConfirmModal>
     </div>
   );
 }
