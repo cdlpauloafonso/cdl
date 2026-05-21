@@ -43,7 +43,8 @@ app.use('/api/upload', upload);
 app.use('/api/about', about);
 app.use('/api/asaas', asaas);
 app.use('/api', credentialing);
-app.use('/api', certificates);
+// Montado em /api/events para não interceptar /api/asaas/* com authMiddleware global
+app.use('/api/events', certificates);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

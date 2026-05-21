@@ -86,7 +86,7 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  NODE_ENV=production pm2 reload "$PM2_NAME" --update-env
+  NODE_ENV=production pm2 restart "$PM2_NAME" --update-env
 else
   NODE_ENV=production pm2 start "$BACKEND_DIR/dist/index.js" \
     --name "$PM2_NAME" \
@@ -96,4 +96,13 @@ else
   pm2 save
 fi
 
-log "Deploy concluído. Logs: pm2 logs $PM2_NAME"
+sleep 2
+METHOD_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+  "http://127.0.0.1:${PORT:-4000}/api/asaas/inscription-payment/method" \
+  -H "Content-Type: application/json" \
+  -d '{"campaignId":"x","inscriptionId":"x","method":"pix"}' 2>/dev/null || echo "000")
+if [ "$METHOD_CODE" = "401" ]; then
+  fail "Rota /api/asaas/inscription-payment/method retornou 401 — reinicie o PM2 ou atualize o código."
+fi
+
+log "Deploy concluído ($(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')). Logs: pm2 logs $PM2_NAME"

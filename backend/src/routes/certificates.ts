@@ -10,10 +10,8 @@ import { processCertificateEmailBatch } from '../lib/certificate-email/batch.js'
 
 const router = Router();
 
-router.use(authMiddleware);
-
 /** Status da configuração de envio (admin). */
-router.get('/events/:campaignId/certificates/email-config', (_req, res) => {
+router.get('/:campaignId/certificates/email-config', authMiddleware, (_req, res) => {
   res.json({
     enabled: isCertificateEmailEnabled(),
     smtpConfigured: isCertificateSmtpConfigured(),
@@ -23,7 +21,7 @@ router.get('/events/:campaignId/certificates/email-config', (_req, res) => {
 });
 
 /** Envia certificado por e-mail para uma inscrição. */
-router.post('/events/:campaignId/certificates/:inscriptionId/send-email', async (req, res) => {
+router.post('/:campaignId/certificates/:inscriptionId/send-email', authMiddleware, async (req, res) => {
   const campaignId = String(req.params.campaignId ?? '').trim();
   const inscriptionId = String(req.params.inscriptionId ?? '').trim();
   if (!campaignId || !inscriptionId) {
@@ -65,7 +63,7 @@ router.post('/events/:campaignId/certificates/:inscriptionId/send-email', async 
  * Lote controlado no servidor (pausa entre cada e-mail).
  * O frontend deve fatiar pedidos grandes em várias chamadas (clientChunkSize).
  */
-router.post('/events/:campaignId/certificates/send-email-batch', async (req, res) => {
+router.post('/:campaignId/certificates/send-email-batch', authMiddleware, async (req, res) => {
   const campaignId = String(req.params.campaignId ?? '').trim();
   const rawIds = req.body?.inscriptionIds;
   if (!campaignId) {
