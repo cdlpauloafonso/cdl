@@ -24,22 +24,27 @@ fail() { printf '\n\033[1;31m[deploy]\033[0m %s\n' "$*" >&2; exit 1; }
 [ -d "$APP_DIR/.git" ] || fail "Repositório git não encontrado em $APP_DIR"
 [ -d "$BACKEND_DIR" ]  || fail "Pasta backend não encontrada em $BACKEND_DIR"
 
-# Git 2.35+ bloqueia repos com dono diferente do usuário atual (comum no aaPanel).
+# Git 2.35+ / aaPanel: dono da pasta ≠ usuário do script
 ensure_git_safe_directory() {
-  if git config --global --get-all safe.directory 2>/dev/null | grep -Fxq "$APP_DIR"; then
-    return 0
+  log "Configurando safe.directory para $APP_DIR ..."
+  git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+  git config --global --add safe.directory '*' 2>/dev/null || true
+  if [ -d "$APP_DIR/.git" ]; then
+    git -C "$APP_DIR" config --local --add safe.directory "$APP_DIR" 2>/dev/null || true
+    git -C "$APP_DIR" config --local --add safe.directory '*' 2>/dev/null || true
   fi
-  log "Registrando safe.directory para $APP_DIR (dubious ownership)..."
-  git config --global --add safe.directory "$APP_DIR"
+}
+
+git_safe() {
+  git -C "$APP_DIR" -c "safe.directory=$APP_DIR" "$@"
 }
 
 # 1) Atualizar código (o painel pode já ter feito; controle por SKIP_PULL=1)
 if [ "${SKIP_PULL:-0}" != "1" ]; then
   ensure_git_safe_directory
   log "Atualizando código (git pull)..."
-  cd "$APP_DIR"
-  git fetch --all --prune
-  git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
+  git_safe fetch --all --prune
+  git_safe reset --hard "origin/$(git_safe rev-parse --abbrev-ref HEAD)"
 fi
 
 cd "$BACKEND_DIR"
@@ -105,4 +110,4 @@ if [ "$METHOD_CODE" = "401" ]; then
   fail "Rota /api/asaas/inscription-payment/method retornou 401 — reinicie o PM2 ou atualize o código."
 fi
 
-log "Deploy concluído ($(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')). Logs: pm2 logs $PM2_NAME"
+log "Deploy concluído ($(git_safe rev-parse --short HEAD 2>/dev/null || echo '?')). Logs: pm2 logs $PM2_NAME"

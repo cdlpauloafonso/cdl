@@ -10,14 +10,29 @@ PM2_NAME="cdl-api"
 log() { printf '\n[deploy] %s\n' "$*"; }
 fail() { printf '\n[deploy] ERRO: %s\n' "$*" >&2; exit 1; }
 
-git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+# Git 2.35+ / aaPanel: dono da pasta ≠ usuário do script → "dubious ownership"
+ensure_git_safe_directory() {
+  log "Configurando safe.directory para $APP_DIR ..."
+  git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+  git config --global --add safe.directory '*' 2>/dev/null || true
+  if [ -d "$APP_DIR/.git" ]; then
+    git -C "$APP_DIR" config --local --add safe.directory "$APP_DIR" 2>/dev/null || true
+    git -C "$APP_DIR" config --local --add safe.directory '*' 2>/dev/null || true
+  fi
+}
+
+# Sempre passa -c safe.directory (funciona mesmo se ~/.gitconfig não for gravável)
+git_safe() {
+  git -C "$APP_DIR" -c "safe.directory=$APP_DIR" "$@"
+}
+
 [ -d "$APP_DIR/.git" ] || fail "Repositório git não encontrado em $APP_DIR"
+ensure_git_safe_directory
 
 log "Atualizando código (origin/main)..."
-cd "$APP_DIR"
-git fetch --all --prune
-git reset --hard origin/main
-log "Commit em execução: $(git rev-parse --short HEAD)"
+git_safe fetch --all --prune
+git_safe reset --hard origin/main
+log "Commit em execução: $(git_safe rev-parse --short HEAD)"
 
 [ -d "$BACKEND_DIR" ] || fail "Pasta backend não encontrada"
 [ -f "$BACKEND_DIR/package.json" ] || fail "package.json não encontrado"
@@ -80,11 +95,11 @@ METHOD_CODE=$(curl -s -o /tmp/asaas-method-test.json -w "%{http_code}" -X POST \
   -d '{"campaignId":"deploy-check","inscriptionId":"deploy-check","method":"pix"}' || echo "000")
 
 if [ "$METHOD_CODE" = "401" ]; then
-  fail "POST /api/asaas/inscription-payment/method retornou 401 — backend antigo ou roteamento incorreto. Confira o commit $(git rev-parse --short HEAD)"
+  fail "POST /api/asaas/inscription-payment/method retornou 401 — backend antigo ou roteamento incorreto. Confira o commit $(git_safe rev-parse --short HEAD)"
 fi
 
 if [ "$METHOD_CODE" != "400" ] && [ "$METHOD_CODE" != "404" ] && [ "$METHOD_CODE" != "503" ]; then
   fail "POST /api/asaas/inscription-payment/method retornou HTTP $METHOD_CODE (esperado 400/404/503, nunca 401)"
 fi
 
-log "Deploy concluído ($(git rev-parse --short HEAD)). PM2: pm2 logs $PM2_NAME"
+log "Deploy concluído ($(git_safe rev-parse --short HEAD)). PM2: pm2 logs $PM2_NAME"
