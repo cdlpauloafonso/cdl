@@ -22,9 +22,7 @@ function updateAt(
 }
 
 function previewDiscount(d: EventVoucherDraft): string | null {
-  const built = buildEventVouchersForSave([d]);
-  if (!built?.[0]) return null;
-  return formatVoucherDiscountSummary(built[0]);
+  return formatVoucherDraftDiscountPreview(d);
 }
 
 export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouchersSectionProps) {
