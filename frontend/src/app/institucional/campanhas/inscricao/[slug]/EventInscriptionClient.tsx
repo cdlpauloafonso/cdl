@@ -7,7 +7,9 @@ import {
   CPF_ALREADY_REGISTERED_ERROR,
   getCampaign,
   getEventInscription,
+  getEventInscriptionByCpf,
   isCpfAlreadyRegisteredForEvent,
+  isCpfAlreadyRegisteredError,
   getSettings,
   isInscriptionLimitReachedError,
   isRegistrationClosedError,
@@ -15,6 +17,7 @@ import {
   INSCRIPTION_PERMISSION_DENIED_ERROR,
   isCnpjCadastradoComoAssociado,
   type Campaign,
+  type EventInscriptionRecord,
 } from '@/lib/firestore';
 import {
   associadoFormPatchFromBrasilApi,
@@ -55,13 +58,19 @@ import {
   hasInscriptionFieldMask,
 } from '@/lib/input-masks-br';
 import { PixPaymentPublicBlock } from '@/components/PixPaymentPublicBlock';
-import { normalizeInscriptionPaymentStatus } from '@/lib/inscription-payment-status';
+import {
+  isInscriptionPaymentConfirmed,
+  normalizeInscriptionPaymentStatus,
+} from '@/lib/inscription-payment-status';
+import { isGratisPaymentAmount } from '@/lib/inscription-payment-gratis';
 import { AsaasInscriptionCheckout } from '@/components/AsaasInscriptionCheckout';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { isCurrentUserAdmin } from '@/lib/admin-auth';
 import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
 import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
 import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
+import { EventExistingInscriptionCheckIn } from '@/components/event-credentialing/EventExistingInscriptionCheckIn';
+import { campaignInscriptionResumeUrl } from '@/lib/campaign-preview';
 import { initFirebase } from '@/lib/firebase';
 
 const PADRAO_IDS = new Set<string>(PADRAO_INSCRIPTION_FIELDS.map((f) => f.id));
@@ -343,7 +352,13 @@ export function EventInscriptionClient({
   const cnpjLookupReq = useRef(0);
   const [adminOk, setAdminOk] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [resumeLoading, setResumeLoading] = useState(Boolean(resumeInscriptionId?.trim()));
+  const [resumeInscriptionIdLocal, setResumeInscriptionIdLocal] = useState<string | undefined>();
+  const effectiveResumeInscriptionId =
+    resumeInscriptionId?.trim() || resumeInscriptionIdLocal?.trim() || undefined;
+  const [resumeLoading, setResumeLoading] = useState(Boolean(effectiveResumeInscriptionId));
+  const [existingInscription, setExistingInscription] = useState<
+    (EventInscriptionRecord & { id: string }) | null
+  >(null);
 
   useEffect(() => {
     let mounted = true;
@@ -375,7 +390,7 @@ export function EventInscriptionClient({
   }, [slug]);
 
   useEffect(() => {
-    const inscId = resumeInscriptionId?.trim();
+    const inscId = effectiveResumeInscriptionId;
     if (!inscId || !campanha || loading) return;
 
     let cancelled = false;
@@ -394,7 +409,7 @@ export function EventInscriptionClient({
         const paymentCfg = getEffectivePayment(campanha);
         const status = normalizeInscriptionPaymentStatus(row);
 
-        if (paymentCfg.kind === 'none' || status === 'paid') {
+        if (paymentCfg.kind === 'none' || isInscriptionPaymentConfirmed({ paymentStatus: status })) {
           setCompletedInscriptionId(inscId);
           setInscriptionPaid(true);
           setDone(true);
@@ -418,8 +433,18 @@ export function EventInscriptionClient({
             tier,
             voucherApplied: Boolean(row.voucherCode),
           });
+          if (status === 'gratis' || isGratisPaymentAmount(charge.amount)) {
+            setInscriptionPaid(true);
+            setDone(true);
+            return;
+          }
           const checkout = await createAsaasInscriptionPayment(slug, inscId);
           if (cancelled) return;
+          if (checkout.gratis || checkout.paymentStatus === 'gratis') {
+            setInscriptionPaid(true);
+            setDone(true);
+            return;
+          }
           setAsaasCheckout(checkout);
           setDone(true);
           return;
@@ -439,7 +464,7 @@ export function EventInscriptionClient({
     return () => {
       cancelled = true;
     };
-  }, [resumeInscriptionId, campanha, loading, slug]);
+  }, [effectiveResumeInscriptionId, campanha, loading, slug]);
 
   useEffect(() => {
     if (!campanha?.title) return;
@@ -756,6 +781,19 @@ export function EventInscriptionClient({
       }
     : undefined;
 
+  async function openExistingInscriptionForCpf(cpfRaw: string): Promise<boolean> {
+    try {
+      const row = await getEventInscriptionByCpf(slug, cpfRaw);
+      if (!row) return false;
+      setExistingInscription(row);
+      setError('');
+      setSubmitting(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function validateInscriptionData(): Promise<boolean> {
     setError('');
     if (userInputKeys.includes('cpf')) {
@@ -801,6 +839,7 @@ export function EventInscriptionClient({
         try {
           const taken = await isCpfAlreadyRegisteredForEvent(slug, cpf);
           if (taken) {
+            if (await openExistingInscriptionForCpf(cpf)) return false;
             setError(
               'Este CPF já possui inscrição neste evento. Cada CPF pode se inscrever apenas uma vez.',
             );
@@ -892,9 +931,14 @@ export function EventInscriptionClient({
           voucherApplied: Boolean(voucherCode),
         });
         const checkout = await createAsaasInscriptionPayment(slug, inscriptionId);
+        setCompletedInscriptionId(inscriptionId);
+        if (checkout.gratis || checkout.paymentStatus === 'gratis' || isGratisPaymentAmount(charge.amount)) {
+          setInscriptionPaid(true);
+          setDone(true);
+          return;
+        }
         setAsaasCheckout(checkout);
         setPendingInscriptionId(null);
-        setCompletedInscriptionId(inscriptionId);
         setDone(true);
         return;
       }
@@ -912,6 +956,15 @@ export function EventInscriptionClient({
           /* ignore */
         }
         setPendingInscriptionId(null);
+      } else if (isCpfAlreadyRegisteredError(err)) {
+        const cpfDup = buildEventInscriptionFieldsPayload(userInputKeys, values, {
+          viaCpf: inscricaoViaCpf,
+          documentMode: inscriptionDocumentMode,
+        }).cpf;
+        if (cpfDup && (await openExistingInscriptionForCpf(cpfDup))) {
+          return;
+        }
+        setError(inscriptionSubmitErrorMessage(err));
       } else if (inscriptionId && payment.kind === 'asaas') {
         setPendingInscriptionId(inscriptionId);
         setError(
@@ -963,6 +1016,61 @@ export function EventInscriptionClient({
   const showCheckInQr =
     completedInscriptionId &&
     (payment.kind !== 'asaas' || inscriptionPaid);
+
+  if (existingInscription) {
+    const paymentResumeHref = campaignInscriptionResumeUrl(slug, existingInscription.id, {
+      preview: isDraftPreview,
+    });
+    return (
+      <div className={pageOuterClass}>
+        <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+          {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
+          <nav className="mb-8">
+            <Link
+              href={eventVerHref}
+              prefetch={false}
+              className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
+            >
+              <span aria-hidden>←</span> Voltar ao evento
+            </Link>
+          </nav>
+
+          {campanha.image && (
+            <div className="mb-8 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+              <img src={campanha.image} alt={campanha.title} className="w-full h-48 sm:h-56 object-cover" />
+            </div>
+          )}
+
+          <header className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-wide text-cdl-blue mb-2">Inscrição no evento</p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{campanha.title}</h1>
+          </header>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm">
+            <EventExistingInscriptionCheckIn
+              campaignId={slug}
+              campanha={campanha}
+              row={existingInscription}
+              paymentResumeHref={paymentResumeHref}
+              onOpenPaymentResume={() => {
+                const id = existingInscription.id;
+                setExistingInscription(null);
+                setResumeInscriptionIdLocal(id);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setExistingInscription(null)}
+              className="mt-8 w-full text-center text-sm font-medium text-cdl-blue hover:underline"
+            >
+              Usar outro CPF ou corrigir dados
+            </button>
+          </div>
+          {fillAppShellViewport ? <div className="min-h-16 flex-1" aria-hidden /> : null}
+        </div>
+      </div>
+    );
+  }
 
   if (done) {
     return (
@@ -1016,13 +1124,19 @@ export function EventInscriptionClient({
             ) : showSuccessAfterPayment ? (
               <>
                 <p className="text-sm font-medium text-green-800 mb-2">
-                  {payment.kind === 'asaas' ? 'Pagamento confirmado' : 'Inscrição registrada'}
+                  {payment.kind === 'asaas' && inscriptionPaid
+                    ? 'Inscrição confirmada'
+                    : payment.kind === 'asaas'
+                      ? 'Pagamento confirmado'
+                      : 'Inscrição registrada'}
                 </p>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{campanha.title}</h1>
                 <p className="text-cdl-gray-text mb-6">
-                  {payment.kind === 'asaas'
-                    ? 'Sua inscrição e pagamento foram confirmados. Apresente o QR Code de check-in abaixo na entrada do evento.'
-                    : 'Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.'}
+                  {payment.kind === 'asaas' && inscriptionPaid
+                    ? 'Sua inscrição foi confirmada (incluindo inscrição gratuita por voucher, quando aplicável). Apresente o QR Code de check-in abaixo na entrada do evento.'
+                    : payment.kind === 'asaas'
+                      ? 'Sua inscrição e pagamento foram confirmados. Apresente o QR Code de check-in abaixo na entrada do evento.'
+                      : 'Recebemos seus dados para este evento. Em breve entraremos em contato se necessário.'}
                 </p>
                 {showCheckInQr ? (
                   <EventInscriptionCheckInQr

@@ -20,6 +20,8 @@ import type { EventVoucher } from '@/lib/firestore';
 import { formatCnpjDisplay } from '@/lib/brasil-api-cnpj';
 import { formatBrazilPhoneDisplay, formatCpfDisplay } from '@/lib/input-masks-br';
 import { subscribeEventInscription, type EventInscriptionPaymentStatus } from '@/lib/firestore';
+import { isGratisPaymentAmount } from '@/lib/inscription-payment-gratis';
+import { isInscriptionPaymentConfirmed } from '@/lib/inscription-payment-status';
 
 type PaymentMethodTab = InscriptionCheckoutMethod;
 
@@ -141,20 +143,27 @@ export function AsaasInscriptionCheckout({
   const baseCharge = baseAmount ?? amount;
 
   useEffect(() => {
+    if (initialCheckout.gratis || initialCheckout.paymentStatus === 'gratis') {
+      setPaymentStatus('gratis');
+      onPaid?.();
+    }
+  }, [initialCheckout, onPaid]);
+
+  useEffect(() => {
     const unsub = subscribeEventInscription(campaignId, inscriptionId, (row) => {
       const status = row?.paymentStatus;
       setPaymentStatus(status);
-      if (status === 'paid') onPaid?.();
+      if (isInscriptionPaymentConfirmed({ paymentStatus: status })) onPaid?.();
     });
     return () => unsub();
   }, [campaignId, inscriptionId, onPaid]);
 
   const pix = checkout.pix;
   const boleto = checkout.boleto;
-  const isPaid = paymentStatus === 'paid';
+  const isPaid = isInscriptionPaymentConfirmed({ paymentStatus });
 
   useEffect(() => {
-    if (paymentStatus === 'paid' || tab === 'card') return;
+    if (isPaid || tab === 'card') return;
 
     let cancelled = false;
     setMethodError('');
@@ -223,7 +232,14 @@ export function AsaasInscriptionCheckout({
       setChargeAmount(result.amount);
       setVoucherApplied(result.voucherApplied);
       onAmountChange?.(result.amount, { voucherApplied: result.voucherApplied });
-      if (result.voucherApplied) {
+      if (isGratisPaymentAmount(result.amount)) {
+        setPaymentStatus('gratis');
+        setVoucherHint({
+          type: 'ok',
+          text: 'Voucher aplicado. Inscrição confirmada gratuitamente.',
+        });
+        onPaid?.();
+      } else if (result.voucherApplied) {
         setVoucherHint({
           type: 'ok',
           text: `Voucher aplicado. Valor da inscrição: ${formatPaymentAmountBrl(result.amount)}`,
@@ -234,7 +250,7 @@ export function AsaasInscriptionCheckout({
           text: `Voucher removido. Valor: ${formatPaymentAmountBrl(result.amount)}`,
         });
       }
-      if (tab !== 'card') {
+      if (!isGratisPaymentAmount(result.amount) && tab !== 'card') {
         setMethodLoading(true);
         const data = await fetchInscriptionCheckoutMethod(campaignId, inscriptionId, tab);
         setCheckout((prev) => ({
@@ -242,10 +258,15 @@ export function AsaasInscriptionCheckout({
           paymentId: data.paymentId,
           amount: data.amount,
           paymentStatus: data.paymentStatus,
+          gratis: data.gratis,
           pix: tab === 'pix' ? data.pix : null,
           boleto: tab === 'boleto' ? data.boleto : null,
         }));
         setChargeAmount(data.amount);
+        if (data.gratis || data.paymentStatus === 'gratis') {
+          setPaymentStatus('gratis');
+          onPaid?.();
+        }
         setMethodLoading(false);
       }
     } catch (err) {

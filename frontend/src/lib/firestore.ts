@@ -270,7 +270,7 @@ export async function updateCampaign(
 }
 
 /** Inscrição em `campaigns/{campaignId}/inscricoes/{docId}` (o id do evento é o caminho). */
-export type EventInscriptionPaymentStatus = 'pending' | 'paid' | 'cancelled' | 'expired';
+export type EventInscriptionPaymentStatus = 'pending' | 'paid' | 'gratis' | 'cancelled' | 'expired';
 
 export type EventInscriptionRecord = {
   createdAt: string;

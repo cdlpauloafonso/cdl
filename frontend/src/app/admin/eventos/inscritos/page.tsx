@@ -92,6 +92,26 @@ function PaymentStatusCell({
   const label = paymentStatusLabel(status);
   const badgeClass = paymentStatusBadgeClass(status);
 
+  if (status === 'gratis') {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${badgeClass}`}
+        >
+          {label}
+        </span>
+        <button
+          type="button"
+          disabled={updating}
+          onClick={() => onRequestStatusChange(row, 'pending')}
+          className="text-[10px] font-medium text-gray-600 underline-offset-2 hover:text-gray-900 hover:underline disabled:opacity-50"
+        >
+          {updating ? 'Salvando...' : 'Marcar pendente'}
+        </button>
+      </div>
+    );
+  }
+
   if (asaas) {
     const manualTarget: EventInscriptionPaymentStatus =
       status === 'paid' ? 'pending' : status === 'pending' ? 'paid' : 'pending';
@@ -113,7 +133,7 @@ function PaymentStatusCell({
             Abrir cobrança
           </a>
         ) : null}
-        {(status === 'paid' || status === 'pending') && (
+        {(status === 'paid' || status === 'pending' || status === 'cancelled' || status === 'expired') && (
           <button
             type="button"
             disabled={updating}
@@ -306,7 +326,7 @@ export default function AdminEventoInscritosPage() {
     let other = 0;
     for (const r of rows) {
       const s = normalizeInscriptionPaymentStatus(r);
-      if (s === 'paid') paid += 1;
+      if (s === 'paid' || s === 'gratis') paid += 1;
       else if (s === 'pending') pending += 1;
       else other += 1;
     }
@@ -848,6 +868,7 @@ export default function AdminEventoInscritosPage() {
                 >
                   <option value="all">Todos os pagamentos</option>
                   <option value="paid">Pago</option>
+                  <option value="gratis">Grátis</option>
                   <option value="pending">Pendente</option>
                   <option value="cancelled">Cancelado</option>
                   <option value="expired">Vencido</option>

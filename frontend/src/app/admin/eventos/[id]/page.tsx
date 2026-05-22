@@ -88,7 +88,7 @@ function InscriptionCompactRow({
   const label = inscriptionDisplayLabel(row.fields);
   const subtitle = inscriptionDisplaySubtitle(row.fields);
   const paymentPending = row.paymentStatus === 'pending';
-  const paymentPaid = row.paymentStatus === 'paid';
+  const paymentPaid = row.paymentStatus === 'paid' || row.paymentStatus === 'gratis';
   const credentialed = isInscriptionCredentialed(row);
 
   return (
@@ -126,9 +126,15 @@ function InscriptionCompactRow({
         )}
         {payment.kind !== 'none' && (paymentPaid || paymentPending) && (
           <span
-            className={`${badgeSm} ${paymentPaid ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}
+            className={`${badgeSm} ${
+              row.paymentStatus === 'gratis'
+                ? 'bg-teal-100 text-teal-900'
+                : paymentPaid
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-amber-100 text-amber-800'
+            }`}
           >
-            {paymentPaid ? 'Pago' : 'Pend.'}
+            {paymentPaid ? (row.paymentStatus === 'gratis' ? 'Grátis' : 'Pago') : 'Pend.'}
           </span>
         )}
       </div>

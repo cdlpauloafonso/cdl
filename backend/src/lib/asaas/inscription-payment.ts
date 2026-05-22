@@ -15,7 +15,10 @@ import {
   getCampaignDoc,
   getInscriptionDoc,
   incrementCampaignVoucherUsedCount,
+  isGratisPaymentAmount,
+  isInscriptionPaymentConfirmedStatus,
   isWebhookEventProcessed,
+  markInscriptionGratis,
   resolveInscriptionPaymentAmount,
   updateInscriptionPayment,
 } from '../inscription-firestore.js';
@@ -98,7 +101,22 @@ export type CreateInscriptionPaymentResult = {
   paymentStatus: string;
   pix: InscriptionPaymentPixCheckout | null;
   boleto: InscriptionPaymentBoletoCheckout | null;
+  /** Voucher 100% — inscrição confirmada sem cobrança Asaas. */
+  gratis?: boolean;
 };
+
+function buildGratisPaymentResult(): CreateInscriptionPaymentResult {
+  return {
+    paymentId: '',
+    invoiceUrl: '',
+    customerId: '',
+    amount: 0,
+    paymentStatus: 'gratis',
+    pix: null,
+    boleto: null,
+    gratis: true,
+  };
+}
 
 /** Método exibido no checkout interno (cada um exige billingType próprio no Asaas). */
 export type InscriptionCheckoutMethod = 'pix' | 'boleto' | 'card';
@@ -364,6 +382,21 @@ export async function loadInscriptionCheckoutForMethod(
   if (!config.enabled) throw new Error('ASAAS_NOT_CONFIGURED');
 
   const resolved = await resolveInscriptionPaymentContext(campaignId, inscriptionId, config);
+
+  if (isInscriptionPaymentConfirmedStatus(resolved.inscription.paymentStatus)) {
+    if (resolved.inscription.paymentStatus === 'gratis' || isGratisPaymentAmount(resolved.amount)) {
+      return buildGratisPaymentResult();
+    }
+  } else if (isGratisPaymentAmount(resolved.amount)) {
+    await markInscriptionGratis(campaignId, inscriptionId, {
+      tier: resolved.tier,
+      voucherId: resolved.voucherId,
+      voucherCode: resolved.appliedCode,
+      paymentAmountApplied: 0,
+    });
+    return buildGratisPaymentResult();
+  }
+
   let ctx =
     resolved.ctx ??
     (await createInscriptionAsaasPayment(campaignId, inscriptionId, config, {
@@ -430,9 +463,12 @@ export async function applyInscriptionVoucher(
 
   const inscription = await getInscriptionDoc(campaignId, inscriptionId);
   if (!inscription) throw new Error('INSCRIPTION_NOT_FOUND');
-  if (inscription.paymentStatus === 'paid') throw new Error('INSCRIPTION_ALREADY_PAID');
+  if (isInscriptionPaymentConfirmedStatus(inscription.paymentStatus)) {
+    throw new Error('INSCRIPTION_ALREADY_PAID');
+  }
 
   const fields = (inscription.fields ?? {}) as Record<string, string>;
+  const wasGratis = inscription.paymentStatus === 'gratis';
   const baseResolved = await resolveInscriptionPaymentAmount(paymentCfg, fields, {
     vouchers: campaign.vouchers,
   });
@@ -457,6 +493,22 @@ export async function applyInscriptionVoucher(
     voucherApplied = true;
   }
 
+  if (isGratisPaymentAmount(amount)) {
+    await markInscriptionGratis(campaignId, inscriptionId, {
+      tier,
+      voucherId: voucherApplied ? voucherId : undefined,
+      voucherCode: voucherApplied ? voucherCode : undefined,
+      paymentAmountApplied: 0,
+    });
+    return {
+      amount: 0,
+      amountBefore,
+      tier,
+      voucherCode: voucherApplied ? (voucherCode ?? code) : null,
+      voucherApplied,
+    };
+  }
+
   const paymentId = inscription.asaasPaymentId as string | undefined;
   if (paymentId) {
     const current = await getAsaasPayment(paymentId, config);
@@ -475,6 +527,7 @@ export async function applyInscriptionVoucher(
   await updateInscriptionPayment(campaignId, inscriptionId, {
     paymentAmountApplied: amount,
     paymentAmountTier: tier,
+    ...(wasGratis ? { paymentStatus: 'pending' } : {}),
     ...(voucherApplied && voucherId && voucherCode
       ? { voucherId, voucherCode }
       : { clearVoucher: true }),
@@ -557,7 +610,7 @@ export async function payAsaasInscriptionWithCreditCard(
   if (paid) {
     const insc = await getInscriptionDoc(campaignId, inscriptionId);
     const voucherId = typeof insc?.voucherId === 'string' ? insc.voucherId : undefined;
-    const alreadyPaid = insc?.paymentStatus === 'paid';
+    const alreadyPaid = isInscriptionPaymentConfirmedStatus(insc?.paymentStatus);
     await updateInscriptionPayment(campaignId, inscriptionId, {
       paymentStatus: 'paid',
       asaasPaymentId: payment.id ?? paymentId,
@@ -602,7 +655,7 @@ export async function handleAsaasWebhookPayload(payload: AsaasWebhookEvent): Pro
   if (PAID_EVENTS.has(eventName) || payment?.status === 'RECEIVED' || payment?.status === 'CONFIRMED') {
     const insc = await getInscriptionDoc(campaignId, inscriptionId);
     const voucherId = typeof insc?.voucherId === 'string' ? insc.voucherId : undefined;
-    const alreadyPaid = insc?.paymentStatus === 'paid';
+    const alreadyPaid = isInscriptionPaymentConfirmedStatus(insc?.paymentStatus);
     await updateInscriptionPayment(campaignId, inscriptionId, {
       paymentStatus: 'paid',
       asaasPaymentId: payment?.id,

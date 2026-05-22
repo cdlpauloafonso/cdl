@@ -17,8 +17,12 @@ export function campaignInscriptionPageUrl(slug: string, options?: { preview?: b
 }
 
 /** Retoma pagamento de inscrição já registrada (Asaas pendente). */
-export function campaignInscriptionResumeUrl(slug: string, inscriptionId: string): string {
-  const base = campaignInscriptionPageUrl(slug);
+export function campaignInscriptionResumeUrl(
+  slug: string,
+  inscriptionId: string,
+  options?: { preview?: boolean },
+): string {
+  const base = campaignInscriptionPageUrl(slug, options);
   const sep = base.includes('?') ? '&' : '?';
   return `${base}${sep}inscriptionId=${encodeURIComponent(inscriptionId.trim())}`;
 }

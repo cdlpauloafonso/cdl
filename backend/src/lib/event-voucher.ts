@@ -49,7 +49,7 @@ export function applyEventVoucherDiscount(baseAmount: number, voucher: EventVouc
       ? base * (1 - Math.min(100, Math.max(0, voucher.discountValue)) / 100)
       : base - voucher.discountValue;
   discounted = Math.round(discounted * 100) / 100;
-  if (discounted < 0.01) return 0.01;
+  if (discounted < 0) return 0;
   return discounted;
 }
 

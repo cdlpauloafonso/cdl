@@ -46,6 +46,8 @@ export type CreateInscriptionPaymentResponse = {
   paymentStatus: string;
   pix: InscriptionPaymentPixCheckout | null;
   boleto: InscriptionPaymentBoletoCheckout | null;
+  /** Voucher 100% — sem cobrança Asaas; status Firestore `gratis`. */
+  gratis?: boolean;
 };
 
 export type AsaasCreditCardInput = {
@@ -125,6 +127,22 @@ function parsePixFromResponse(
 function normalizeInscriptionPaymentResponse(
   data: Record<string, unknown>
 ): CreateInscriptionPaymentResponse {
+  const paymentStatus =
+    typeof data.paymentStatus === 'string' && data.paymentStatus ? data.paymentStatus : 'pending';
+  const gratis = data.gratis === true || paymentStatus === 'gratis';
+  if (gratis) {
+    return {
+      paymentId: '',
+      invoiceUrl: '',
+      customerId: '',
+      amount: 0,
+      paymentStatus: 'gratis',
+      pix: null,
+      boleto: null,
+      gratis: true,
+    };
+  }
+
   const paymentId = typeof data.paymentId === 'string' ? data.paymentId : '';
   if (!paymentId) {
     throw new Error('Resposta inválida do servidor de pagamento.');
@@ -135,8 +153,7 @@ function normalizeInscriptionPaymentResponse(
     invoiceUrl: typeof data.invoiceUrl === 'string' ? data.invoiceUrl : '',
     customerId: typeof data.customerId === 'string' ? data.customerId : '',
     amount: Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0,
-    paymentStatus:
-      typeof data.paymentStatus === 'string' && data.paymentStatus ? data.paymentStatus : 'pending',
+    paymentStatus,
     pix: parsePixFromResponse(data),
     boleto: parseBoletoFromResponse(data),
   };

@@ -5,7 +5,7 @@ import {
   resolveVoucherForCharge,
 } from './event-voucher.js';
 
-export type InscriptionPaymentStatus = 'pending' | 'paid' | 'cancelled' | 'expired';
+export type InscriptionPaymentStatus = 'pending' | 'paid' | 'gratis' | 'cancelled' | 'expired';
 
 export type CampaignPaymentConfigDoc = {
   provider?: 'manual_pix' | 'asaas';
@@ -122,6 +122,46 @@ export async function resolveInscriptionPaymentAmount(
   }
 
   return { amount: baseAmount, tier };
+}
+
+export function isGratisPaymentAmount(amount: number): boolean {
+  return !Number.isFinite(amount) || amount < 0.01;
+}
+
+export function isInscriptionPaymentConfirmedStatus(status: unknown): boolean {
+  return status === 'paid' || status === 'gratis';
+}
+
+/** Voucher 100% (ou valor zero): confirma inscrição sem cobrança Asaas. */
+export async function markInscriptionGratis(
+  campaignId: string,
+  inscriptionId: string,
+  input: {
+    tier: 'normal' | 'associado';
+    voucherId?: string;
+    voucherCode?: string;
+    paymentAmountApplied?: number;
+  },
+): Promise<void> {
+  const insc = await getInscriptionDoc(campaignId, inscriptionId);
+  const alreadyConfirmed = isInscriptionPaymentConfirmedStatus(insc?.paymentStatus);
+
+  await updateInscriptionPayment(campaignId, inscriptionId, {
+    paymentStatus: 'gratis',
+    paymentProvider: 'asaas',
+    paymentAmountApplied: input.paymentAmountApplied ?? 0,
+    paymentAmountTier: input.tier,
+    ...(input.voucherId ? { voucherId: input.voucherId } : {}),
+    ...(input.voucherCode ? { voucherCode: input.voucherCode } : {}),
+  });
+
+  if (input.voucherId && !alreadyConfirmed) {
+    try {
+      await incrementCampaignVoucherUsedCount(campaignId, input.voucherId);
+    } catch {
+      /* contador de voucher não bloqueia confirmação gratuita */
+    }
+  }
 }
 
 export async function incrementCampaignVoucherUsedCount(
