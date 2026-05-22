@@ -72,6 +72,11 @@ service cloud.firestore {
         && code.matches('^[A-Z0-9_-]+$');
     }
 
+    // Status de pagamento da inscrição (Asaas/webhook/admin; `gratis` = voucher 100% sem cobrança).
+    function isValidInscriptionPaymentStatusValue(s) {
+      return s in ['pending', 'paid', 'gratis', 'cancelled', 'expired'];
+    }
+
     // Inscrição pública: somente dados do formulário (+ voucher opcional). Pagamento/Asaas só via backend (Admin SDK).
     function inscriptionCreatePayloadValid() {
       let d = request.resource.data;
@@ -88,6 +93,8 @@ service cloud.firestore {
         'asaasInvoiceUrl',
         'asaasCustomerId',
         'asaasLastWebhookEventId',
+        'credentialedAt',
+        'credentialingSessionId',
       ]);
       return keysOk
         && noPaymentKeys
@@ -116,8 +123,25 @@ service cloud.firestore {
         && (!('expiresAt' in v) || (v.expiresAt is string && v.expiresAt.matches('^\\d{4}-\\d{2}-\\d{2}$')));
     }
 
+    // Índice fora da lista = ok; senão valida o voucher (sem recursão — Firestore não permite).
+    function eventVoucherAtIndexValid(list, index) {
+      return index >= list.size() || isValidEventVoucherEntry(list[index]);
+    }
+
     function isValidEventVouchersList(list) {
-      return list is list && list.size() >= 0 && list.size() <= 100;
+      return list is list
+        && list.size() >= 0
+        && list.size() <= 10
+        && eventVoucherAtIndexValid(list, 0)
+        && eventVoucherAtIndexValid(list, 1)
+        && eventVoucherAtIndexValid(list, 2)
+        && eventVoucherAtIndexValid(list, 3)
+        && eventVoucherAtIndexValid(list, 4)
+        && eventVoucherAtIndexValid(list, 5)
+        && eventVoucherAtIndexValid(list, 6)
+        && eventVoucherAtIndexValid(list, 7)
+        && eventVoucherAtIndexValid(list, 8)
+        && eventVoucherAtIndexValid(list, 9);
     }
 
     function isValidCampaignPaymentConfig(pc) {
@@ -141,6 +165,26 @@ service cloud.firestore {
       return payOk && vouchersOk;
     }
 
+    function campaignEventFlagsValidOnWrite() {
+      let d = request.resource.data;
+      return (!('checkInOnApp' in d) || d.checkInOnApp is bool)
+        && (!('credentialingOnApp' in d) || d.credentialingOnApp is bool)
+        && (!('registrationClosed' in d) || d.registrationClosed is bool)
+        && (!('published' in d) || d.published is bool);
+    }
+
+    function campaignAdminWriteValid() {
+      return campaignRegistrationConfigValidOnWrite()
+        && campaignPaymentAndVouchersValidOnWrite()
+        && campaignEventFlagsValidOnWrite();
+    }
+
+    function adminInscriptionWriteValid() {
+      let d = request.resource.data;
+      return !('paymentStatus' in d)
+        || isValidInscriptionPaymentStatusValue(d.paymentStatus);
+    }
+
     // Uma leitura do evento: publicação, formulário ativo, limite e formato do payload.
     // CPF/CNPJ validados no cliente; regras só exigem mapa fields com 1–25 chaves string.
     function publicInscriptionCreateAllowed(campaignId) {
@@ -157,12 +201,24 @@ service cloud.firestore {
         && inscriptionCreatePayloadValid();
     }
 
+    // Alinhado a resolveInscriptionDocumentMode() no frontend (eventos legados sem documentMode).
+    function registrationConfigAllowsCpf(cfg) {
+      let mode = cfg.get('documentMode', '');
+      let keys = cfg.get('fieldKeys', []);
+      return keys is list
+        && keys.hasAll(['cpf'])
+        && (
+          mode == 'cpf_allowed'
+          || (mode != 'cnpj_only' && !keys.hasAll(['cnpj']))
+        );
+    }
+
     function registrationAllowsCpf(campaignId) {
       let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
       let cfg = camp.get('registrationConfig', null);
       return cfg is map
         && cfg.get('type', '') == 'form'
-        && cfg.get('documentMode', '') == 'cpf_allowed';
+        && registrationConfigAllowsCpf(cfg);
     }
 
     function isValidCpfIndexKey(cpfKey) {
@@ -198,6 +254,7 @@ service cloud.firestore {
     // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
     function publicInscriptionWebCountIncrement() {
       let cfg = resource.data.get('registrationConfig', null);
+      let lim = cfg is map ? cfg.get('inscriptionLimit', 0) : 0;
       let oldN = campaignInscriptionCount(resource.data);
       let newRaw = request.resource.data.inscriptionWebCount;
       let newN = numericFieldNonNegative(newRaw) ? newRaw : -1;
@@ -205,9 +262,10 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
         && cfg is map
         && cfg.get('type', '') == 'form'
-        && numericFieldPositive(cfg.get('inscriptionLimit', 0))
+        && campaignHasInscriptionLimit(cfg)
         && newN == oldN + 1
-        && newN <= cfg.get('inscriptionLimit', 0);
+        && newN <= lim
+        && oldN < lim;
     }
 
     // Link público de credenciamento: token em adminSecrets/credentialing (só admin).
@@ -249,27 +307,26 @@ service cloud.firestore {
 
     match /campaigns/{campaignId} {
       allow get, list: if true;
-      allow create: if isAdmin()
-        && campaignRegistrationConfigValidOnWrite()
-        && campaignPaymentAndVouchersValidOnWrite();
+      allow create: if isAdmin() && campaignAdminWriteValid();
       allow delete: if isAdmin();
-      allow update: if (isAdmin()
-        && campaignRegistrationConfigValidOnWrite()
-        && campaignPaymentAndVouchersValidOnWrite()) || publicInscriptionWebCountIncrement();
+      allow update: if (isAdmin() && campaignAdminWriteValid()) || publicInscriptionWebCountIncrement();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público).
-      // Leitura pública: lista de inscritos e tela de credenciamento (somente leitura).
+      // Leitura pública: lista de inscritos, credenciamento, CPF já inscrito (inscricoesByCpf) e check-in no app.
       // Escrita pública: create na inscrição; credentialedAt via sessão do link público (credentialingGate).
+      // paymentStatus `gratis`/`paid`/Asaas: somente backend (Admin SDK) ou admin autenticado.
       match /inscricoes/{inscriptionId} {
         allow create: if publicInscriptionCreateAllowed(campaignId)
           || adminDraftInscriptionCreateAllowed(campaignId);
 
         allow get, list: if true;
-        allow update: if isAdmin() || publicCredentialingInscriptionUpdateAllowed(campaignId);
+        allow update: if (isAdmin() && adminInscriptionWriteValid())
+          || publicCredentialingInscriptionUpdateAllowed(campaignId);
         allow delete: if isAdmin();
       }
 
       // Um CPF por evento quando documentMode == cpf_allowed (índice na transação de inscrição).
+      // Leitura unitária pública: retomar inscrição existente (mesmo CPF) sem criar duplicata.
       match /inscricoesByCpf/{cpfKey} {
         allow get: if true;
         allow list: if false;
