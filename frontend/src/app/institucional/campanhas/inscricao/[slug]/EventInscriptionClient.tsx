@@ -965,6 +965,27 @@ export function EventInscriptionClient({
           return;
         }
         setError(inscriptionSubmitErrorMessage(err));
+      } else if (
+        isFirestorePermissionDenied(err) ||
+        (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR)
+      ) {
+        try {
+          const again = await getCampaign(slug);
+          if (again) {
+            setCampanha(again);
+            if (isInscriptionSoldOut(again) && !isDraftPreview) return;
+          }
+        } catch {
+          /* ignore */
+        }
+        const cpfDup = buildEventInscriptionFieldsPayload(userInputKeys, values, {
+          viaCpf: inscricaoViaCpf,
+          documentMode: inscriptionDocumentMode,
+        }).cpf;
+        if (cpfDup && (await openExistingInscriptionForCpf(cpfDup))) {
+          return;
+        }
+        setError(inscriptionSubmitErrorMessage(err));
       } else if (inscriptionId && payment.kind === 'asaas') {
         setPendingInscriptionId(inscriptionId);
         setError(

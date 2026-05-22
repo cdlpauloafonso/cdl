@@ -201,34 +201,14 @@ service cloud.firestore {
         && inscriptionCreatePayloadValid();
     }
 
-    // Alinhado a resolveInscriptionDocumentMode() no frontend (eventos legados sem documentMode).
-    function registrationConfigAllowsCpf(cfg) {
-      let mode = cfg.get('documentMode', '');
-      let keys = cfg.get('fieldKeys', []);
-      return keys is list
-        && keys.hasAll(['cpf'])
-        && (
-          mode == 'cpf_allowed'
-          || (mode != 'cnpj_only' && !keys.hasAll(['cnpj']))
-        );
-    }
-
-    function registrationAllowsCpf(campaignId) {
-      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
-      let cfg = camp.get('registrationConfig', null);
-      return cfg is map
-        && cfg.get('type', '') == 'form'
-        && registrationConfigAllowsCpf(cfg);
-    }
-
     function isValidCpfIndexKey(cpfKey) {
       return cpfKey.matches('^\\d{11}$');
     }
 
+    // Índice CPF: validação do documento; elegibilidade do evento vem de publicInscriptionCreateAllowed (match pai).
     function inscriptionCpfIndexCreateValid(campaignId, cpfKey) {
       let d = request.resource.data;
       return isValidCpfIndexKey(cpfKey)
-        && registrationAllowsCpf(campaignId)
         && !exists(/databases/$(database)/documents/campaigns/$(campaignId)/inscricoesByCpf/$(cpfKey))
         && d.keys().hasOnly(['inscriptionId', 'createdAt'])
         && d.inscriptionId is string
