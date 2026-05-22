@@ -331,6 +331,43 @@ export function isFirestorePermissionDenied(err: unknown): boolean {
   return s.includes('permission-denied') || s.includes('Missing or insufficient permissions');
 }
 
+async function createEventInscriptionViaApi(
+  campaignId: string,
+  fields: Record<string, string>,
+  options?: {
+    voucherCode?: string;
+    allowUnpublished?: boolean;
+  },
+): Promise<string> {
+  const { getApiBaseUrl, isApiConfiguredForClient } = await import('@/lib/api-base');
+  if (!isApiConfiguredForClient()) {
+    throw new Error('INSCRIPTION_PERMISSION_DENIED');
+  }
+  const base = getApiBaseUrl();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/public/event-inscription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaignId,
+        fields,
+        voucherCode: options?.voucherCode,
+        allowUnpublished: options?.allowUnpublished,
+      }),
+    });
+  } catch {
+    throw new Error('INSCRIPTION_PERMISSION_DENIED');
+  }
+  const data = (await res.json().catch(() => ({}))) as { inscriptionId?: string; error?: string };
+  if (!res.ok) {
+    const err = data.error ?? `Erro ${res.status}`;
+    throw new Error(err);
+  }
+  if (!data.inscriptionId) throw new Error('Resposta inválida do servidor.');
+  return data.inscriptionId;
+}
+
 export async function createEventInscription(
   campaignId: string,
   fields: Record<string, string>,
@@ -342,6 +379,14 @@ export async function createEventInscription(
     allowUnpublished?: boolean;
   }
 ): Promise<string> {
+  const { isApiConfiguredForClient } = await import('@/lib/api-base');
+  if (isApiConfiguredForClient()) {
+    return createEventInscriptionViaApi(campaignId, fields, {
+      voucherCode: options?.voucherCode,
+      allowUnpublished: options?.allowUnpublished,
+    });
+  }
+
   const db = getDb();
   const campaignRef = doc(db, 'campaigns', campaignId);
   const inscricoesCol = collection(db, 'campaigns', campaignId, 'inscricoes');

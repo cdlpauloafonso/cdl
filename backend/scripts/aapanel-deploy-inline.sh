@@ -89,6 +89,12 @@ log "Testando rotas públicas..."
 STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4000/api/asaas/status || echo "000")
 [ "$STATUS_CODE" = "200" ] || fail "GET /api/asaas/status retornou HTTP $STATUS_CODE (esperado 200)"
 
+INSC_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+  http://127.0.0.1:4000/api/public/event-inscription \
+  -H "Content-Type: application/json" \
+  -d '{"campaignId":"deploy-check","fields":{"cpf":"00000000000","nome_responsavel":"teste"}}' || echo "000")
+[ "$INSC_CODE" = "503" ] && fail "POST /api/public/event-inscription retornou 503 — FIREBASE_ADMIN não configurado no .env"
+
 METHOD_CODE=$(curl -s -o /tmp/asaas-method-test.json -w "%{http_code}" -X POST \
   http://127.0.0.1:4000/api/asaas/inscription-payment/method \
   -H "Content-Type: application/json" \

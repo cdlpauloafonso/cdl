@@ -79,11 +79,22 @@ service cloud.firestore {
       return s in ['pending', 'paid', 'gratis', 'cancelled', 'expired'];
     }
 
+    function campaignAcceptsFormRegistration(cfg) {
+      return cfg is map
+        && (
+          cfg.get('type', '') == 'form'
+          || (cfg.get('fieldKeys', []) is list && cfg.get('fieldKeys', []).size() >= 1)
+        );
+    }
+
     // Inscrição pública: somente dados do formulário (+ voucher opcional). Pagamento/Asaas só via backend (Admin SDK).
     function inscriptionCreatePayloadValid() {
       let d = request.resource.data;
-      let keysOk = d.keys().hasOnly(['createdAt', 'fields'])
-        || d.keys().hasOnly(['createdAt', 'fields', 'voucherCode']);
+      let keyCount = d.keys().size();
+      let keysOk = keyCount >= 2
+        && keyCount <= 3
+        && d.keys().hasAll(['createdAt', 'fields'])
+        && (keyCount == 2 || (keyCount == 3 && 'voucherCode' in d));
       let voucherOk = !('voucherCode' in d) || isValidVoucherCodeString(d.voucherCode);
       let noPaymentKeys = !d.keys().hasAny([
         'paymentStatus',
@@ -194,8 +205,7 @@ service cloud.firestore {
       let cfg = camp.get('registrationConfig', null);
       return camp.get('published', true) != false
         && camp.get('registrationClosed', false) != true
-        && cfg is map
-        && cfg.get('type', '') == 'form'
+        && campaignAcceptsFormRegistration(cfg)
         && inscriptionCreatePayloadValid();
     }
 

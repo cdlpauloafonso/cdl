@@ -14,6 +14,7 @@ import upload from './routes/upload.js';
 import about from './routes/about.js';
 import nossaCidade from './routes/nossa-cidade.js';
 import asaas from './routes/asaas.js';
+import publicInscriptions from './routes/public-inscriptions.js';
 import credentialing from './routes/credentialing.js';
 import certificates from './routes/certificates.js';
 
@@ -42,6 +43,7 @@ app.use('/api/settings', settings);
 app.use('/api/upload', upload);
 app.use('/api/about', about);
 app.use('/api/asaas', asaas);
+app.use('/api/public', publicInscriptions);
 app.use('/api', credentialing);
 // Montado em /api/events para não interceptar /api/asaas/* com authMiddleware global
 app.use('/api/events', certificates);
