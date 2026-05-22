@@ -118,7 +118,7 @@ export function CredentialingPublicLinkSection({ eventId, eventTitle }: Credenti
               onClick={() => void handleRegenerate()}
               className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
-              Novo link
+              Gerar Novo Link
             </button>
           </div>
         </div>

@@ -824,24 +824,26 @@ export default function AdminEventoInscritosPage() {
               </button>
             </>
           )}
+          <button
+            type="button"
+            disabled={exportingEtiquetasPdf || selectedCount === 0}
+            onClick={() => void exportarEtiquetasPdf()}
+            className="w-full rounded-lg border border-cdl-blue/40 bg-cdl-blue/5 px-3 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {exportingEtiquetasPdf
+              ? 'Gerando PDF…'
+              : selectedCount > 0
+                ? `PDF etiquetas (${selectedCount})`
+                : 'PDF etiquetas'}
+          </button>
           {selectedCount > 0 && (
-            <>
-              <button
-                type="button"
-                disabled={exportingEtiquetasPdf}
-                onClick={() => void exportarEtiquetasPdf()}
-                className="w-full rounded-lg border border-cdl-blue/40 bg-cdl-blue/5 px-3 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/10 disabled:opacity-50 sm:w-auto"
-              >
-                {exportingEtiquetasPdf ? 'Gerando PDF…' : `PDF etiquetas (${selectedCount})`}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteSelectedModal(true)}
-                className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto"
-              >
-                Excluir selecionados ({selectedCount})
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setShowDeleteSelectedModal(true)}
+              className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto"
+            >
+              Excluir selecionados ({selectedCount})
+            </button>
           )}
           <button
             type="button"

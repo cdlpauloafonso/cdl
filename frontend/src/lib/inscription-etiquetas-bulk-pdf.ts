@@ -3,8 +3,12 @@ import {
   inscriptionEtiquetaParticipantName,
 } from '@/lib/event-registration-fields';
 import { buildCredentialingQrPayload } from '@/lib/event-credentialing-qr';
-
-const CHECK_IN_QR_DARK = '#1E3A8A';
+import {
+  drawInscriptionEtiqueta,
+  etiquetaHeightMm,
+  etiquetaTextAreaWidthMm,
+} from '@/lib/inscription-etiqueta-layout';
+import { createEtiquetaEventTitleImage } from '@/lib/inscription-etiqueta-title-image';
 
 export type InscriptionEtiquetaPdfItem = {
   inscriptionId: string;
@@ -21,80 +25,19 @@ export type InscriptionEtiquetasBulkPdfOptions = {
 const COLS = 3;
 const MARGIN_MM = 10;
 const GAP_MM = 4;
-const LABEL_H_MM = 30;
 
-async function qrPngDataUrl(payload: string, px = 180): Promise<string> {
+/** QR preto, igual ao `QRCodeSVG` da etiqueta individual (sem fgColor azul). */
+async function qrPngDataUrl(payload: string): Promise<string> {
   const QRCode = (await import('qrcode')).default;
   return QRCode.toDataURL(payload, {
-    width: px,
-    margin: 1,
+    width: 72,
+    margin: 0,
     errorCorrectionLevel: 'M',
-    color: { dark: CHECK_IN_QR_DARK, light: '#FFFFFF' },
+    color: { dark: '#000000', light: '#FFFFFF' },
   });
 }
 
-function drawLabel(
-  doc: import('jspdf').jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  opts: {
-    eventTitle?: string;
-    participantName: string;
-    companyName: string;
-    qrDataUrl: string;
-  },
-): void {
-  const pad = 2;
-  const qrMm = 20;
-  const textW = w - pad * 2 - qrMm - 1.5;
-  const textX = x + pad;
-  const textY = y + pad + 3.5;
-  const qrX = x + w - pad - qrMm;
-  const qrY = y + (h - qrMm) / 2;
-
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.2);
-  doc.rect(x, y, w, h);
-
-  let lineY = textY;
-
-  if (opts.eventTitle?.trim()) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6);
-    doc.setTextColor(100, 100, 100);
-    const titleLines = (doc.splitTextToSize(opts.eventTitle.trim().toUpperCase(), textW) as string[]).slice(
-      0,
-      1,
-    );
-    doc.text(titleLines[0] ?? '', textX, lineY);
-    lineY += 3.2;
-  }
-
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  const nameLines = (doc.splitTextToSize(opts.participantName || 'Participante', textW) as string[]).slice(0, 2);
-  nameLines.forEach((line) => {
-    doc.text(line, textX, lineY);
-    lineY += 4.2;
-  });
-
-  if (opts.companyName.trim()) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    const companyLines = (doc.splitTextToSize(opts.companyName.trim(), textW) as string[]).slice(0, 2);
-    companyLines.forEach((line) => {
-      doc.text(line, textX, lineY);
-      lineY += 3.6;
-    });
-  }
-
-  doc.addImage(opts.qrDataUrl, 'PNG', qrX, qrY, qrMm, qrMm);
-}
-
-/** PDF A4 retrato: etiquetas 3 por linha (nome, empresa e QR de credenciamento). */
+/** PDF A4: 3 etiquetas por linha, layout idêntico à etiqueta do inscrito (escala proporcional). */
 export async function downloadInscriptionEtiquetasBulkPdf(
   options: InscriptionEtiquetasBulkPdfOptions,
 ): Promise<boolean> {
@@ -116,42 +59,53 @@ export async function downloadInscriptionEtiquetasBulkPdf(
     const pageH = doc.internal.pageSize.getHeight();
     const usableW = pageW - MARGIN_MM * 2;
     const labelW = (usableW - GAP_MM * (COLS - 1)) / COLS;
+    const eventTitleImage = createEtiquetaEventTitleImage(
+      eventTitle,
+      labelW,
+      etiquetaTextAreaWidthMm(labelW),
+    );
 
     let col = 0;
     let x = MARGIN_MM;
     let y = MARGIN_MM;
+    let rowMaxH = 0;
 
-    const placeNextRow = () => {
+    const advanceRow = () => {
+      y += rowMaxH + GAP_MM;
+      rowMaxH = 0;
       col = 0;
       x = MARGIN_MM;
-      y += LABEL_H_MM + GAP_MM;
     };
 
-    items.forEach((item, index) => {
-      if (y + LABEL_H_MM > pageH - MARGIN_MM) {
-        doc.addPage();
-        y = MARGIN_MM;
-        col = 0;
-        x = MARGIN_MM;
-      }
-
+    for (const item of items) {
       const qrDataUrl = qrById.get(item.inscriptionId);
-      if (!qrDataUrl) return;
+      if (!qrDataUrl) continue;
 
-      drawLabel(doc, x, y, labelW, LABEL_H_MM, {
-        eventTitle,
+      const drawOpts = {
+        eventTitleImage,
         participantName: inscriptionEtiquetaParticipantName(item.fields),
         companyName: inscriptionEtiquetaCompanyName(item.fields) ?? '',
         qrDataUrl,
-      });
+      };
+
+      const labelH = etiquetaHeightMm(doc, labelW, drawOpts);
+
+      if (col === 0 && y + labelH > pageH - MARGIN_MM) {
+        doc.addPage();
+        y = MARGIN_MM;
+        rowMaxH = 0;
+      }
+
+      drawInscriptionEtiqueta(doc, x, y, labelW, drawOpts);
+      rowMaxH = Math.max(rowMaxH, labelH);
 
       col += 1;
       if (col >= COLS) {
-        placeNextRow();
+        advanceRow();
       } else {
         x += labelW + GAP_MM;
       }
-    });
+    }
 
     const safeTitle =
       (eventTitle ?? 'evento').replace(/[^\w\u00C0-\u024f\s-]+/gi, '').trim().slice(0, 36) || 'evento';

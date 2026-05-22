@@ -16,7 +16,6 @@ import {
 } from '@/lib/firestore';
 import { getEffectiveRegistration, isEventInscriptionOpen } from '@/lib/event-registration-fields';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
-import { campaignPublicPageUrl } from '@/lib/campaign-preview';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{
@@ -454,30 +453,22 @@ export default function AdminDashboardPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-1.5">
-                        {reg.kind === 'form' && ev.id && (
-                          <Link
-                            href={`/admin/eventos/inscritos?eventId=${encodeURIComponent(ev.id)}`}
-                            className="inline-flex h-8 items-center rounded-md bg-emerald-50 px-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100/80 hover:bg-emerald-100"
-                          >
-                            Inscritos
-                          </Link>
-                        )}
                         {ev.id && (
                           <>
                             <Link
-                              href={campaignPublicPageUrl(ev.id)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex h-8 items-center rounded-md bg-gray-100 px-2 text-xs font-medium text-gray-800 ring-1 ring-gray-200 hover:bg-gray-200"
+                              href={`/admin/eventos/${ev.id}`}
+                              className="inline-flex h-8 items-center rounded-md bg-slate-100 px-2.5 text-xs font-medium text-slate-800 ring-1 ring-slate-200/80 hover:bg-slate-200"
                             >
-                              Ver página
+                              Detalhes
                             </Link>
-                            <Link
-                              href={`/admin/campanhas/edit?id=${encodeURIComponent(ev.id)}`}
-                              className="inline-flex h-8 items-center rounded-md bg-cdl-blue px-2 text-xs font-medium text-white hover:bg-cdl-blue-dark"
-                            >
-                              Editar
-                            </Link>
+                            {reg.kind === 'form' && (
+                              <Link
+                                href={`/admin/eventos/inscritos?eventId=${encodeURIComponent(ev.id)}`}
+                                className="inline-flex h-8 items-center rounded-md bg-emerald-50 px-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100/80 hover:bg-emerald-100"
+                              >
+                                Inscritos
+                              </Link>
+                            )}
                           </>
                         )}
                       </div>

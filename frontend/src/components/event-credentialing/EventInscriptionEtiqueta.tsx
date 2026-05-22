@@ -8,6 +8,7 @@ import {
   inscriptionEtiquetaCompanyName,
   inscriptionEtiquetaParticipantName,
 } from '@/lib/event-registration-fields';
+import { formatEtiquetaEventTitle } from '@/lib/inscription-etiqueta-layout';
 
 const PRINT_BODY_CLASS = 'printing-inscription-etiqueta';
 
@@ -29,6 +30,7 @@ export function EventInscriptionEtiquetaSheet({
 }: EventInscriptionEtiquetaSheetProps) {
   const participantName = inscriptionEtiquetaParticipantName(fields);
   const companyName = inscriptionEtiquetaCompanyName(fields);
+  const eventTitleLabel = formatEtiquetaEventTitle(eventTitle);
   const qrValue = buildCredentialingQrPayload(eventId, inscriptionId);
 
   return (
@@ -37,9 +39,12 @@ export function EventInscriptionEtiquetaSheet({
       className="inscription-etiqueta-sheet mx-auto flex w-[90mm] max-w-full items-center gap-3 rounded-lg border border-gray-300 bg-white px-3 py-2.5 print:m-0 print:w-[86mm] print:max-w-none print:border print:border-gray-400 print:shadow-none"
     >
       <div className="min-w-0 flex-1">
-        {eventTitle ? (
-          <p className="mb-1 truncate text-[9px] font-semibold uppercase tracking-wide text-gray-500 print:text-[8px]">
-            {eventTitle}
+        {eventTitleLabel ? (
+          <p
+            className="mb-1 truncate text-[9px] font-semibold tracking-wide text-gray-500 print:text-[8px]"
+            title={eventTitleLabel}
+          >
+            {eventTitleLabel}
           </p>
         ) : null}
         <p className="text-sm font-bold leading-tight text-gray-900 print:text-[13pt]">{participantName}</p>

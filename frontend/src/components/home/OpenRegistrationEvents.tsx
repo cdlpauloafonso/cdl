@@ -141,11 +141,11 @@ function EventOpenCard({
   const ctaLabel = external ? 'Inscrever-se' : 'Fazer inscrição';
 
   const imageWidthClass = mobileShell
-    ? 'w-[10.5rem] max-w-[46%] sm:w-[12.75rem]'
+    ? 'w-[8.75rem] max-w-[38%]'
     : 'w-[11.25rem] sm:w-[14rem] md:w-[16.75rem]';
 
   const contentInsetClass = mobileShell
-    ? 'left-[10.5rem] sm:left-[12.75rem]'
+    ? 'left-[8.75rem]'
     : 'left-[11.25rem] sm:left-[14rem] md:left-[16.75rem]';
 
   const imageWrapClass = `relative aspect-video shrink-0 overflow-hidden border-r border-slate-200/80 bg-slate-100 ${imageWidthClass}`;
@@ -196,64 +196,66 @@ function EventOpenCard({
 
       <div
         className={`absolute inset-y-0 right-0 flex min-w-0 flex-col overflow-hidden ${contentInsetClass} ${
-          mobileShell ? 'py-2 pl-3 pr-10' : 'py-2.5 pl-3.5 pr-11 sm:py-3 sm:pl-4 sm:pr-12'
+          mobileShell ? 'justify-center gap-2 py-2 pl-3.5 pr-9' : 'py-2.5 pl-3.5 pr-11 sm:py-3 sm:pl-4 sm:pr-12'
         }`}
       >
-        <div className="flex min-h-0 flex-1 flex-col justify-center gap-1 overflow-hidden">
-          {event.category ? (
-            <span className="w-fit max-w-full truncate rounded-full bg-cdl-blue/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-cdl-blue sm:text-[10px]">
-              {event.category}
+        {mobileShell ? (
+          <>
+            <h3 className="line-clamp-3 text-[15px] font-bold leading-snug text-gray-900 transition-colors group-hover:text-cdl-blue">
+              {event.title}
+            </h3>
+            <span className="w-fit text-xs font-semibold text-cdl-blue">
+              {ctaLabel}
+              {external ? ' ↗' : ' →'}
             </span>
-          ) : null}
+          </>
+        ) : (
+          <>
+            <div className="flex min-h-0 flex-1 flex-col justify-center gap-1 overflow-hidden">
+              {event.category ? (
+                <span className="w-fit max-w-full truncate rounded-full bg-cdl-blue/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cdl-blue">
+                  {event.category}
+                </span>
+              ) : null}
 
-          <h3
-            className={`font-bold leading-tight text-gray-900 transition-colors group-hover:text-cdl-blue ${
-              mobileShell ? 'line-clamp-2 text-[14px]' : 'line-clamp-2 text-base sm:text-lg'
-            }`}
-          >
-            {event.title}
-          </h3>
+              <h3 className="line-clamp-2 text-base font-bold leading-tight text-gray-900 transition-colors group-hover:text-cdl-blue sm:text-lg">
+                {event.title}
+              </h3>
 
-          {event.description ? (
-            <p
-              className={`min-h-0 text-cdl-gray-text ${
-                mobileShell ?
-                  'line-clamp-1 text-[11px] leading-snug'
-                : 'line-clamp-2 text-xs leading-snug sm:text-sm'
-              }`}
-            >
-              {event.description}
-            </p>
-          ) : null}
-        </div>
+              {event.description ? (
+                <p className="line-clamp-2 min-h-0 text-xs leading-snug text-cdl-gray-text sm:text-sm">
+                  {event.description}
+                </p>
+              ) : null}
+            </div>
 
-        <div
-          className={`flex shrink-0 items-center justify-between gap-2 border-t border-slate-100/90 text-cdl-gray-text ${
-            mobileShell ? 'pt-1' : 'pt-1.5'
-          }`}
-        >
-          <p className="flex min-w-0 items-center gap-1 truncate">
-            <svg className="h-3 w-3 shrink-0 text-cdl-blue/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span className={`truncate font-medium ${mobileShell ? 'text-[10px]' : 'text-[11px] sm:text-xs'}`}>
-              {formatEventDateForDisplay(event.date)}
-            </span>
-          </p>
-          <span className={`shrink-0 font-semibold text-cdl-blue ${mobileShell ? 'text-[10px]' : 'text-xs sm:text-sm'}`}>
-            {ctaLabel}
-            {external ? ' ↗' : ''}
-          </span>
-        </div>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100/90 pt-1.5 text-cdl-gray-text">
+              <p className="flex min-w-0 items-center gap-1 truncate">
+                <svg className="h-3 w-3 shrink-0 text-cdl-blue/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <span className="truncate text-[11px] font-medium sm:text-xs">
+                  {formatEventDateForDisplay(event.date)}
+                </span>
+              </p>
+              <span className="shrink-0 text-xs font-semibold text-cdl-blue sm:text-sm">
+                {ctaLabel}
+                {external ? ' ↗' : ''}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <span
-        className="pointer-events-none absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200/90 bg-white/90 text-slate-500 shadow-sm transition-all group-hover:border-cdl-blue/30 group-hover:bg-cdl-blue group-hover:text-white sm:right-4 sm:h-9 sm:w-9"
+        className={`pointer-events-none absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full border border-slate-200/90 bg-white/90 text-slate-500 shadow-sm transition-all group-hover:border-cdl-blue/30 group-hover:bg-cdl-blue group-hover:text-white ${
+          mobileShell ? 'right-2.5 h-7 w-7' : 'right-3 h-8 w-8 sm:right-4 sm:h-9 sm:w-9'
+        }`}
         aria-hidden
       >
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
