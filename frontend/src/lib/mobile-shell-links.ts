@@ -104,6 +104,7 @@ export function newsDetailHrefForAppShell(segment: string, slug: string): string
 const APP_SHELL_EXACT_ROUTES = new Set([
   '/servicos',
   '/institucional/campanhas',
+  '/institucional/eventos',
   '/institucional/nossa-cidade',
   '/area-associado',
   '/atendimento',

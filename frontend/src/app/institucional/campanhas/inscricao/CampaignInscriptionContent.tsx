@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventInscriptionClient } from './[slug]/EventInscriptionClient';
 import { isCampaignPreviewRequested } from '@/lib/campaign-preview';
+import { campaignVerHrefForShell, shellSegmentFromCampanhasIndexHref } from '@/lib/mobile-campaign-hrefs';
+import { resolveAppShellHref } from '@/lib/mobile-shell-links';
+import { InscriptionPageShell } from '@/components/mobile-web/InscriptionPageShell';
 
 export type CampaignInscriptionContentProps = {
   campanhasIndexHref?: string;
@@ -23,37 +26,26 @@ function CampaignInscriptionInner({
   const previewRequested = isCampaignPreviewRequested(searchParams.get('preview'));
   const resumeInscriptionId = (searchParams.get('inscriptionId') ?? searchParams.get('inscricao') ?? '').trim();
 
-  const previewQs = previewRequested ? '&preview=1' : '';
-  const mobileSegment = campanhasIndexHref.match(/^(\/m\/[^/]+)(?:\/|$)/)?.[1] ?? null;
+  const shellSegment = shellSegmentFromCampanhasIndexHref(campanhasIndexHref);
   const campanhaVerHref = slug
-    ? mobileSegment
-      ? `${mobileSegment}/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${previewQs}`
-      : `/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${previewQs}`
+    ? campaignVerHrefForShell(slug, { preview: previewRequested, shellSegment })
     : campanhasIndexHref;
+  const atendimentoHrefResolved = resolveAppShellHref(shellSegment, '/atendimento');
 
   if (!slug) {
     return (
-      <div
-        className={`bg-gradient-to-b from-white to-cdl-gray/30 ${
-          fillAppShellViewport ?
-            `flex min-h-0 flex-1 flex-col pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]`
-          : 'py-12 sm:py-16'
-        }`}
-      >
-        <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex flex-1 flex-col' : ''}`}>
-          <Link
-            href={campanhasIndexHref}
-            prefetch={false}
-            className="mb-6 inline-block text-sm text-cdl-blue hover:underline"
-          >
-            ← Voltar às campanhas
-          </Link>
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-cdl-gray-text">
-            Link de inscrição inválido.
-          </div>
-          {fillAppShellViewport ? <div className="min-h-16 flex-1" aria-hidden /> : null}
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
+        <Link
+          href={campanhasIndexHref}
+          prefetch={false}
+          className="mb-6 inline-block text-sm text-cdl-blue hover:underline"
+        >
+          ← Voltar às campanhas
+        </Link>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 text-cdl-gray-text">
+          Link de inscrição inválido.
         </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
@@ -65,6 +57,7 @@ function CampaignInscriptionInner({
       campanhasIndexHref={campanhasIndexHref}
       campanhaVerHref={campanhaVerHref}
       associeHref={associeHref}
+      atendimentoHref={atendimentoHrefResolved}
       fillAppShellViewport={fillAppShellViewport}
     />
   );

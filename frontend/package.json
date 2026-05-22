@@ -22,6 +22,7 @@
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.0",
     "next": "^15.0.3",
+    "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^22.9.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "autoprefixer": "^10.4.20",

@@ -13,6 +13,7 @@ import {
 } from '@/lib/inscription-payment-status';
 import { isInscriptionCredentialed, formatCredentialedAt } from '@/lib/event-credentialing';
 import {
+  formatInscritoNameUppercase,
   inscriptionEtiquetaCompanyName,
   inscriptionEtiquetaParticipantName,
 } from '@/lib/event-registration-fields';
@@ -50,6 +51,7 @@ export function EventExistingInscriptionCheckIn({
   const paymentPending = isInscriptionPaymentPending(row, payment);
   const paymentConfirmed = isInscriptionPaymentConfirmed(row);
   const participantName = inscriptionEtiquetaParticipantName(row.fields);
+  const participantNameDisplay = formatInscritoNameUppercase(participantName);
   const participantCompany = inscriptionEtiquetaCompanyName(row.fields);
 
   return (
@@ -64,7 +66,7 @@ export function EventExistingInscriptionCheckIn({
 
       <div className="px-2 py-2 text-center">
         <p className="text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl break-words">
-          {participantName}
+          {participantNameDisplay}
         </p>
         {participantCompany ? (
           <p className="mt-2 text-base font-medium leading-snug text-cdl-gray-text break-words">
@@ -122,6 +124,8 @@ export function EventExistingInscriptionCheckIn({
             <EventInscriptionCheckInQr
               eventId={campaignId}
               inscriptionId={row.id}
+              participantLabel={participantNameDisplay}
+              eventTitle={campanha.title}
               className="border-cdl-blue/15 bg-slate-50/80"
             />
           </div>

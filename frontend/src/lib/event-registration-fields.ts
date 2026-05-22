@@ -152,6 +152,12 @@ export function inscriptionEtiquetaParticipantName(fields: Record<string, string
   return inscriptionDisplayLabel(fields);
 }
 
+/** Nome do inscrito em maiúsculas (tela de QR Code / check-in). */
+export function formatInscritoNameUppercase(name: string | null | undefined): string {
+  const t = (name ?? '').trim();
+  return t ? t.toLocaleUpperCase('pt-BR') : '';
+}
+
 /** Nome da empresa na etiqueta (fantasia ou razão social), se houver e for distinto do nome. */
 export function inscriptionEtiquetaCompanyName(fields: Record<string, string> | undefined): string | null {
   const f = fields ?? {};

@@ -5,15 +5,17 @@ import { MobileWebSubPageChrome } from '@/components/mobile-web/MobileWebSubPage
 
 type MobileCampanhasPageProps = {
   segment: string;
+  title?: string;
+  subtitle?: string;
 };
 
-export function MobileCampanhasPage({ segment }: MobileCampanhasPageProps) {
+export function MobileCampanhasPage({
+  segment,
+  title = 'Campanhas e eventos',
+  subtitle = 'Ações da CDL Paulo Afonso no formato compacto para o app.',
+}: MobileCampanhasPageProps) {
   return (
-    <MobileWebSubPageChrome
-      backHref={segment}
-      title="Campanhas e eventos"
-      subtitle="Ações da CDL Paulo Afonso no formato compacto para o app."
-    >
+    <MobileWebSubPageChrome backHref={segment} title={title} subtitle={subtitle}>
       <CampaignsListing
         title=""
         description=""

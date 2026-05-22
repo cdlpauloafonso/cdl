@@ -70,7 +70,13 @@ import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBan
 import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
 import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
 import { EventExistingInscriptionCheckIn } from '@/components/event-credentialing/EventExistingInscriptionCheckIn';
-import { campaignInscriptionResumeUrl } from '@/lib/campaign-preview';
+import {
+  campaignInscriptionResumeHrefForShell,
+  campaignVerHrefForShell,
+  shellSegmentFromCampanhasIndexHref,
+} from '@/lib/mobile-campaign-hrefs';
+import { resolveAppShellHref } from '@/lib/mobile-shell-links';
+import { InscriptionPageShell } from '@/components/mobile-web/InscriptionPageShell';
 import { initFirebase } from '@/lib/firebase';
 
 const PADRAO_IDS = new Set<string>(PADRAO_INSCRIPTION_FIELDS.map((f) => f.id));
@@ -308,6 +314,7 @@ export function EventInscriptionClient({
   campanhasIndexHref = '/institucional/campanhas',
   campanhaVerHref,
   associeHref = '/associe-se',
+  atendimentoHref,
   fillAppShellViewport = false,
 }: {
   slug: string;
@@ -317,8 +324,12 @@ export function EventInscriptionClient({
   campanhasIndexHref?: string;
   campanhaVerHref?: string;
   associeHref?: string;
+  atendimentoHref?: string;
   fillAppShellViewport?: boolean;
 }) {
+  const shellSegment = shellSegmentFromCampanhasIndexHref(campanhasIndexHref);
+  const atendimentoHrefResolved =
+    atendimentoHref ?? resolveAppShellHref(shellSegment, '/atendimento');
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -348,7 +359,7 @@ export function EventInscriptionClient({
   const [voucherHint, setVoucherHint] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   /** Participante optou por pular a etapa de CNPJ e preencher o formulário com CPF. */
   const [inscricaoViaCpf, setInscricaoViaCpf] = useState(false);
-  const [supportWhatsappUrl, setSupportWhatsappUrl] = useState('/atendimento');
+  const [supportWhatsappUrl, setSupportWhatsappUrl] = useState(atendimentoHrefResolved);
   const cnpjLookupReq = useRef(0);
   const [adminOk, setAdminOk] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -492,7 +503,11 @@ export function EventInscriptionClient({
       }
       if (!number && stored) number = formatWhatsAppNumber(stored);
       if (!number && env) number = formatWhatsAppNumber(env);
-      if (!mounted || !number || number.length < 10) return;
+      if (!mounted) return;
+      if (!number || number.length < 10) {
+        setSupportWhatsappUrl(atendimentoHrefResolved);
+        return;
+      }
       const msg = encodeURIComponent(
         `Olá! Sou associado (ou estou tentando me inscrever) e meu CNPJ não validou na inscrição do evento "${campanha?.title ?? ''}". Podem me ajudar?`
       );
@@ -501,7 +516,7 @@ export function EventInscriptionClient({
     return () => {
       mounted = false;
     };
-  }, [campanha?.title]);
+  }, [campanha?.title, atendimentoHrefResolved]);
 
   const isDraftPreview = adminOk && campanha?.published === false;
 
@@ -524,17 +539,14 @@ export function EventInscriptionClient({
     };
   }, [campanha, slug, isDraftPreview]);
 
-  const pageOuterClass = fillAppShellViewport
-    ? 'flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]'
-    : 'py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30';
   const eventVerHref =
     campanhaVerHref ??
-    `/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${isDraftPreview ? '&preview=1' : ''}`;
+    campaignVerHrefForShell(slug, { preview: isDraftPreview, shellSegment });
 
   if (loading || resumeLoading || !authChecked) {
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30 min-h-[50vh]">
-        <div className="container-cdl max-w-2xl animate-pulse">
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport} minHeightClass="min-h-[50vh]">
+        <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-40 mb-8" />
           <div className="h-48 sm:h-56 bg-gray-200 rounded-2xl mb-8" />
           <div className="h-8 bg-gray-200 rounded w-3/4 mb-4" />
@@ -542,17 +554,20 @@ export function EventInscriptionClient({
           <div className="h-4 bg-gray-200 rounded w-5/6 mb-10" />
           <div className="h-32 bg-gray-100 rounded-xl border border-gray-200" />
         </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
   if (!campanha) {
     if (previewRequested && authChecked && !adminOk) {
-      return <CampaignPreviewAccessDenied />;
+      return (
+        <InscriptionPageShell fillAppShellViewport={fillAppShellViewport} innerMaxWidthClass="max-w-lg">
+          <CampaignPreviewAccessDenied embedded />
+        </InscriptionPageShell>
+      );
     }
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-2xl">
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
           <Link href={campanhasIndexHref} prefetch={false} className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
             ← Campanhas e eventos
           </Link>
@@ -560,15 +575,13 @@ export function EventInscriptionClient({
             <p className="text-lg font-medium text-gray-900 mb-2">Evento não encontrado</p>
             <p className="text-cdl-gray-text text-sm">Verifique o link ou entre em contato com a CDL.</p>
           </div>
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
   if (campanha.registrationClosed) {
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-2xl">
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
           <nav className="mb-8">
             <Link
               href={eventVerHref}
@@ -598,16 +611,14 @@ export function EventInscriptionClient({
               Voltar ao evento
             </Link>
           </div>
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
   const reg = getEffectiveRegistration(campanha);
   if (reg.kind !== 'form' || reg.keys.length === 0) {
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-2xl">
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
           <Link href={campanhasIndexHref} prefetch={false} className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
             ← Campanhas e eventos
           </Link>
@@ -624,8 +635,7 @@ export function EventInscriptionClient({
               Voltar ao evento
             </Link>
           </div>
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
@@ -633,8 +643,7 @@ export function EventInscriptionClient({
 
   if (inscricoesEncerradas && !isDraftPreview) {
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-2xl">
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
           <nav className="mb-8">
             <Link
               href={eventVerHref}
@@ -664,8 +673,7 @@ export function EventInscriptionClient({
               Voltar ao evento
             </Link>
           </div>
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
@@ -1065,12 +1073,12 @@ export function EventInscriptionClient({
     (payment.kind !== 'asaas' || inscriptionPaid);
 
   if (existingInscription) {
-    const paymentResumeHref = campaignInscriptionResumeUrl(slug, existingInscription.id, {
+    const paymentResumeHref = campaignInscriptionResumeHrefForShell(slug, existingInscription.id, {
       preview: isDraftPreview,
+      shellSegment,
     });
     return (
-      <div className={pageOuterClass}>
-        <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+      <InscriptionPageShell fillAppShellViewport={fillAppShellViewport} scrollToTop>
           {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
           <nav className="mb-8">
             <Link
@@ -1113,16 +1121,17 @@ export function EventInscriptionClient({
               Usar outro CPF ou corrigir dados
             </button>
           </div>
-          {fillAppShellViewport ? <div className="min-h-16 flex-1" aria-hidden /> : null}
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
   if (done) {
     return (
-      <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-        <div className="container-cdl max-w-lg">
+      <InscriptionPageShell
+        fillAppShellViewport={fillAppShellViewport}
+        innerMaxWidthClass="max-w-lg"
+        scrollToTop
+      >
           <div
             className={`rounded-xl border px-6 py-10 ${
               showAsaasCheckout
@@ -1190,6 +1199,7 @@ export function EventInscriptionClient({
                     eventId={slug}
                     inscriptionId={completedInscriptionId}
                     participantLabel={inscriptionDisplayLabel(values)}
+                    eventTitle={campanha.title}
                     className="mb-6 text-left"
                   />
                 ) : null}
@@ -1203,14 +1213,12 @@ export function EventInscriptionClient({
               </>
             ) : null}
           </div>
-        </div>
-      </div>
+      </InscriptionPageShell>
     );
   }
 
   return (
-    <div className={pageOuterClass}>
-      <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+    <InscriptionPageShell fillAppShellViewport={fillAppShellViewport}>
         {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
         <nav className="mb-8">
           <Link
@@ -1584,7 +1592,6 @@ export function EventInscriptionClient({
             </form>
           )}
         </div>
-      </div>
-    </div>
+    </InscriptionPageShell>
   );
 }

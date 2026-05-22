@@ -10,6 +10,7 @@ import { HOME_ECONOMIC_INDICATORS } from '@/constants/home-economic-indicators';
 import { listCarouselSlides, listNews, type CarouselSlide, type NewsItemFirestore, type Campaign } from '@/lib/firestore';
 import { listAppCheckInCampaigns } from '@/lib/check-in-app';
 import { MobileHomeFixedBlueBackdrop } from '@/components/mobile-web/MobileHomeFixedBlueBackdrop';
+import { OpenRegistrationEvents } from '@/components/home/OpenRegistrationEvents';
 
 type HeroSlideVM = {
   id: string;
@@ -444,6 +445,8 @@ export function MobileCDLHome() {
             </Link>
           ))}
         </div>
+
+        <OpenRegistrationEvents mobileShell shellSegment={mobileSegment} />
 
         <section className="mt-8">
           <div className="mb-3 flex items-end justify-between gap-2 px-0.5">

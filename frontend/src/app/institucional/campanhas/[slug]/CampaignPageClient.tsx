@@ -13,6 +13,8 @@ import { isCurrentUserAdmin } from '@/lib/admin-auth';
 import { CampaignDraftPreviewBanner } from '@/components/CampaignDraftPreviewBanner';
 import { CampaignPreviewAccessDenied } from '@/components/CampaignPreviewAccessDenied';
 import { initFirebase } from '@/lib/firebase';
+import { campaignInscriptionPageUrl } from '@/lib/campaign-preview';
+import { shellSegmentFromCampanhasIndexHref } from '@/lib/mobile-campaign-hrefs';
 
 const SOLD_OUT_TOAST_MS = 6000;
 
@@ -122,20 +124,49 @@ export function CampaignPageClient({
   }, [previewRequested]);
 
   const isDraftPreview = previewRequested && previewAdminOk && campanha?.published === false;
+  const shellSegment = shellSegmentFromCampanhasIndexHref(campanhasIndexHref);
 
   if (loading || (previewRequested && !previewAuthChecked)) {
+    if (fillAppShellViewport) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]">
+          <div className="container-cdl flex min-h-0 flex-1 flex-col max-w-4xl w-full">
+            <p className="text-cdl-gray-text p-8">Carregando...</p>
+          </div>
+          <div className="min-h-16 flex-1 shrink-0" aria-hidden />
+        </div>
+      );
+    }
     return <p className="p-8 text-cdl-gray-text">Carregando...</p>;
   }
   if (!campanha) {
     if (previewRequested) {
-      return <CampaignPreviewAccessDenied />;
+      return fillAppShellViewport ? (
+        <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]">
+          <div className="container-cdl max-w-lg w-full flex min-h-0 flex-1 flex-col">
+            <CampaignPreviewAccessDenied embedded />
+          </div>
+          <div className="min-h-16 flex-1 shrink-0" aria-hidden />
+        </div>
+      ) : (
+        <CampaignPreviewAccessDenied />
+      );
     }
     notFound();
   }
 
   if (campanha.published === false && !isDraftPreview) {
     if (previewRequested && previewAuthChecked && !previewAdminOk) {
-      return <CampaignPreviewAccessDenied />;
+      return fillAppShellViewport ? (
+        <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]">
+          <div className="container-cdl max-w-lg w-full flex min-h-0 flex-1 flex-col">
+            <CampaignPreviewAccessDenied embedded />
+          </div>
+          <div className="min-h-16 flex-1 shrink-0" aria-hidden />
+        </div>
+      ) : (
+        <CampaignPreviewAccessDenied />
+      );
     }
     notFound();
   }
@@ -159,13 +190,13 @@ export function CampaignPageClient({
         showSoldOutToast();
         return;
       }
-      const inscricaoQs = new URLSearchParams({ slug });
-      if (isDraftPreview) inscricaoQs.set('preview', '1');
-      router.push(`/institucional/campanhas/inscricao?${inscricaoQs.toString()}`);
+      router.push(
+        campaignInscriptionPageUrl(slug, { preview: isDraftPreview, shellSegment }),
+      );
     } catch {
-      const inscricaoQs = new URLSearchParams({ slug });
-      if (isDraftPreview) inscricaoQs.set('preview', '1');
-      router.push(`/institucional/campanhas/inscricao?${inscricaoQs.toString()}`);
+      router.push(
+        campaignInscriptionPageUrl(slug, { preview: isDraftPreview, shellSegment }),
+      );
     }
   }
 

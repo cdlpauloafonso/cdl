@@ -39,6 +39,7 @@ import {
   EventInscriptionEtiquetaModal,
   InscriptionEtiquetaButton,
 } from '@/components/event-credentialing/EventInscriptionEtiqueta';
+import { downloadInscriptionEtiquetasBulkPdf } from '@/lib/inscription-etiquetas-bulk-pdf';
 
 function collectColumnKeys(
   reg: ReturnType<typeof getEffectiveRegistration>,
@@ -235,6 +236,7 @@ export default function AdminEventoInscritosPage() {
   const [showDateColumn, setShowDateColumn] = useState(true);
   const [showSignatureColumn, setShowSignatureColumn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingEtiquetasPdf, setExportingEtiquetasPdf] = useState(false);
   const [sharingPublicLink, setSharingPublicLink] = useState(false);
   const [quickEditMode, setQuickEditMode] = useState(false);
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
@@ -598,6 +600,31 @@ export default function AdminEventoInscritosPage() {
     }
   }
 
+  async function exportarEtiquetasPdf() {
+    if (!campanha || !eventId || selectedIds.length === 0) return;
+    const selectedRows = selectedIds
+      .map((id) => rows.find((r) => r.id === id))
+      .filter((r): r is EventInscriptionRecord & { id: string } => Boolean(r));
+    if (selectedRows.length === 0) return;
+
+    setExportingEtiquetasPdf(true);
+    try {
+      const ok = await downloadInscriptionEtiquetasBulkPdf({
+        eventId,
+        eventTitle: campanha.title,
+        items: selectedRows.map((row) => ({
+          inscriptionId: row.id,
+          fields: row.fields,
+        })),
+      });
+      if (!ok) {
+        alert('Não foi possível gerar o PDF de etiquetas.');
+      }
+    } finally {
+      setExportingEtiquetasPdf(false);
+    }
+  }
+
   async function exportarPdf() {
     if (!campanha || filteredRows.length === 0) return;
     setExportingPdf(true);
@@ -798,13 +825,23 @@ export default function AdminEventoInscritosPage() {
             </>
           )}
           {selectedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowDeleteSelectedModal(true)}
-              className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto"
-            >
-              Excluir selecionados ({selectedCount})
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={exportingEtiquetasPdf}
+                onClick={() => void exportarEtiquetasPdf()}
+                className="w-full rounded-lg border border-cdl-blue/40 bg-cdl-blue/5 px-3 py-2 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/10 disabled:opacity-50 sm:w-auto"
+              >
+                {exportingEtiquetasPdf ? 'Gerando PDF…' : `PDF etiquetas (${selectedCount})`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteSelectedModal(true)}
+                className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto"
+              >
+                Excluir selecionados ({selectedCount})
+              </button>
+            </>
           )}
           <button
             type="button"

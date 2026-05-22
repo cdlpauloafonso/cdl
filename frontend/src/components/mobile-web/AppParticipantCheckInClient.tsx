@@ -22,10 +22,12 @@ import {
 import { isInscriptionCredentialed, formatCredentialedAt } from '@/lib/event-credentialing';
 import {
   hasEventFormRegistration,
+  formatInscritoNameUppercase,
   inscriptionEtiquetaCompanyName,
   inscriptionEtiquetaParticipantName,
 } from '@/lib/event-registration-fields';
 import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
+import { scrollViewportToTopAfterPaint } from '@/lib/scroll-viewport-top';
 
 type AppParticipantCheckInClientProps = {
   eventId: string;
@@ -39,6 +41,7 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
       resolveAppShellHref(mobileSegment, campaignInscriptionResumeUrl(eventId, inscriptionId)),
     [mobileSegment, eventId],
   );
+  const homeHref = mobileSegment ?? '/';
 
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +55,7 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
   const payment = campanha ? getEffectivePayment(campanha) : { kind: 'none' as const };
   const paymentPending = inscrito ? isInscriptionPaymentPending(inscrito, payment) : false;
   const participantName = inscrito ? inscriptionEtiquetaParticipantName(inscrito.fields) : '';
+  const participantNameDisplay = formatInscritoNameUppercase(participantName);
   const participantCompany = inscrito ? inscriptionEtiquetaCompanyName(inscrito.fields) : null;
 
   useEffect(() => {
@@ -88,6 +92,11 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
       cancelled = true;
     };
   }, [eventId]);
+
+  useEffect(() => {
+    if (!inscrito) return;
+    scrollViewportToTopAfterPaint();
+  }, [inscrito?.id]);
 
   useEffect(() => {
     if (cpfDigits.length !== 11) {
@@ -130,6 +139,16 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-slate-100 text-slate-900">
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+        <Link
+          href={homeHref}
+          prefetch={false}
+          className="mb-2 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-cdl-blue hover:underline"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Voltar à home
+        </Link>
         <h1 className="text-base font-bold text-slate-900">Check-in</h1>
         {campanha?.title ? <p className="mt-0.5 truncate text-sm text-slate-600">{campanha.title}</p> : null}
       </header>
@@ -151,7 +170,7 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
             {inscrito ? (
               <div className="mb-6 px-2 py-4 text-center">
                 <p className="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl break-words">
-                  {participantName}
+                  {participantNameDisplay}
                 </p>
                 {participantCompany ? (
                   <p className="mt-2 text-base font-medium leading-snug text-slate-600 break-words">
@@ -226,6 +245,8 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
                       <EventInscriptionCheckInQr
                         eventId={eventId}
                         inscriptionId={inscrito.id}
+                        participantLabel={participantNameDisplay || undefined}
+                        eventTitle={campanha?.title}
                         className="border-cdl-blue/15 bg-slate-50/80"
                       />
                     </>
@@ -234,6 +255,26 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
               ) : null}
             </div>
           </>
+        ) : null}
+
+        {!loading ? (
+          <div className="mt-6 pb-2">
+            <Link
+              href={homeHref}
+              prefetch={false}
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            >
+              <svg className="h-5 w-5 text-cdl-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+              Voltar à home
+            </Link>
+          </div>
         ) : null}
       </main>
     </div>
