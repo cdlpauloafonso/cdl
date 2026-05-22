@@ -58,9 +58,9 @@ service cloud.firestore {
 
     function inscriptionLimitValue(cfg) {
       let raw = cfg.get('inscriptionLimit', 0);
-      if (numericFieldPositive(raw)) return raw;
-      if (raw is string && raw.matches('^[1-9][0-9]*$')) return int(raw);
-      return 0;
+      return numericFieldPositive(raw)
+        ? raw
+        : (raw is string && raw.matches('^[1-9][0-9]*$') ? int(raw) : 0);
     }
 
     function campaignHasInscriptionLimit(cfg) {
