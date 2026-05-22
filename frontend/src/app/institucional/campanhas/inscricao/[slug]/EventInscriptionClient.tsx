@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   createEventInscription,
+  isInscriptionSoldOutForCampaign,
   CPF_ALREADY_REGISTERED_ERROR,
   getCampaign,
   getEventInscription,
@@ -29,7 +30,6 @@ import {
   EXTRA_INSCRIPTION_FIELDS,
   buildEventInscriptionFieldsPayload,
   getEffectiveRegistration,
-  isInscriptionSoldOut,
   inscriptionFieldInputKind,
   isEmpresaInscriptionFieldKey,
   isInscriptionFieldOptional,
@@ -359,6 +359,8 @@ export function EventInscriptionClient({
   const [existingInscription, setExistingInscription] = useState<
     (EventInscriptionRecord & { id: string }) | null
   >(null);
+  /** Esgotado pelo contador ou pelo número real de inscrições (contador pode ficar desatualizado). */
+  const [soldOutEffective, setSoldOutEffective] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -502,6 +504,26 @@ export function EventInscriptionClient({
   }, [campanha?.title]);
 
   const isDraftPreview = adminOk && campanha?.published === false;
+
+  useEffect(() => {
+    if (!campanha || isDraftPreview) {
+      setSoldOutEffective(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sold = await isInscriptionSoldOutForCampaign(slug, campanha);
+        if (!cancelled) setSoldOutEffective(sold);
+      } catch {
+        if (!cancelled) setSoldOutEffective(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campanha, slug, isDraftPreview]);
+
   const pageOuterClass = fillAppShellViewport
     ? 'flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]'
     : 'py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30';
@@ -607,7 +629,7 @@ export function EventInscriptionClient({
     );
   }
 
-  const inscricoesEncerradas = isInscriptionSoldOut(campanha);
+  const inscricoesEncerradas = soldOutEffective;
 
   if (inscricoesEncerradas && !isDraftPreview) {
     return (
@@ -873,8 +895,9 @@ export function EventInscriptionClient({
         return;
       }
       const fresh = await getCampaign(slug);
-      if (fresh && isInscriptionSoldOut(fresh) && !isDraftPreview) {
+      if (fresh && !isDraftPreview && (await isInscriptionSoldOutForCampaign(slug, fresh))) {
         setCampanha(fresh);
+        setSoldOutEffective(true);
         return;
       }
       if (fresh?.registrationClosed) {
@@ -973,7 +996,10 @@ export function EventInscriptionClient({
           const again = await getCampaign(slug);
           if (again) {
             setCampanha(again);
-            if (isInscriptionSoldOut(again) && !isDraftPreview) return;
+            if (!isDraftPreview && (await isInscriptionSoldOutForCampaign(slug, again))) {
+              setSoldOutEffective(true);
+              return;
+            }
           }
         } catch {
           /* ignore */

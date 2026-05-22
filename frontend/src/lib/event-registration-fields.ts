@@ -249,14 +249,13 @@ export function getInscriptionLimit(c: Pick<Campaign, 'registrationConfig'>): nu
   return parsePositiveInscriptionLimit(cfg.inscriptionLimit);
 }
 
-/** Limite de inscrições atingido (usa `inscriptionWebCount` no documento da campanha). */
+/**
+ * @deprecated Use `isInscriptionSoldOutForCampaign(campaignId, camp)` — único limite: `inscriptionLimit` na config.
+ */
 export function isInscriptionSoldOut(
-  c: Pick<Campaign, 'registrationConfig' | 'inscriptionWebCount'>
+  _c: Pick<Campaign, 'registrationConfig' | 'inscriptionWebCount'>
 ): boolean {
-  const limit = getInscriptionLimit(c);
-  if (limit == null) return false;
-  const count = parseInscriptionWebCountField(c.inscriptionWebCount);
-  return count >= limit;
+  return false;
 }
 
 /** Evento publicado, com inscrição configurada, não encerrada pelo admin e sem esgotar vagas. */
@@ -270,7 +269,6 @@ export function isEventInscriptionOpen(
   if (c.registrationClosed === true) return false;
   const reg = getEffectiveRegistration(c);
   if (reg.kind === 'none') return false;
-  if (reg.kind === 'form' && isInscriptionSoldOut(c)) return false;
   return true;
 }
 

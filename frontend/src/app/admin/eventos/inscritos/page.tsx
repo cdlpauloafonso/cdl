@@ -15,6 +15,7 @@ import {
 } from '@/lib/firestore';
 import {
   getEffectiveRegistration,
+  getInscriptionLimit,
   labelForInscriptionField,
   sortInscriptionFieldKeys,
 } from '@/lib/event-registration-fields';
@@ -25,6 +26,7 @@ import {
   paymentStatusBadgeClass,
   paymentStatusLabel,
 } from '@/lib/inscription-payment-status';
+import { parseInscriptionWebCountField } from '@/lib/inscription-limit';
 import { isInscriptionCredentialed } from '@/lib/event-credentialing';
 import {
   EVENT_ADMIN_LIST_PATH,
@@ -518,6 +520,8 @@ export default function AdminEventoInscritosPage() {
       setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
       setSelectedIds([]);
       setShowDeleteSelectedModal(false);
+      const refreshed = await getCampaign(eventId);
+      if (refreshed) setCampanha(refreshed);
     } catch {
       setError('Não foi possível excluir as inscrições selecionadas.');
     } finally {
@@ -745,6 +749,22 @@ export default function AdminEventoInscritosPage() {
               '—'
             )}
           </p>
+          {campanha && reg.kind === 'form' ? (
+            <p className="mt-2 text-sm text-cdl-gray-text">
+              <span className="font-medium text-gray-800">{rows.length}</span>
+              {(() => {
+                const lim = getInscriptionLimit(campanha);
+                return lim != null ? (
+                  <>
+                    {' '}
+                    de <span className="font-medium text-gray-800">{lim}</span> vagas pelo site
+                  </>
+                ) : (
+                  ' inscrições pelo site (sem limite configurado)'
+                );
+              })()}
+            </p>
+          ) : null}
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-auto lg:shrink-0">
           {!quickEditMode ? (

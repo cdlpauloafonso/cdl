@@ -56,13 +56,15 @@ service cloud.firestore {
       return (v is int || v is float) && v >= 0;
     }
 
-    function campaignInscriptionCount(d) {
-      let n = d.get('inscriptionWebCount', 0);
-      return numericFieldNonNegative(n) ? n : 0;
+    function inscriptionLimitValue(cfg) {
+      let raw = cfg.get('inscriptionLimit', 0);
+      if (numericFieldPositive(raw)) return raw;
+      if (raw is string && raw.matches('^[1-9][0-9]*$')) return int(raw);
+      return 0;
     }
 
     function campaignHasInscriptionLimit(cfg) {
-      return cfg is map && numericFieldPositive(cfg.get('inscriptionLimit', 0));
+      return cfg is map && inscriptionLimitValue(cfg) > 0;
     }
 
     function isValidVoucherCodeString(code) {
@@ -190,14 +192,10 @@ service cloud.firestore {
     function publicInscriptionCreateAllowed(campaignId) {
       let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
       let cfg = camp.get('registrationConfig', null);
-      let n = campaignInscriptionCount(camp);
-      let lim = cfg is map ? cfg.get('inscriptionLimit', 0) : 0;
-      let withinLimit = !campaignHasInscriptionLimit(cfg) || n < lim;
       return camp.get('published', true) != false
         && camp.get('registrationClosed', false) != true
         && cfg is map
         && cfg.get('type', '') == 'form'
-        && withinLimit
         && inscriptionCreatePayloadValid();
     }
 
@@ -229,24 +227,8 @@ service cloud.firestore {
         && inscriptionCreatePayloadValid();
     }
 
-    // Campanhas: leitura pública; escrita só admin, exceto incremento de inscriptionWebCount
-    // na inscrição pública quando há limite (transação com criação em inscricoes/).
-    // Valores numéricos do SDK podem ser int ou float no rules engine; aceitar ambos.
-    function publicInscriptionWebCountIncrement() {
-      let cfg = resource.data.get('registrationConfig', null);
-      let lim = cfg is map ? cfg.get('inscriptionLimit', 0) : 0;
-      let oldN = campaignInscriptionCount(resource.data);
-      let newRaw = request.resource.data.inscriptionWebCount;
-      let newN = numericFieldNonNegative(newRaw) ? newRaw : -1;
-      return request.auth == null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptionWebCount'])
-        && cfg is map
-        && cfg.get('type', '') == 'form'
-        && campaignHasInscriptionLimit(cfg)
-        && newN == oldN + 1
-        && newN <= lim
-        && oldN < lim;
-    }
+    // Campanhas: leitura pública; escrita só admin. Limite de vagas (ex.: 250) é validado no app
+    // contando documentos em `inscricoes`, não via campo legado inscriptionWebCount.
 
     // Link público de credenciamento: token em adminSecrets/credentialing (só admin).
     function credentialingSecretTokenMatches(campaignId, token) {
@@ -289,7 +271,7 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isAdmin() && campaignAdminWriteValid();
       allow delete: if isAdmin();
-      allow update: if (isAdmin() && campaignAdminWriteValid()) || publicInscriptionWebCountIncrement();
+      allow update: if isAdmin() && campaignAdminWriteValid();
 
       // Inscrições por evento: subcoleção inscricoes (formulário público).
       // Leitura pública: lista de inscritos, credenciamento, CPF já inscrito (inscricoesByCpf) e check-in no app.

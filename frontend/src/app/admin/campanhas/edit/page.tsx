@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import {
   getCampaign,
   updateCampaign,
-  countEventInscriptions,
   Campaign,
 } from '@/lib/firestore';
 import { hasEventFormRegistration } from '@/lib/event-registration-fields';
@@ -233,26 +232,11 @@ export default function AdminCampanhaEditByQueryPage() {
         ...rest
       } = campanha;
 
-      let inscriptionWebCountSync: number | undefined;
-      if (
-        wantsRegistrationLink &&
-        registrationMode === 'form' &&
-        inscriptionLimit != null &&
-        inscriptionLimit > 0
-      ) {
-        try {
-          inscriptionWebCountSync = await countEventInscriptions(id);
-        } catch {
-          /* mantém o valor já salvo no documento se a contagem falhar */
-        }
-      }
-
       await updateCampaign(id, {
         ...rest,
         checkInOnApp:
           campanha.checkInOnApp === true || campanha.credentialingOnApp === true,
         credentialingOnApp: false,
-        ...(inscriptionWebCountSync !== undefined ? { inscriptionWebCount: inscriptionWebCountSync } : {}),
         ...(wantsRegistrationLink
           ? registrationMode === 'external'
             ? {

@@ -1,5 +1,6 @@
 /**
- * Limite de inscrições no site: parsing defensivo (Firestore / formulários podem gravar string ou float).
+ * Campo «Limite de inscrições (formulário no site)» em `registrationConfig.inscriptionLimit`.
+ * Parsing defensivo (Firestore / formulários podem gravar string ou float).
  */
 
 /** Inteiro > 0 ou null se não houver limite válido. */
@@ -32,3 +33,4 @@ export function parseInscriptionWebCountField(value: unknown): number {
   }
   return 0;
 }
+

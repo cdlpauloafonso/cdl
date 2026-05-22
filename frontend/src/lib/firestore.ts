@@ -1,6 +1,6 @@
 import { getApps } from 'firebase/app';
 import { onlyDigitsCnpj } from './brasil-api-cnpj';
-import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
+import { parsePositiveInscriptionLimit } from './inscription-limit';
 import { normalizeVoucherCodeInput } from './event-vouchers-admin';
 import {
   eventRequiresUniqueCpfInscription,
@@ -140,10 +140,7 @@ export type Campaign = {
   paymentConfig?: CampaignPaymentConfig;
   /** Vouchers de desconto na inscrição (eventos). */
   vouchers?: EventVoucher[];
-  /**
-   * Contador público de inscrições pelo site (só incrementa quando há limite configurado).
-   * Usado para exibir «ingressos esgotados» sem listar a subcoleção.
-   */
+  /** @deprecated Ignorado. Limite de vagas: apenas `registrationConfig.inscriptionLimit`. */
   inscriptionWebCount?: number;
   /** Controle manual no admin para ocultar inscrição pública do evento. */
   registrationClosed?: boolean;
@@ -363,9 +360,9 @@ export async function createEventInscription(
   }
   const cfg = camp.registrationConfig;
   const limit = cfg?.type === 'form' ? parsePositiveInscriptionLimit(cfg.inscriptionLimit) : null;
-  const current = parseInscriptionWebCountField(camp.inscriptionWebCount);
+  const actualCount = limit != null ? await countEventInscriptions(campaignId) : 0;
 
-  if (!allowUnpublished && limit != null && current >= limit) {
+  if (!allowUnpublished && limit != null && actualCount >= limit) {
     throw new Error(INSCRIPTION_LIMIT_REACHED_ERROR);
   }
 
@@ -393,19 +390,9 @@ export async function createEventInscription(
         }
         tx.set(cpfRef, { inscriptionId: newInscRef.id, createdAt });
         tx.set(newInscRef, record);
-        if (limit != null) {
-          tx.update(campaignRef, { inscriptionWebCount: current + 1 });
-        }
       });
     } else {
       await setDoc(newInscRef, record);
-      if (limit != null) {
-        try {
-          await updateDoc(campaignRef, { inscriptionWebCount: current + 1 });
-        } catch {
-          /* contador pode ser ressincronizado no admin */
-        }
-      }
     }
   } catch (err) {
     if (err instanceof Error && err.message === CPF_ALREADY_REGISTERED_ERROR) {
@@ -598,6 +585,20 @@ export async function deleteEventInscription(campaignId: string, inscriptionId: 
     batch.delete(doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits));
   }
   await batch.commit();
+}
+
+/** Limite esgotado: compara inscrições em `inscricoes` com `registrationConfig.inscriptionLimit`. */
+export async function isInscriptionSoldOutForCampaign(
+  campaignId: string,
+  camp: Pick<Campaign, 'registrationConfig'>,
+): Promise<boolean> {
+  const limit =
+    camp.registrationConfig?.type === 'form'
+      ? parsePositiveInscriptionLimit(camp.registrationConfig.inscriptionLimit)
+      : null;
+  if (limit == null) return false;
+  const actual = await countEventInscriptions(campaignId);
+  return actual >= limit;
 }
 
 export async function countEventInscriptions(campaignId: string): Promise<number> {

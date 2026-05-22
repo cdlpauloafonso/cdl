@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { notFound, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { getCampaign, Campaign } from '@/lib/firestore';
+import { getCampaign, isInscriptionSoldOutForCampaign, type Campaign } from '@/lib/firestore';
 import {
   getEffectiveRegistration,
   hrefForExternalRegistration,
-  isInscriptionSoldOut,
 } from '@/lib/event-registration-fields';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { isCurrentUserAdmin } from '@/lib/admin-auth';
@@ -42,6 +41,7 @@ export function CampaignPageClient({
   const closedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [previewAdminOk, setPreviewAdminOk] = useState(false);
   const [previewAuthChecked, setPreviewAuthChecked] = useState(!previewRequested);
+  const [ingressosEsgotados, setIngressosEsgotados] = useState(false);
 
   const showSoldOutToast = () => {
     setSoldOutNotification(true);
@@ -87,6 +87,25 @@ export function CampaignPageClient({
   }, [slug]);
 
   useEffect(() => {
+    if (!campanha || campanha.registrationConfig?.type !== 'form') {
+      setIngressosEsgotados(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sold = await isInscriptionSoldOutForCampaign(slug, campanha);
+        if (!cancelled) setIngressosEsgotados(sold);
+      } catch {
+        if (!cancelled) setIngressosEsgotados(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campanha, slug]);
+
+  useEffect(() => {
     if (!previewRequested) return;
     initFirebase();
     let mounted = true;
@@ -122,8 +141,6 @@ export function CampaignPageClient({
   }
 
   const registration = getEffectiveRegistration(campanha);
-  const ingressosEsgotados =
-    registration.kind === 'form' && isInscriptionSoldOut(campanha);
 
   async function handleIrParaInscricao() {
     const base = campanha;
@@ -137,7 +154,8 @@ export function CampaignPageClient({
         return;
       }
       const regFresh = getEffectiveRegistration(c);
-      if (regFresh.kind === 'form' && isInscriptionSoldOut(c)) {
+      if (regFresh.kind === 'form' && (await isInscriptionSoldOutForCampaign(slug, c))) {
+        setIngressosEsgotados(true);
         showSoldOutToast();
         return;
       }

@@ -449,8 +449,9 @@ export function RegistrationLinkSection({
                     Limite de inscrições (formulário no site)
                   </label>
                   <p className="text-xs text-cdl-gray-text mb-2">
-                    Opcional. Quando o número de inscrições pelo site atingir esse limite, será exibida a mensagem de
-                    inscrições encerradas. Deixe em branco para não limitar.
+                    Único limite de vagas para inscrição pelo site. A contagem usa as inscrições gravadas (cada exclusão
+                    no admin libera uma vaga). Ao atingir o número, o formulário público exibe «ingressos esgotados».
+                    Deixe em branco para não limitar.
                   </p>
                   <input
                     type="text"
