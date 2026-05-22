@@ -100,7 +100,7 @@ function inscriptionSubmitErrorMessage(err: unknown): string {
     isFirestorePermissionDenied(err) ||
     (err instanceof Error && err.message === INSCRIPTION_PERMISSION_DENIED_ERROR)
   ) {
-    return 'Não foi possível registrar a inscrição (permissão negada). Tente novamente em alguns minutos ou fale com a CDL.';
+    return 'Não foi possível registrar a inscrição. Se você já tentou antes com o mesmo CPF, use «Já me inscrevi» ou outro CPF. Caso o problema continue, a equipe CDL precisa republicar as regras do Firebase e sincronizar o contador de vagas do evento no painel admin.';
   }
   if (!(err instanceof Error)) {
     return 'Não foi possível enviar. Tente novamente.';

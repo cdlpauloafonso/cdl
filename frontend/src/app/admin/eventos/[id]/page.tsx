@@ -8,6 +8,7 @@ import {
   getCampaign,
   listEventInscriptions,
   subscribeEventInscriptions,
+  syncCampaignInscriptionWebCount,
   updateCampaign,
   type Campaign,
   type EventInscriptionRecord,
@@ -174,6 +175,7 @@ export default function AdminEventoDetalhePage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingRegistration, setTogglingRegistration] = useState(false);
   const [togglingPublished, setTogglingPublished] = useState(false);
+  const [syncingInscriptionCount, setSyncingInscriptionCount] = useState(false);
   const [togglingCheckInOnApp, setTogglingCheckInOnApp] = useState(false);
 
   useEffect(() => {
@@ -280,6 +282,22 @@ export default function AdminEventoDetalhePage() {
     await applyRegistrationClosed(true);
   }
 
+  async function handleSyncInscriptionWebCount() {
+    if (!evento?.id) return;
+    setSyncingInscriptionCount(true);
+    setError('');
+    try {
+      const n = await syncCampaignInscriptionWebCount(evento.id);
+      setEvento((prev) => (prev ? { ...prev, inscriptionWebCount: n } : prev));
+    } catch {
+      setError(
+        'Não foi possível sincronizar o contador de vagas. Confirme que as regras do Firestore foram publicadas.',
+      );
+    } finally {
+      setSyncingInscriptionCount(false);
+    }
+  }
+
   async function setPublishedOnSite(published: boolean) {
     if (!evento?.id) return;
     try {
@@ -345,6 +363,8 @@ export default function AdminEventoDetalhePage() {
   const hasRegistration = hasEventRegistrationConfigured(evento);
   const hasFormRegistration = hasEventFormRegistration(evento);
   const inscricaoEncerrada = Boolean(evento.registrationClosed);
+  const legacyWebCount = evento.inscriptionWebCount ?? 0;
+  const staleWebCount = hasFormRegistration && legacyWebCount > inscritos;
   const reg = getEffectiveRegistration(evento, { ignoreRegistrationClosed: true });
   const payment = getEffectivePayment(evento);
   const publicSlug = evento.id ?? eventId;
@@ -625,8 +645,27 @@ export default function AdminEventoDetalhePage() {
                 : 'Encerrar inscrição'}
           </button>
         )}
+        {staleWebCount && (
+          <button
+            type="button"
+            onClick={() => void handleSyncInscriptionWebCount()}
+            disabled={syncingInscriptionCount}
+            className="btn-secondary text-sm !px-4 !py-2 disabled:opacity-50"
+            title="Após limpar inscrições de teste, alinha o contador legado com o total real"
+          >
+            {syncingInscriptionCount ? 'Sincronizando…' : 'Sincronizar contador de vagas'}
+          </button>
+        )}
       </div>
-      {hasRegistration && (
+      {staleWebCount && (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          O contador legado do evento ({legacyWebCount}) está maior que o total real de inscrições (
+          {inscritos}). Isso pode bloquear novas inscrições se as regras do Firestore no Firebase
+          ainda forem antigas. Clique em «Sincronizar contador de vagas» e publique as regras
+          atualizadas em Firestore → Rules.
+        </p>
+      )}
+      {hasRegistration && !staleWebCount && (
         <p className="mt-2 text-xs text-gray-500">
           Encerrar a inscrição oculta o formulário no site; você pode reabrir quando quiser.
         </p>

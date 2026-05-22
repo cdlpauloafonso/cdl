@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   deleteEventInscription,
+  syncCampaignInscriptionWebCount,
   getCampaign,
   subscribeEventInscriptions,
   updateEventInscriptionFields,
@@ -517,6 +518,7 @@ export default function AdminEventoInscritosPage() {
     setError('');
     try {
       await Promise.all(selectedIds.map((id) => deleteEventInscription(eventId, id)));
+      await syncCampaignInscriptionWebCount(eventId);
       setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
       setSelectedIds([]);
       setShowDeleteSelectedModal(false);

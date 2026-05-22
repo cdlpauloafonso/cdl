@@ -380,6 +380,10 @@ export async function createEventInscription(
   const enforceUniqueCpf = eventRequiresUniqueCpfInscription(camp);
   const cpfDigits = enforceUniqueCpf ? normalizeInscriptionCpfDigits(fields) : null;
 
+  if (cpfDigits) {
+    await clearOrphanCpfIndexIfNeeded(campaignId, cpfDigits);
+  }
+
   try {
     if (cpfDigits) {
       const cpfRef = doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits);
@@ -585,6 +589,11 @@ export async function deleteEventInscription(campaignId: string, inscriptionId: 
     batch.delete(doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits));
   }
   await batch.commit();
+  try {
+    await syncCampaignInscriptionWebCount(campaignId);
+  } catch {
+    /* admin sync opcional */
+  }
 }
 
 /** Limite esgotado: compara inscrições em `inscricoes` com `registrationConfig.inscriptionLimit`. */
@@ -606,6 +615,46 @@ export async function countEventInscriptions(campaignId: string): Promise<number
   const col = collection(db, 'campaigns', campaignId, 'inscricoes');
   const snap = await getCountFromServer(col);
   return snap.data().count;
+}
+
+/**
+ * Alinha `inscriptionWebCount` no documento da campanha com a contagem real em `inscricoes`.
+ * Necessário após limpar inscrições de teste se as regras Firestore no Firebase ainda forem antigas
+ * (bloqueiam create quando inscriptionWebCount >= limite).
+ */
+export async function syncCampaignInscriptionWebCount(campaignId: string): Promise<number> {
+  const db = getDb();
+  const count = await countEventInscriptions(campaignId);
+  await updateDoc(doc(db, 'campaigns', campaignId), { inscriptionWebCount: count });
+  return count;
+}
+
+/** Remove índice CPF sem inscrição correspondente (órfão após exclusão incompleta). */
+async function clearOrphanCpfIndexIfNeeded(campaignId: string, cpfDigits: string): Promise<void> {
+  const db = getDb();
+  const cpfRef = doc(db, 'campaigns', campaignId, 'inscricoesByCpf', cpfDigits);
+  const cpfSnap = await getDoc(cpfRef);
+  if (!cpfSnap.exists()) return;
+
+  const inscriptionId = String(cpfSnap.data()?.inscriptionId ?? '').trim();
+  if (!inscriptionId) {
+    try {
+      await deleteDoc(cpfRef);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
+  const inscRef = doc(db, 'campaigns', campaignId, 'inscricoes', inscriptionId);
+  const inscSnap = await getDoc(inscRef);
+  if (!inscSnap.exists()) {
+    try {
+      await deleteDoc(cpfRef);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export async function setCampaign(id: string, data: Campaign) {

@@ -215,6 +215,16 @@ service cloud.firestore {
         && d.createdAt.size() >= 10;
     }
 
+    // Após exclusão manual de inscrições, o índice CPF pode ficar órfão e bloquear novo cadastro.
+    function inscriptionCpfIndexOrphanDeleteAllowed(campaignId) {
+      let inscId = resource.data.get('inscriptionId', '');
+      return request.auth == null
+        && resource.data.keys().hasOnly(['inscriptionId', 'createdAt'])
+        && inscId is string
+        && inscId.size() >= 8
+        && !exists(/databases/$(database)/documents/campaigns/$(campaignId)/inscricoes/$(inscId));
+    }
+
     // Admin autenticado pode testar inscrição em evento em rascunho (published == false).
     function adminDraftInscriptionCreateAllowed(campaignId) {
       let camp = get(/databases/$(database)/documents/campaigns/$(campaignId)).data;
@@ -295,7 +305,8 @@ service cloud.firestore {
         allow create: if (publicInscriptionCreateAllowed(campaignId)
             || adminDraftInscriptionCreateAllowed(campaignId))
           && inscriptionCpfIndexCreateValid(campaignId, cpfKey);
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || inscriptionCpfIndexOrphanDeleteAllowed(campaignId);
       }
 
       // Sessão efêmera do link público (valida token; documento não é legível).
