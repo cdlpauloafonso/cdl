@@ -296,11 +296,19 @@ export function EventInscriptionClient({
   slug,
   previewRequested = false,
   resumeInscriptionId,
+  campanhasIndexHref = '/institucional/campanhas',
+  campanhaVerHref,
+  associeHref = '/associe-se',
+  fillAppShellViewport = false,
 }: {
   slug: string;
   previewRequested?: boolean;
   /** Retoma checkout Asaas ou confirmação após inscrição já gravada (link do credenciamento no app). */
   resumeInscriptionId?: string;
+  campanhasIndexHref?: string;
+  campanhaVerHref?: string;
+  associeHref?: string;
+  fillAppShellViewport?: boolean;
 }) {
   const [campanha, setCampanha] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -469,6 +477,12 @@ export function EventInscriptionClient({
   }, [campanha?.title]);
 
   const isDraftPreview = adminOk && campanha?.published === false;
+  const pageOuterClass = fillAppShellViewport
+    ? 'flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white to-cdl-gray/30 pb-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] sm:pb-16 sm:pt-[max(4rem,calc(env(safe-area-inset-top,0px)+2rem))]'
+    : 'py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30';
+  const eventVerHref =
+    campanhaVerHref ??
+    `/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${isDraftPreview ? '&preview=1' : ''}`;
 
   if (loading || resumeLoading || !authChecked) {
     return (
@@ -492,7 +506,7 @@ export function EventInscriptionClient({
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
         <div className="container-cdl max-w-2xl">
-          <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
+          <Link href={campanhasIndexHref} prefetch={false} className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
             ← Campanhas e eventos
           </Link>
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
@@ -510,7 +524,8 @@ export function EventInscriptionClient({
         <div className="container-cdl max-w-2xl">
           <nav className="mb-8">
             <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              href={eventVerHref}
+              prefetch={false}
               className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
             >
               <span aria-hidden>←</span> Voltar ao evento
@@ -529,7 +544,8 @@ export function EventInscriptionClient({
               As inscrições para este evento foram encerradas pela organização. Não é mais possível enviar novos cadastros pelo site.
             </p>
             <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              href={eventVerHref}
+              prefetch={false}
               className="btn-primary inline-block mt-8"
             >
               Voltar ao evento
@@ -545,7 +561,7 @@ export function EventInscriptionClient({
     return (
       <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
         <div className="container-cdl max-w-2xl">
-          <Link href="/institucional/campanhas" className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
+          <Link href={campanhasIndexHref} prefetch={false} className="text-sm text-cdl-blue hover:underline mb-6 inline-block">
             ← Campanhas e eventos
           </Link>
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
@@ -554,7 +570,8 @@ export function EventInscriptionClient({
               Este evento não está com inscrição pelo site ativa no momento.
             </p>
             <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              href={eventVerHref}
+              prefetch={false}
               className="btn-primary inline-block"
             >
               Voltar ao evento
@@ -573,7 +590,8 @@ export function EventInscriptionClient({
         <div className="container-cdl max-w-2xl">
           <nav className="mb-8">
             <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              href={eventVerHref}
+              prefetch={false}
               className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
             >
               <span aria-hidden>←</span> Voltar ao evento
@@ -592,7 +610,8 @@ export function EventInscriptionClient({
               O limite de inscrições para este evento foi atingido. Acompanhe nossos canais para novas oportunidades.
             </p>
             <Link
-              href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+              href={eventVerHref}
+              prefetch={false}
               className="btn-primary inline-block mt-8"
             >
               Voltar ao evento
@@ -1014,7 +1033,8 @@ export function EventInscriptionClient({
                   />
                 ) : null}
                 <Link
-                  href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}`}
+                  href={eventVerHref}
+              prefetch={false}
                   className="btn-primary inline-block"
                 >
                   Voltar ao evento
@@ -1028,12 +1048,13 @@ export function EventInscriptionClient({
   }
 
   return (
-    <div className="py-12 sm:py-16 bg-gradient-to-b from-white to-cdl-gray/30">
-      <div className="container-cdl max-w-2xl">
+    <div className={pageOuterClass}>
+      <div className={`container-cdl max-w-2xl ${fillAppShellViewport ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
         {isDraftPreview && <CampaignDraftPreviewBanner className="mb-6" />}
         <nav className="mb-8">
           <Link
-            href={`/institucional/campanhas/ver?slug=${encodeURIComponent(slug)}${isDraftPreview ? '&preview=1' : ''}`}
+            href={eventVerHref}
+            prefetch={false}
             className="text-sm text-cdl-blue hover:underline inline-flex items-center gap-1"
           >
             <span aria-hidden>←</span> Voltar ao evento
@@ -1118,7 +1139,7 @@ export function EventInscriptionClient({
                     tenha funcionado, fale com nosso atendimento.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Link href="/associe-se" className="btn-primary">
+                    <Link href={associeHref} prefetch={false} className="btn-primary">
                       Associe-se
                     </Link>
                     <a href={supportWhatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">

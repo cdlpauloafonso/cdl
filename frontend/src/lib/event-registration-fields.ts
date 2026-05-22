@@ -144,6 +144,25 @@ export function inscriptionParticipantEmail(fields: Record<string, string> | und
   return email;
 }
 
+/** Nome do participante para etiqueta de credenciamento (prioriza nome / representante). */
+export function inscriptionEtiquetaParticipantName(fields: Record<string, string> | undefined): string {
+  const f = fields ?? {};
+  const nome = (f.nome ?? f.nome_responsavel ?? '').trim();
+  if (nome) return nome;
+  return inscriptionDisplayLabel(fields);
+}
+
+/** Nome da empresa na etiqueta (fantasia ou razão social), se houver e for distinto do nome. */
+export function inscriptionEtiquetaCompanyName(fields: Record<string, string> | undefined): string | null {
+  const f = fields ?? {};
+  const participant = (f.nome ?? f.nome_responsavel ?? '').trim();
+  const empresa = (f.empresa ?? '').trim();
+  const razao = (f.razao_social ?? '').trim();
+  if (empresa && empresa !== participant) return empresa;
+  if (razao && razao !== participant && razao !== empresa) return razao;
+  return null;
+}
+
 /** Subtítulo opcional (empresa quando o título já é o nome, etc.). */
 export function inscriptionDisplaySubtitle(fields: Record<string, string> | undefined): string | null {
   const f = fields ?? {};

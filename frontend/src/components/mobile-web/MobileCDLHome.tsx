@@ -383,27 +383,25 @@ export function MobileCDLHome() {
         <div className="flex flex-1 flex-col">
         {checkInEvents.length > 0 && (
           <section className="mb-6 space-y-2">
-            <div className="px-0.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Check-in</p>
-              <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-                Área do inscrito — informe seu CPF e apresente o QR Code na entrada.
-              </p>
-            </div>
+            <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Check-in</p>
             {checkInEvents.map((ev) => {
               const eventId = ev.id ?? '';
               const title = (ev.title || 'Evento').trim();
               const href = eventId ? mobileAppShellHref(`/eventos/${eventId}/check-in`) : '#';
+              const cardText = (
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="text-sm font-bold tracking-tight text-white sm:text-[15px]">Fazer Check-in</p>
+                  <p className="mt-0.5 line-clamp-2 text-[10px] font-medium text-white/80">{title}</p>
+                </div>
+              );
               if (!eventId) {
                 return (
                   <div
                     key={title}
-                    className={`flex items-center gap-2 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-2.5 py-2.5 opacity-60 shadow-md shadow-slate-900/12`}
+                    className={`flex items-center gap-2.5 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-3 py-3 opacity-60 shadow-md shadow-slate-900/12`}
                   >
-                    <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{CHECK_IN_TILE_ICON}</span>
-                    <div className="min-w-0 flex-1 leading-tight">
-                      <p className="line-clamp-2 text-xs font-bold text-white">{title}</p>
-                      <p className="text-[10px] text-white/85">Check-in</p>
-                    </div>
+                    <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1.5 text-white">{CHECK_IN_TILE_ICON}</span>
+                    {cardText}
                   </div>
                 );
               }
@@ -412,18 +410,15 @@ export function MobileCDLHome() {
                   key={eventId}
                   href={href}
                   prefetch={false}
-                  className={`group flex min-h-0 items-center gap-2 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-2.5 py-2.5 shadow-md shadow-slate-900/12 transition-[filter] duration-200 hover:brightness-[1.06] active:scale-[0.99]`}
+                  className={`group flex min-h-0 items-center gap-2.5 overflow-hidden rounded-xl border border-white/35 bg-gradient-to-br ${CHECK_IN_TILE_GRADIENT} px-3 py-3 shadow-md shadow-slate-900/12 transition-[filter] duration-200 hover:brightness-[1.06] active:scale-[0.99]`}
                 >
-                  <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1 text-white">{CHECK_IN_TILE_ICON}</span>
-                  <div className="min-w-0 flex-1 leading-tight">
-                    <p className="line-clamp-2 text-xs font-bold text-white">{title}</p>
-                    <p className="text-[10px] text-white/85">Check-in</p>
-                  </div>
+                  <span className="inline-flex shrink-0 rounded-md bg-black/25 p-1.5 text-white">{CHECK_IN_TILE_ICON}</span>
+                  {cardText}
                   <span
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white group-hover:border-white/35"
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white group-hover:border-white/35"
                     aria-hidden
                   >
-                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </span>

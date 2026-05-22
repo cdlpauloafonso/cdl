@@ -151,6 +151,66 @@ export function CampaignPageClient({
     }
   }
 
+  const inscricaoIcon = (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+      />
+    </svg>
+  );
+
+  const inscricaoExternaIcon = (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+      />
+    </svg>
+  );
+
+  function renderFazerInscricaoButton(className = '') {
+    const baseClass = `inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90 ${className}`.trim();
+
+    if (registration.kind === 'external') {
+      return (
+        <a
+          href={hrefForExternalRegistration(registration.url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={baseClass}
+        >
+          {inscricaoExternaIcon}
+          Fazer inscrição
+        </a>
+      );
+    }
+    if (ingressosEsgotados) {
+      return (
+        <button
+          type="button"
+          title="Ingressos esgotados"
+          className={`${baseClass} ring-2 ring-amber-400/60 ring-offset-2`}
+          onClick={showSoldOutToast}
+        >
+          <span className="sr-only">Ingressos esgotados. Limite de inscrições atingido. </span>
+          {inscricaoIcon}
+          Fazer inscrição
+        </button>
+      );
+    }
+    return (
+      <button type="button" className={baseClass} onClick={() => void handleIrParaInscricao()}>
+        {inscricaoIcon}
+        Fazer inscrição
+      </button>
+    );
+  }
+
   return (
     <div
       className={`relative bg-gradient-to-b from-white to-cdl-gray/30 ${
@@ -203,6 +263,9 @@ export function CampaignPageClient({
             </span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">{campanha.title}</h1>
+          {registration.kind !== 'none' ? (
+            <div className="mb-4">{renderFazerInscricaoButton()}</div>
+          ) : null}
           <p className="text-xl text-cdl-gray-text leading-relaxed">{campanha.description}</p>
         </div>
 
@@ -233,45 +296,7 @@ export function CampaignPageClient({
         </section>
 
         {registration.kind !== 'none' && (
-          <section className="mb-10">
-            {registration.kind === 'external' ? (
-              <a
-                href={hrefForExternalRegistration(registration.url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Fazer inscrição
-              </a>
-            ) : ingressosEsgotados ? (
-              <button
-                type="button"
-                title="Ingressos esgotados"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm ring-2 ring-amber-400/60 ring-offset-2 transition-opacity hover:opacity-90"
-                onClick={showSoldOutToast}
-              >
-                <span className="sr-only">Ingressos esgotados. Limite de inscrições atingido. </span>
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-                Fazer inscrição
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cdl-blue px-6 py-3 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-                onClick={() => void handleIrParaInscricao()}
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-                Fazer inscrição
-              </button>
-            )}
-          </section>
+          <section className="mb-10">{renderFazerInscricaoButton()}</section>
         )}
 
         {campanha.highlights && campanha.highlights.length > 0 && (

@@ -32,6 +32,10 @@ import {
   resolveEventAdminBackHref,
 } from '@/lib/event-admin-navigation';
 import { EventAdminBackLink } from '@/components/admin/EventAdminBackLink';
+import {
+  EventInscriptionEtiquetaModal,
+  InscriptionEtiquetaButton,
+} from '@/components/event-credentialing/EventInscriptionEtiqueta';
 
 function collectColumnKeys(
   reg: ReturnType<typeof getEffectiveRegistration>,
@@ -221,6 +225,7 @@ export default function AdminEventoInscritosPage() {
     nextStatus: EventInscriptionPaymentStatus;
     asaasManaged: boolean;
   } | null>(null);
+  const [etiquetaRow, setEtiquetaRow] = useState<(EventInscriptionRecord & { id: string }) | null>(null);
 
   useEffect(() => {
     if (!eventId) {
@@ -1085,6 +1090,9 @@ export default function AdminEventoInscritosPage() {
                         <div className="mt-2 h-8 w-full" />
                       </div>
                     )}
+                    <div className="mt-3 flex justify-end">
+                      <InscriptionEtiquetaButton onClick={() => setEtiquetaRow(row)} />
+                    </div>
                   </article>
                 ))}
               </div>
@@ -1136,6 +1144,9 @@ export default function AdminEventoInscritosPage() {
                           Assinatura
                         </th>
                       )}
+                      <th className="w-24 px-2 py-3 text-left text-xs font-semibold uppercase text-gray-700">
+                        Etiqueta
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -1191,6 +1202,9 @@ export default function AdminEventoInscritosPage() {
                           </td>
                         )}
                         {showSignatureColumn && <td className="px-2 py-2 align-top" />}
+                        <td className="px-2 py-2 align-top">
+                          <InscriptionEtiquetaButton onClick={() => setEtiquetaRow(row)} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1200,6 +1214,14 @@ export default function AdminEventoInscritosPage() {
           )}
         </>
       )}
+
+      <EventInscriptionEtiquetaModal
+        open={etiquetaRow !== null}
+        onClose={() => setEtiquetaRow(null)}
+        eventId={eventId}
+        row={etiquetaRow}
+        eventTitle={campanha?.title}
+      />
 
       {paymentConfirmTarget && (
         <div

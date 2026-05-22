@@ -20,7 +20,11 @@ import {
   paymentStatusLabel,
 } from '@/lib/inscription-payment-status';
 import { isInscriptionCredentialed, formatCredentialedAt } from '@/lib/event-credentialing';
-import { hasEventFormRegistration, inscriptionDisplayLabel } from '@/lib/event-registration-fields';
+import {
+  hasEventFormRegistration,
+  inscriptionEtiquetaCompanyName,
+  inscriptionEtiquetaParticipantName,
+} from '@/lib/event-registration-fields';
 import { EventInscriptionCheckInQr } from '@/components/event-credentialing/EventInscriptionCheckInQr';
 
 type AppParticipantCheckInClientProps = {
@@ -47,6 +51,8 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
   const cpfDigits = cpfLookup.replace(/\D/g, '').slice(0, 11);
   const payment = campanha ? getEffectivePayment(campanha) : { kind: 'none' as const };
   const paymentPending = inscrito ? isInscriptionPaymentPending(inscrito, payment) : false;
+  const participantName = inscrito ? inscriptionEtiquetaParticipantName(inscrito.fields) : '';
+  const participantCompany = inscrito ? inscriptionEtiquetaCompanyName(inscrito.fields) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -142,9 +148,22 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
           </div>
         ) : campanha ? (
           <>
-            <p className="mb-4 text-sm leading-relaxed text-slate-600">
-              Área do inscrito: informe seu CPF para exibir o QR Code de check-in e validar sua entrada no evento.
-            </p>
+            {inscrito ? (
+              <div className="mb-6 px-2 py-4 text-center">
+                <p className="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl break-words">
+                  {participantName}
+                </p>
+                {participantCompany ? (
+                  <p className="mt-2 text-base font-medium leading-snug text-slate-600 break-words">
+                    {participantCompany}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mb-4 text-sm leading-relaxed text-slate-600">
+                Área do inscrito: informe seu CPF para exibir o QR Code de check-in e validar sua entrada no evento.
+              </p>
+            )}
 
             <div className="rounded-xl border border-cdl-blue/25 bg-white p-4 shadow-sm">
               <label htmlFor="checkin-cpf" className="block text-sm font-medium text-gray-900">
@@ -173,10 +192,6 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
 
               {inscrito ? (
                 <div className="mt-4 space-y-3">
-                  <p className="text-sm font-medium text-slate-900">
-                    {inscriptionDisplayLabel(inscrito.fields)}
-                  </p>
-
                   {paymentPending ? (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4">
                       <p className="text-sm font-semibold text-amber-950">Pagamento pendente</p>
@@ -211,7 +226,6 @@ export function AppParticipantCheckInClient({ eventId }: AppParticipantCheckInCl
                       <EventInscriptionCheckInQr
                         eventId={eventId}
                         inscriptionId={inscrito.id}
-                        participantLabel={inscriptionDisplayLabel(inscrito.fields)}
                         className="border-cdl-blue/15 bg-slate-50/80"
                       />
                     </>

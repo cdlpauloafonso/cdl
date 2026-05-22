@@ -3,6 +3,10 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { buildCredentialingQrPayload } from '@/lib/event-credentialing-qr';
 
+/** Azul CDL — distingue o QR de check-in do QR PIX (geralmente preto). */
+const CHECK_IN_QR_FG = '#1E3A8A';
+const CHECK_IN_QR_BG = '#FFFFFF';
+
 type EventInscriptionCheckInQrProps = {
   eventId: string;
   inscriptionId: string;
@@ -27,8 +31,15 @@ export function EventInscriptionCheckInQr({
       {participantLabel ? (
         <p className="mt-2 text-sm font-medium text-gray-800">{participantLabel}</p>
       ) : null}
-      <div className="mx-auto mt-4 inline-flex rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
-        <QRCodeSVG value={value} size={200} level="M" includeMargin />
+      <div className="mx-auto mt-4 inline-flex rounded-lg border border-cdl-blue/25 bg-white p-3 shadow-sm">
+        <QRCodeSVG
+          value={value}
+          size={200}
+          level="M"
+          includeMargin
+          fgColor={CHECK_IN_QR_FG}
+          bgColor={CHECK_IN_QR_BG}
+        />
       </div>
     </div>
   );
