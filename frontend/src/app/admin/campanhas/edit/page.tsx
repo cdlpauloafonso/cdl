@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   getCampaign,
-  updateCampaign,
   Campaign,
 } from '@/lib/firestore';
+import { updateCampaignViaAdminApi } from '@/lib/campaign-admin-api';
 import { hasEventFormRegistration } from '@/lib/event-registration-fields';
 import { RegistrationLinkSection, type RegistrationLinkMode } from '@/components/admin/RegistrationLinkSection';
 import { EventPaymentSection } from '@/components/admin/EventPaymentSection';
@@ -224,17 +224,19 @@ export default function AdminCampanhaEditByQueryPage() {
     setSaving(true);
     setError('');
     try {
-      const {
-        id: _removedId,
-        registrationConfig: _rc,
-        registrationUrl: _ru,
-        paymentConfig: _pay,
-        vouchers: _existingVouchers,
-        ...rest
-      } = campanha;
-
-      await updateCampaign(id, {
-        ...rest,
+      await updateCampaignViaAdminApi(id, {
+        title: campanha.title,
+        description: campanha.description,
+        fullDescription: campanha.fullDescription,
+        image: campanha.image,
+        date: campanha.date,
+        category: campanha.category,
+        highlights: campanha.highlights,
+        benefits: campanha.benefits,
+        howToParticipate: campanha.howToParticipate,
+        contact: campanha.contact,
+        published: campanha.published !== false,
+        registrationClosed: campanha.registrationClosed === true,
         checkInOnApp:
           campanha.checkInOnApp === true || campanha.credentialingOnApp === true,
         credentialingOnApp: false,
@@ -267,15 +269,8 @@ export default function AdminCampanhaEditByQueryPage() {
       });
       router.push('/admin/eventos');
     } catch (err: unknown) {
-      const code =
-        err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
-      if (code === 'permission-denied') {
-        setError(
-          'Permissão negada ao salvar (Firestore). Confira se as regras do Firebase estão publicadas e se os vouchers estão preenchidos corretamente.',
-        );
-      } else {
-        setError('Erro ao salvar evento');
-      }
+      const message = err instanceof Error ? err.message : 'Erro ao salvar evento';
+      setError(message);
     } finally {
       setSaving(false);
     }

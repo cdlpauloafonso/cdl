@@ -42,9 +42,15 @@ service cloud.firestore {
       return rc == null || isValidExternalRegistrationConfig(rc) || isValidFormRegistrationConfig(rc);
     }
 
-    // Só valida registrationConfig quando o campo entra no write (create ou update parcial).
+    // Create: valida campos enviados. Update: só valida campos presentes no patch (diff).
+    function campaignWriteTouchesField(field) {
+      return request.method == 'create'
+        || request.resource.data.diff(resource.data).affectedKeys().hasAny([field]);
+    }
+
     function campaignRegistrationConfigValidOnWrite() {
-      return !request.resource.data.keys().hasAny(['registrationConfig'])
+      return !campaignWriteTouchesField('registrationConfig')
+        || !request.resource.data.keys().hasAny(['registrationConfig'])
         || isValidRegistrationConfig(request.resource.data.registrationConfig);
     }
 
@@ -52,8 +58,31 @@ service cloud.firestore {
       return (v is int || v is float) && v > 0;
     }
 
+    function numericFieldPositiveLoose(v) {
+      return numericFieldPositive(v)
+        || (v is string && v.size() > 0 && v.matches('^[0-9]+(\\.[0-9]+)?$') && float(v) > 0);
+    }
+
     function numericFieldNonNegative(v) {
       return (v is int || v is float) && v >= 0;
+    }
+
+    function numericFieldNonNegativeLoose(v) {
+      return numericFieldNonNegative(v)
+        || (v is string && v.size() > 0 && v.matches('^[0-9]+(\\.[0-9]+)?$') && float(v) >= 0);
+    }
+
+    function voucherPercentDiscountOk(discountValue) {
+      return (discountValue is int && discountValue <= 100)
+        || (discountValue is float && discountValue <= 100)
+        || (discountValue is string
+          && discountValue.matches('^[0-9]+(\\.[0-9]+)?$')
+          && float(discountValue) <= 100);
+    }
+
+    function voucherDiscountValueValid(v) {
+      return numericFieldPositiveLoose(v.discountValue)
+        && (v.discountType != 'percent' || voucherPercentDiscountOk(v.discountValue));
     }
 
     function inscriptionLimitValue(cfg) {
@@ -127,10 +156,9 @@ service cloud.firestore {
         && v.id.size() <= 64
         && isValidVoucherCodeString(v.code)
         && v.discountType in ['percent', 'fixed']
-        && numericFieldPositive(v.discountValue)
-        && (v.discountType != 'percent' || v.discountValue <= 100)
-        && (!('maxUses' in v) || numericFieldPositive(v.maxUses))
-        && (!('usedCount' in v) || numericFieldNonNegative(v.usedCount))
+        && voucherDiscountValueValid(v)
+        && (!('maxUses' in v) || numericFieldPositiveLoose(v.maxUses))
+        && (!('usedCount' in v) || numericFieldNonNegativeLoose(v.usedCount))
         && (!('active' in v) || v.active is bool)
         && (!('label' in v) || (v.label is string && v.label.size() <= 120))
         && (!('expiresAt' in v) || (v.expiresAt is string && v.expiresAt.matches('^\\d{4}-\\d{2}-\\d{2}$')));
@@ -192,19 +220,30 @@ service cloud.firestore {
 
     function campaignPaymentAndVouchersValidOnWrite() {
       let d = request.resource.data;
-      let payOk = !d.keys().hasAny(['paymentConfig'])
+      let payOk = !campaignWriteTouchesField('paymentConfig')
+        || !d.keys().hasAny(['paymentConfig'])
         || isValidCampaignPaymentConfig(d.get('paymentConfig', null));
-      let vouchersOk = !d.keys().hasAny(['vouchers'])
+      let vouchersOk = !campaignWriteTouchesField('vouchers')
+        || !d.keys().hasAny(['vouchers'])
         || isValidEventVouchersList(d.get('vouchers', []));
       return payOk && vouchersOk;
     }
 
     function campaignEventFlagsValidOnWrite() {
       let d = request.resource.data;
-      return (!('checkInOnApp' in d) || d.checkInOnApp is bool)
-        && (!('credentialingOnApp' in d) || d.credentialingOnApp is bool)
-        && (!('registrationClosed' in d) || d.registrationClosed is bool)
-        && (!('published' in d) || d.published is bool);
+      let checkOk = !campaignWriteTouchesField('checkInOnApp')
+        || !('checkInOnApp' in d)
+        || d.checkInOnApp is bool;
+      let credOk = !campaignWriteTouchesField('credentialingOnApp')
+        || !('credentialingOnApp' in d)
+        || d.credentialingOnApp is bool;
+      let closedOk = !campaignWriteTouchesField('registrationClosed')
+        || !('registrationClosed' in d)
+        || d.registrationClosed is bool;
+      let pubOk = !campaignWriteTouchesField('published')
+        || !('published' in d)
+        || d.published is bool;
+      return checkOk && credOk && closedOk && pubOk;
     }
 
     function campaignAdminWriteValid() {

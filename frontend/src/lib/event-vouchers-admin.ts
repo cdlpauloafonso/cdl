@@ -157,21 +157,26 @@ export function buildEventVouchersForSave(
     if (discountValueRaw == null) {
       throw new Error('INVALID_VOUCHER_DRAFT');
     }
-    const discountValue = Number(discountValueRaw);
+    const discountValue =
+      d.discountType === 'percent'
+        ? Math.round(Number(discountValueRaw))
+        : Number(discountValueRaw);
     const maxUses = parseMaxUsesInput(d.maxUses);
     const expiresAt = d.expiresAt.trim() || undefined;
     const label = d.label.trim() || undefined;
-    return {
-      id: d.id,
+    const usedCount = Math.max(0, Math.floor(Number(prev?.usedCount ?? 0)));
+    const entry: EventVoucher = {
+      id: d.id.trim(),
       code,
-      ...(label ? { label } : {}),
       discountType: d.discountType,
       discountValue,
-      ...(maxUses != null ? { maxUses } : {}),
-      usedCount: prev?.usedCount ?? 0,
-      active: d.active,
-      ...(expiresAt ? { expiresAt } : {}),
+      active: d.active !== false,
     };
+    if (label) entry.label = label;
+    if (maxUses != null) entry.maxUses = maxUses;
+    if (usedCount > 0) entry.usedCount = usedCount;
+    if (expiresAt) entry.expiresAt = expiresAt;
+    return entry;
   });
 }
 

@@ -22,6 +22,8 @@ import {
   getEffectiveRegistration,
   hasEventFormRegistration,
   hasEventRegistrationConfigured,
+  inscriptionCertificateCompanyName,
+  inscriptionCertificateRepresentativeName,
   inscriptionDisplayLabel,
   inscriptionDisplaySubtitle,
 } from '@/lib/event-registration-fields';
@@ -78,6 +80,8 @@ function InscriptionCompactRow({
   variant = 'default',
   showCredentialedBadge = false,
   credentialedBadgeMuted = false,
+  /** Exibe representante + empresa (em vez de nome fantasia no título). */
+  showRepresentativeName = false,
 }: {
   row: EventInscriptionRecord & { id: string };
   meta: string;
@@ -85,9 +89,14 @@ function InscriptionCompactRow({
   variant?: 'default' | 'credentialed';
   showCredentialedBadge?: boolean;
   credentialedBadgeMuted?: boolean;
+  showRepresentativeName?: boolean;
 }) {
-  const label = inscriptionDisplayLabel(row.fields);
-  const subtitle = inscriptionDisplaySubtitle(row.fields);
+  const label = showRepresentativeName
+    ? inscriptionCertificateRepresentativeName(row.fields)
+    : inscriptionDisplayLabel(row.fields);
+  const subtitle = showRepresentativeName
+    ? inscriptionCertificateCompanyName(row.fields)
+    : inscriptionDisplaySubtitle(row.fields);
   const paymentPending = row.paymentStatus === 'pending';
   const paymentPaid = row.paymentStatus === 'paid' || row.paymentStatus === 'gratis';
   const credentialed = isInscriptionCredentialed(row);
@@ -540,6 +549,7 @@ export default function AdminEventoDetalhePage() {
                     row={row}
                     meta={formatDateTimeCompact(row.createdAt)}
                     payment={payment}
+                    showRepresentativeName
                     showCredentialedBadge={isInscriptionCredentialed(row)}
                   />
                 ))}

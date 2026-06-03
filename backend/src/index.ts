@@ -17,6 +17,7 @@ import asaas from './routes/asaas.js';
 import publicInscriptions from './routes/public-inscriptions.js';
 import credentialing from './routes/credentialing.js';
 import certificates from './routes/certificates.js';
+import adminCampaigns from './routes/admin-campaigns.js';
 
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/about', about);
 app.use('/api/asaas', asaas);
 app.use('/api/public', publicInscriptions);
 app.use('/api', credentialing);
+app.use('/api/admin/campaigns', adminCampaigns);
 // Montado em /api/events para não interceptar /api/asaas/* com authMiddleware global
 app.use('/api/events', certificates);
 
