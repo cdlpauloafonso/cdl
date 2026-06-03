@@ -109,6 +109,31 @@ export type EtiquetaDrawOptions = {
   qrDataUrl: string;
 };
 
+/**
+ * Escala uniforme da etiqueta para caber na área (mesmo visual, proporções ajustadas).
+ */
+export function fitEtiquetaInBox(
+  doc: import('jspdf').jsPDF,
+  boxWidthMm: number,
+  boxHeightMm: number,
+  getTitleImage: (drawWidthMm: number) => EtiquetaEventTitleImage | null,
+  base: Pick<EtiquetaDrawOptions, 'participantName' | 'companyName' | 'qrDataUrl'>,
+): { drawWidthMm: number; drawHeightMm: number; drawOpts: EtiquetaDrawOptions } {
+  let drawWidthMm = boxWidthMm;
+  let titleImage = getTitleImage(drawWidthMm);
+  let drawOpts: EtiquetaDrawOptions = { ...base, eventTitleImage: titleImage };
+  let drawHeightMm = etiquetaHeightMm(doc, drawWidthMm, drawOpts);
+
+  if (drawHeightMm > boxHeightMm && drawHeightMm > 0) {
+    drawWidthMm = drawWidthMm * (boxHeightMm / drawHeightMm);
+    titleImage = getTitleImage(drawWidthMm);
+    drawOpts = { ...base, eventTitleImage: titleImage };
+    drawHeightMm = etiquetaHeightMm(doc, drawWidthMm, drawOpts);
+  }
+
+  return { drawWidthMm, drawHeightMm, drawOpts };
+}
+
 /** Desenha uma etiqueta igual ao `EventInscriptionEtiquetaSheet` (escala proporcional à largura). */
 export function drawInscriptionEtiqueta(
   doc: import('jspdf').jsPDF,

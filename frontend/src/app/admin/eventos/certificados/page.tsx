@@ -18,8 +18,9 @@ import {
 } from '@/lib/certificate-email-api';
 import {
   hasEventFormRegistration,
+  inscriptionCertificateCompanyName,
+  inscriptionCertificateRepresentativeName,
   inscriptionDisplayLabel,
-  inscriptionDisplaySubtitle,
   inscriptionParticipantEmail,
 } from '@/lib/event-registration-fields';
 import { isInscriptionCredentialed } from '@/lib/event-credentialing';
@@ -143,8 +144,9 @@ export default function AdminEventoCertificadosPage() {
     if (!term) return eligibleRows;
     return eligibleRows.filter((r) => {
       const blob = [
+        inscriptionCertificateRepresentativeName(r.fields),
+        inscriptionCertificateCompanyName(r.fields) ?? '',
         inscriptionDisplayLabel(r.fields),
-        inscriptionDisplaySubtitle(r.fields) ?? '',
         inscriptionParticipantEmail(r.fields) ?? '',
         ...Object.values(r.fields || {}).map((x) => String(x)),
       ]
@@ -207,7 +209,7 @@ export default function AdminEventoCertificadosPage() {
 
   async function handleDownloadOne(row: Row) {
     if (!campanha) return;
-    const name = inscriptionDisplayLabel(row.fields);
+    const name = inscriptionCertificateRepresentativeName(row.fields);
     setExportingId(row.id);
     setError('');
     try {
@@ -476,16 +478,9 @@ export default function AdminEventoCertificadosPage() {
           ) : (
             <ul className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
               {filteredRows.map((row) => {
-                const name = inscriptionDisplayLabel(row.fields);
+                const representativeName = inscriptionCertificateRepresentativeName(row.fields);
+                const companyName = inscriptionCertificateCompanyName(row.fields);
                 const email = inscriptionParticipantEmail(row.fields);
-                const rawSubtitle = inscriptionDisplaySubtitle(row.fields);
-                const subtitleNorm = rawSubtitle?.trim().toLowerCase() ?? '';
-                const subtitle =
-                  rawSubtitle &&
-                  subtitleNorm !== (email ?? '') &&
-                  subtitleNorm !== name.trim().toLowerCase()
-                    ? rawSubtitle
-                    : null;
                 const sentLabel = formatSentAt(row.certificateEmailSentAt);
                 const busyPdf = exportingId === row.id;
                 const busyEmail = sendingId === row.id;
@@ -504,16 +499,14 @@ export default function AdminEventoCertificadosPage() {
                         disabled={!canSelect || sendingBulk}
                         onChange={() => toggleSelect(row.id)}
                         className="h-3.5 w-3.5 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue disabled:opacity-40"
-                        aria-label={`Selecionar ${inscriptionDisplayLabel(row.fields)}`}
+                        aria-label={`Selecionar ${representativeName}`}
                       />
                     </div>
                     <div className="min-w-0 flex-1 leading-snug">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-                        <p className="text-sm font-semibold text-gray-900">{name}</p>
-                        {subtitle ? (
-                          <span className="text-xs text-gray-500">{subtitle}</span>
-                        ) : null}
-                      </div>
+                      <p className="text-sm font-semibold text-gray-900">{representativeName}</p>
+                      {companyName ? (
+                        <p className="text-xs font-medium text-gray-600">{companyName}</p>
+                      ) : null}
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         {email ? (
                           <span className="text-[11px] text-gray-500">{email}</span>

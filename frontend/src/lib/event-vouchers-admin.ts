@@ -1,6 +1,9 @@
 import type { Campaign, EventVoucher, EventVoucherDiscountType } from './firestore';
 import { parsePaymentAmountInput } from './campaign-payment-admin';
 
+/** Limite alinhado às regras Firestore (`isValidEventVouchersList`). */
+export const MAX_EVENT_VOUCHERS = 30;
+
 export type EventVoucherDraft = {
   id: string;
   code: string;
@@ -22,9 +25,16 @@ export function normalizeVoucherCodeInput(raw: string): string {
     .replace(/[^A-Z0-9_-]/g, '');
 }
 
+function newVoucherDraftId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `v-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export function createEmptyVoucherDraft(): EventVoucherDraft {
   return {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `v-${Date.now()}`,
+    id: newVoucherDraftId(),
     code: '',
     label: '',
     discountType: 'percent',
@@ -38,8 +48,13 @@ export function createEmptyVoucherDraft(): EventVoucherDraft {
 export function loadEventVoucherDraftsFromCampaign(campaign?: Pick<Campaign, 'vouchers'> | null): EventVoucherDraft[] {
   const list = campaign?.vouchers;
   if (!Array.isArray(list) || list.length === 0) return [];
-  return list.map((v) => ({
-    id: v.id,
+  const seenIds = new Set<string>();
+  return list.map((v) => {
+    let id = typeof v.id === 'string' && v.id.length >= 8 ? v.id : newVoucherDraftId();
+    if (seenIds.has(id)) id = newVoucherDraftId();
+    seenIds.add(id);
+    return {
+    id,
     code: v.code ?? '',
     label: v.label ?? '',
     discountType: v.discountType === 'fixed' ? 'fixed' : 'percent',
@@ -58,7 +73,8 @@ export function loadEventVoucherDraftsFromCampaign(campaign?: Pick<Campaign, 'vo
     expiresAt: v.expiresAt ?? '',
     active: v.active !== false,
     usedCount: v.usedCount ?? 0,
-  }));
+  };
+  });
 }
 
 function parsePercentInput(raw: string): number | null {
@@ -79,9 +95,21 @@ function parseMaxUsesInput(raw: string): number | null | undefined {
 
 /** Valida rascunhos; retorna mensagem de erro ou null se ok. */
 export function validateEventVoucherDrafts(drafts: EventVoucherDraft[]): string | null {
+  if (drafts.length > MAX_EVENT_VOUCHERS) {
+    return `Máximo de ${MAX_EVENT_VOUCHERS} vouchers por evento. Remova algum antes de adicionar outro.`;
+  }
   const codes = new Set<string>();
+  const ids = new Set<string>();
   for (let i = 0; i < drafts.length; i += 1) {
     const d = drafts[i];
+    if (!d.id?.trim() || d.id.length < 8) {
+      return `Voucher ${i + 1}: identificador interno inválido. Remova e adicione o voucher novamente.`;
+    }
+    if (ids.has(d.id)) {
+      return `Voucher ${i + 1}: identificador duplicado. Remova um dos vouchers repetidos e adicione de novo.`;
+    }
+    ids.add(d.id);
+
     const code = normalizeVoucherCodeInput(d.code);
     if (!code || code.length < 3) {
       return `Voucher ${i + 1}: informe um código com pelo menos 3 caracteres (letras, números, - ou _).`;
@@ -129,7 +157,7 @@ export function buildEventVouchersForSave(
     if (discountValueRaw == null) {
       throw new Error('INVALID_VOUCHER_DRAFT');
     }
-    const discountValue = discountValueRaw;
+    const discountValue = Number(discountValueRaw);
     const maxUses = parseMaxUsesInput(d.maxUses);
     const expiresAt = d.expiresAt.trim() || undefined;
     const label = d.label.trim() || undefined;

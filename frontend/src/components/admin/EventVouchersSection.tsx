@@ -3,6 +3,7 @@
 import {
   createEmptyVoucherDraft,
   formatVoucherDraftDiscountPreview,
+  MAX_EVENT_VOUCHERS,
   normalizeVoucherCodeInput,
   type EventVoucherDraft,
 } from '@/lib/event-vouchers-admin';
@@ -26,7 +27,10 @@ function previewDiscount(d: EventVoucherDraft): string | null {
 }
 
 export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouchersSectionProps) {
+  const atMax = vouchers.length >= MAX_EVENT_VOUCHERS;
+
   function addVoucher() {
+    if (atMax) return;
     onVouchersChange([...vouchers, createEmptyVoucherDraft()]);
   }
 
@@ -40,13 +44,14 @@ export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouche
         <div>
           <p className="text-sm font-medium text-gray-900">Vouchers de desconto</p>
           <p className="text-xs text-cdl-gray-text mt-0.5">
-            Códigos promocionais para a inscrição. Adicione quantos precisar; cada um com código único.
+            Códigos promocionais para a inscrição (até {MAX_EVENT_VOUCHERS} por evento). Cada um com código único.
           </p>
         </div>
         <button
           type="button"
           onClick={addVoucher}
-          className="shrink-0 rounded-lg border border-cdl-blue bg-white px-3 py-1.5 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/5"
+          disabled={atMax}
+          className="shrink-0 rounded-lg border border-cdl-blue bg-white px-3 py-1.5 text-sm font-medium text-cdl-blue hover:bg-cdl-blue/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           + Adicionar voucher
         </button>
@@ -211,9 +216,10 @@ export function EventVouchersSection({ vouchers, onVouchersChange }: EventVouche
         <button
           type="button"
           onClick={addVoucher}
-          className="mt-4 w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm text-cdl-gray-text hover:border-cdl-blue hover:text-cdl-blue"
+          disabled={atMax}
+          className="mt-4 w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm text-cdl-gray-text hover:border-cdl-blue hover:text-cdl-blue disabled:cursor-not-allowed disabled:opacity-50"
         >
-          + Adicionar outro voucher
+          {atMax ? `Limite de ${MAX_EVENT_VOUCHERS} vouchers atingido` : '+ Adicionar outro voucher'}
         </button>
       ) : null}
     </div>

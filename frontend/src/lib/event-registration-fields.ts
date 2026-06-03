@@ -158,6 +158,20 @@ export function formatInscritoNameUppercase(name: string | null | undefined): st
   return t ? t.toLocaleUpperCase('pt-BR') : '';
 }
 
+/** Representante no certificado (nome ou nome do representante). */
+export function inscriptionCertificateRepresentativeName(
+  fields: Record<string, string> | undefined,
+): string {
+  return inscriptionEtiquetaParticipantName(fields);
+}
+
+/** Empresa no certificado (fantasia ou razão social), se distinta do representante. */
+export function inscriptionCertificateCompanyName(
+  fields: Record<string, string> | undefined,
+): string | null {
+  return inscriptionEtiquetaCompanyName(fields);
+}
+
 /** Nome da empresa na etiqueta (fantasia ou razão social), se houver e for distinto do nome. */
 export function inscriptionEtiquetaCompanyName(fields: Record<string, string> | undefined): string | null {
   const f = fields ?? {};

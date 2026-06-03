@@ -1,6 +1,23 @@
 import { registerCertificatePdfFonts, setCertificateFont } from '@/lib/certificate-pdf-fonts';
 import { formatCertificateEventSchedule } from '@/lib/event-datetime';
-import { inscriptionDisplayLabel } from '@/lib/event-registration-fields';
+import {
+  inscriptionCertificateCompanyName,
+  inscriptionCertificateRepresentativeName,
+} from '@/lib/event-registration-fields';
+
+export type CertificateParticipantDisplay = {
+  representativeName: string;
+  companyName: string | null;
+};
+
+export function certificateParticipantFromFields(
+  fields: Record<string, string>,
+): CertificateParticipantDisplay {
+  return {
+    representativeName: inscriptionCertificateRepresentativeName(fields),
+    companyName: inscriptionCertificateCompanyName(fields),
+  };
+}
 
 export type EventCertificateParticipant = {
   inscriptionId: string;
@@ -70,7 +87,7 @@ function drawCertificatePage(
   doc: import('jspdf').jsPDF,
   logoDataUrl: string | null,
   event: EventCertificateEventInfo,
-  participantName: string,
+  participant: CertificateParticipantDisplay,
 ) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -149,12 +166,26 @@ function drawCertificatePage(
 
   y += 10;
   const nameY = y;
-  const name = normalizeCertificateText(participantName) || 'Participante';
+  const representativeName =
+    normalizeCertificateText(participant.representativeName) || 'Participante';
+  const companyName = participant.companyName
+    ? normalizeCertificateText(participant.companyName)
+    : null;
+
   setCertificateFont(doc, 'bold');
   doc.setFontSize(22);
-  const nameLines = wrapTextByWords(doc, name, contentW);
+  const nameLines = wrapTextByWords(doc, representativeName, contentW);
   const nameLineH = 8.5;
-  const nameBlockH = Math.max(nameLineH, nameLines.length * nameLineH);
+  let nameBlockH = Math.max(nameLineH, nameLines.length * nameLineH);
+
+  let companyLines: string[] = [];
+  let companyLineH = 5.5;
+  if (companyName) {
+    setCertificateFont(doc, 'normal');
+    doc.setFontSize(12);
+    companyLines = wrapTextByWords(doc, companyName, contentW);
+    nameBlockH += 2 + Math.max(companyLineH, companyLines.length * companyLineH);
+  }
 
   y = nameY + nameBlockH + 1.5;
   setCertificateFont(doc, 'normal');
@@ -256,7 +287,7 @@ function drawCertificatePage(
   });
   doc.text(`Documento emitido em ${issued}`, cx, panelFooterY + 3, { align: 'center' });
 
-  // Nome do participante por cima do painel (evita ficar oculto pelo fundo cinza)
+  // Representante e empresa por cima do painel (evita ficar oculto pelo fundo cinza)
   doc.setTextColor(...COLORS.ink);
   setCertificateFont(doc, 'bold');
   doc.setFontSize(22);
@@ -265,6 +296,17 @@ function drawCertificatePage(
     doc.text(line, cx, ny, { align: 'center' });
     ny += nameLineH;
   });
+
+  if (companyLines.length > 0) {
+    ny += 2;
+    doc.setTextColor(...COLORS.slate);
+    setCertificateFont(doc, 'normal');
+    doc.setFontSize(12);
+    companyLines.forEach((line) => {
+      doc.text(line, cx, ny, { align: 'center' });
+      ny += companyLineH;
+    });
+  }
 }
 
 export async function buildEventCertificatesPdf(
@@ -279,7 +321,7 @@ export async function buildEventCertificatesPdf(
 
   participants.forEach((p, index) => {
     if (index > 0) doc.addPage();
-    drawCertificatePage(doc, logoDataUrl, event, inscriptionDisplayLabel(p.fields));
+    drawCertificatePage(doc, logoDataUrl, event, certificateParticipantFromFields(p.fields));
   });
 
   return doc;

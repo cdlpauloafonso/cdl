@@ -141,10 +141,11 @@ service cloud.firestore {
       return index >= list.size() || isValidEventVoucherEntry(list[index]);
     }
 
+    // Máximo 30 vouchers por evento (validação por índice — Rules não permite loop).
     function isValidEventVouchersList(list) {
       return list is list
         && list.size() >= 0
-        && list.size() <= 10
+        && list.size() <= 30
         && eventVoucherAtIndexValid(list, 0)
         && eventVoucherAtIndexValid(list, 1)
         && eventVoucherAtIndexValid(list, 2)
@@ -154,7 +155,27 @@ service cloud.firestore {
         && eventVoucherAtIndexValid(list, 6)
         && eventVoucherAtIndexValid(list, 7)
         && eventVoucherAtIndexValid(list, 8)
-        && eventVoucherAtIndexValid(list, 9);
+        && eventVoucherAtIndexValid(list, 9)
+        && eventVoucherAtIndexValid(list, 10)
+        && eventVoucherAtIndexValid(list, 11)
+        && eventVoucherAtIndexValid(list, 12)
+        && eventVoucherAtIndexValid(list, 13)
+        && eventVoucherAtIndexValid(list, 14)
+        && eventVoucherAtIndexValid(list, 15)
+        && eventVoucherAtIndexValid(list, 16)
+        && eventVoucherAtIndexValid(list, 17)
+        && eventVoucherAtIndexValid(list, 18)
+        && eventVoucherAtIndexValid(list, 19)
+        && eventVoucherAtIndexValid(list, 20)
+        && eventVoucherAtIndexValid(list, 21)
+        && eventVoucherAtIndexValid(list, 22)
+        && eventVoucherAtIndexValid(list, 23)
+        && eventVoucherAtIndexValid(list, 24)
+        && eventVoucherAtIndexValid(list, 25)
+        && eventVoucherAtIndexValid(list, 26)
+        && eventVoucherAtIndexValid(list, 27)
+        && eventVoucherAtIndexValid(list, 28)
+        && eventVoucherAtIndexValid(list, 29);
     }
 
     function isValidCampaignPaymentConfig(pc) {
