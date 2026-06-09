@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-/** Início das atividades externas — 11/06/2026, 16h (horário de Brasília). */
-const EVENT_START = new Date('2026-06-11T16:00:00-03:00');
+/** Início das atividades — 11/06/2026, 17h30 (horário de Brasília). */
+const EVENT_START = new Date('2026-06-11T17:30:00-03:00');
 
 type TimeLeft = {
   days: number;

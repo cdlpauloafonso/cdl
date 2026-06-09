@@ -39,31 +39,6 @@ const REALIZACAO_LOGOS: PartnerLogoConfig[] = [
   },
 ];
 
-/** Patrocinadores comerciais (logos em public/eventos/cenarios-tendencias-2026/patrocinadores/). */
-const PATROCINADORES_LOGOS: PartnerLogoConfig[] = [];
-
-const APOIO_LOGOS: PartnerLogoConfig[] = [
-  {
-    src: '/eventos/cenarios-tendencias-2026/parceiros/sebrae.png',
-    alt: 'Sebrae',
-    width: 200,
-    height: 108,
-  },
-  {
-    src: '/eventos/cenarios-tendencias-2026/parceiros/governo-bahia.png',
-    alt: 'Governo do Estado da Bahia',
-    width: 260,
-    height: 84,
-    blendDarken: true,
-  },
-  {
-    src: '/eventos/cenarios-tendencias-2026/parceiros/cielo.png',
-    alt: 'Cielo',
-    width: 200,
-    height: 70,
-  },
-];
-
 const INFO_CARDS = [
   {
     icon: CalendarIcon,
@@ -93,10 +68,10 @@ const INFO_CARDS = [
 
 const STRUCTURE = [
   { time: '16h', label: 'Atividades externas', detail: 'Integração, networking e ações com parceiros no entorno do auditório.' },
-  { time: '18h', label: 'Credenciamento', detail: 'Recepção dos participantes e check-in no auditório.' },
-  { time: '19h', label: 'Abertura oficial', detail: 'Autoridades, CDL, Sebrae e instituições parceiras.' },
-  { time: '19h40', label: 'Palestras e painéis', detail: 'Conteúdo técnico com especialistas nacionais e regionais.' },
-  { time: '22h', label: 'Encerramento', detail: 'Coquetel de encerramento e relacionamento empresarial.' },
+  { time: '17h30', label: 'Credenciamento e networking', detail: 'Recepção, check-in e integração entre participantes.' },
+  { time: '18h30', label: 'Abertura oficial', detail: 'Cerimônia de abertura com autoridades e instituições parceiras.' },
+  { time: '19h', label: 'Palestras', detail: 'Comunicação, tendências do varejo, relações de trabalho e reforma tributária.' },
+  { time: '22h05', label: 'Encerramento oficial', detail: 'Encerramento do evento.' },
 ] as const;
 
 type ScheduleParticipant = { name: string; role: string };
@@ -112,63 +87,78 @@ type ScheduleItem = {
 
 const SCHEDULE: ScheduleItem[] = [
   {
-    time: '18:00',
-    type: 'Credenciamento',
-    note: 'Recepção e check-in no auditório.',
+    time: '17:30',
+    type: 'Credenciamento e networking',
+    note: '17h30 às 18h30',
+    participants: [],
+  },
+  {
+    time: '18:30',
+    type: 'Abertura oficial',
+    note: 'Cerimônia de abertura do evento.',
     participants: [],
   },
   {
     time: '19:00',
-    type: 'Abertura',
-    participants: [
-      { name: 'Caio Arruda', role: 'Presidente da CDL Paulo Afonso' },
-      { name: 'Mário Galinho', role: 'Prefeito de Paulo Afonso' },
-      { name: 'Jorge Khoury', role: 'Diretor-Superintendente do Sebrae Bahia' },
-      { name: 'Angelo Almeida', role: 'Deputado Estadual' },
-      { name: 'Zé Neto', role: 'Deputado Federal' },
-    ],
+    type: 'Palestra 01',
+    theme: 'Comunicação e Propaganda para o Varejo',
+    note: '19h00 às 19h20',
+    participants: [{ name: 'Juliana Jozzolino', role: 'Diretora Comercial da Rede Bahia' }],
   },
   {
     time: '19:40',
-    type: 'Palestra 1',
-    theme: 'Pós-NRF: o som da confiança em tempos artificiais',
+    type: 'Palestra 02',
+    theme: 'Pós-NRF: Tendências para o Comércio Mundial',
     participants: [{ name: 'Marcela Cabral', role: 'Palestrante' }],
   },
   {
     time: '20:30',
-    type: 'Painel 1',
-    theme: 'A importância do associativismo',
-    participants: [
-      { name: 'Pedro Luiz Failla', role: 'Presidente da FCDL Bahia' },
-      { name: 'Paulo Cavalcanti', role: 'Presidente da FACEB' },
-      { name: 'Kelsor Fernandes', role: 'Presidente da Fecomércio — BA' },
-    ],
+    type: 'Palestra 03',
+    theme: 'Teses Vinculantes do TST: Impactos nas Relações de Trabalho',
+    participants: [{ name: 'Luziane Farias', role: 'Juíza da 37ª Vara do Trabalho de Salvador' }],
   },
   {
-    time: '21:00',
-    type: 'Palestra 2',
-    theme: 'Teses vinculantes do TST: impactos nas relações de trabalho',
-    participants: [
-      { name: 'Luziane Farias', role: 'Juíza da 37ª Vara do Trabalho de Salvador' },
-    ],
+    time: '21:20',
+    type: 'Palestra 04',
+    theme: 'Reforma Tributária: O que muda e como isso impacta o seu negócio',
+    participants: [{ name: 'Glicio Oliveira', role: 'Empresário e palestrante em finanças corporativas' }],
   },
   {
-    time: '21:30',
-    type: 'Palestra 3',
-    theme: 'Reforma Tributária',
-    participants: [
-      { name: 'Glicio Oliveira', role: 'Empresário e palestrante em finanças corporativas' },
-    ],
+    time: '22:05',
+    type: 'Encerramento oficial',
+    note: 'Encerramento do evento.',
+    participants: [],
   },
 ];
 
-const HIGHLIGHTS = [
+type HighlightConfig = {
+  name: string;
+  topic: string;
+  image: string;
+};
+
+const HIGHLIGHTS: HighlightConfig[] = [
+  {
+    name: 'Juliana Jozzolino',
+    topic: 'Comunicação e Propaganda para o Varejo',
+    image: '/eventos/cenarios-tendencias-2026/destaques/palestra-01-juliana-jozzolino.png',
+  },
   {
     name: 'Marcela Cabral',
-    role: 'Palestrante',
-    topic: 'Pós-NRF: o som da confiança em tempos artificiais',
+    topic: 'Pós-NRF: Tendências para o Comércio Mundial',
+    image: '/eventos/cenarios-tendencias-2026/destaques/palestra-02-marcela-cabral.png',
   },
-] as const;
+  {
+    name: 'Luziane Farias',
+    topic: 'Teses Vinculantes do TST: Impactos nas Relações de Trabalho',
+    image: '/eventos/cenarios-tendencias-2026/destaques/palestra-03-luziane-farias.png',
+  },
+  {
+    name: 'Glicio Oliveira',
+    topic: 'Reforma Tributária: O que muda e como isso impacta o seu negócio',
+    image: '/eventos/cenarios-tendencias-2026/destaques/palestra-04-glicio-oliveira.png',
+  },
+];
 
 function ScheduleProgramCard({ item }: { item: ScheduleItem }) {
   return (
@@ -254,12 +244,12 @@ export function CenariosTendencias2026Landing() {
           </nav>
 
           <div className="flex flex-1 flex-col items-center justify-center px-4 pb-16 pt-4 text-center sm:px-8">
-            <div className="ctm-animate-float mx-auto w-full max-w-md sm:max-w-lg md:max-w-xl">
+            <div className="ctm-animate-float mx-auto w-full max-w-xl sm:max-w-2xl md:max-w-3xl">
               <Image
                 src="/eventos/cenarios-tendencias-2026/logo-evento.png"
                 alt="Cenários, Tendências e Mercado 2026"
-                width={640}
-                height={400}
+                width={1024}
+                height={576}
                 className="mx-auto h-auto w-full drop-shadow-[0_0_40px_rgba(56,189,248,0.25)]"
                 priority
               />
@@ -312,7 +302,7 @@ export function CenariosTendencias2026Landing() {
               Falta pouco para o <span className="ctm-text-shimmer">grande encontro</span>
             </h2>
             <p className="mt-2 text-center text-sm text-slate-400">
-              Início das atividades — 11 de junho de 2026, às 16h
+              Início das atividades — 11 de junho de 2026, às 17h30
             </p>
             <div className="mt-10">
               <EventCountdown />
@@ -421,7 +411,7 @@ export function CenariosTendencias2026Landing() {
               Painéis e palestras
             </h2>
             <p className="mt-3 max-w-2xl text-slate-400">
-              Credenciamento às 18h, abertura às 19h e programação técnica a partir das 19h40, com especialistas de
+              Credenciamento e networking às 17h30, abertura às 18h30 e palestras a partir das 19h, com especialistas de
               referência nacional e regional.
             </p>
           </RevealSection>
@@ -445,14 +435,19 @@ export function CenariosTendencias2026Landing() {
               Referências que movem o mercado
             </h2>
           </RevealSection>
-          <div className="mx-auto mt-10 max-w-xl">
+          <div className="mx-auto mt-10 grid max-w-5xl gap-5 sm:grid-cols-2 lg:max-w-6xl lg:grid-cols-4 lg:gap-6">
             {HIGHLIGHTS.map((h, i) => (
-              <RevealSection key={h.name} delayMs={i * 100}>
-                <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-950/50 to-slate-900/30 p-8">
-                  <h3 className="font-[var(--font-ctm-display)] text-2xl font-semibold text-white">{h.name}</h3>
-                  <p className="mt-1 text-sm font-medium text-sky-400">{h.role}</p>
-                  <p className="mt-4 text-slate-300 leading-relaxed">{h.topic}</p>
-                </div>
+              <RevealSection key={h.name} delayMs={i * 80}>
+                <figure className="overflow-hidden rounded-2xl border border-sky-500/20 shadow-xl shadow-sky-900/25 transition hover:border-sky-400/35 hover:shadow-sky-900/40">
+                  <Image
+                    src={h.image}
+                    alt={`${h.name} — ${h.topic}`}
+                    width={576}
+                    height={1024}
+                    className="h-auto w-full"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  />
+                </figure>
               </RevealSection>
             ))}
           </div>
@@ -523,21 +518,6 @@ export function CenariosTendencias2026Landing() {
                 Fale com a CDL
               </a>
             </div>
-
-            <div className="mt-16 border-t border-white/10 pt-12">
-              <SectionLabel>Patrocinadores</SectionLabel>
-              {PATROCINADORES_LOGOS.length > 0 ? (
-                <div className="mx-auto mt-8 grid max-w-3xl grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 sm:gap-4">
-                  {PATROCINADORES_LOGOS.map((logo, i) => (
-                    <RevealSection key={logo.alt} delayMs={i * 60}>
-                      <PartnerLogoCard logo={logo} />
-                    </RevealSection>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-6 text-sm text-slate-500">Em breve divulgaremos nossos patrocinadores.</p>
-              )}
-            </div>
           </RevealSection>
         </div>
       </section>
@@ -555,15 +535,14 @@ export function CenariosTendencias2026Landing() {
               ))}
             </div>
 
-            <div className="mt-14 text-center">
-              <SectionLabel>Apoio</SectionLabel>
-            </div>
-            <div className="mt-8 grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 sm:gap-4">
-              {APOIO_LOGOS.map((logo, i) => (
-                <RevealSection key={logo.alt} delayMs={i * 60}>
-                  <PartnerLogoCard logo={logo} />
-                </RevealSection>
-              ))}
+            <div className="mx-auto mt-14 max-w-5xl">
+              <Image
+                src="/eventos/cenarios-tendencias-2026/patrocinadores-apoio.png"
+                alt="Patrocinadores: Aliança Motos, ATEL, Fiat Cachoeira, Sicoob e NeoTech. Apoio: Sebrae, Cielo, Governo do Estado da Bahia, Rede Bahia TV São Francisco e UniRios."
+                width={1024}
+                height={576}
+                className="mx-auto h-auto w-full rounded-2xl border border-sky-500/15 shadow-xl shadow-sky-900/20"
+              />
             </div>
           </RevealSection>
         </div>
