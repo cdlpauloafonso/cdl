@@ -1,21 +1,22 @@
 /**
- * Pimaco 6182 — folha Carta, 14 etiquetas (2 colunas × 7 linhas).
- * Etiqueta: 101,6 mm × 33,9 mm (paisagem).
+ * Folha A4 — 14 etiquetas (2 colunas × 7 linhas), coladas verticalmente.
+ * Célula: 99,1 mm × 38,1 mm; conteúdo útil: 80 mm de largura.
  */
 export const PIMACO_6182 = {
-  pageWidthMm: 215.9,
-  pageHeightMm: 279.4,
-  labelWidthMm: 101.6,
-  labelHeightMm: 33.9,
+  pageWidthMm: 210,
+  pageHeightMm: 297,
+  labelWidthMm: 99.1,
+  labelHeightMm: 38.1,
   cols: 2,
   rows: 7,
   labelsPerSheet: 14,
-  marginTopMm: 12.7,
-  marginLeftMm: 4.8,
-  gapHorizontalMm: 2.5,
+  /** Primeira fila a 1,7 cm do topo da folha A4. */
+  marginTopMm: 17,
+  marginLeftMm: (210 - 2 * 99.1) / 2,
+  gapHorizontalMm: 0,
   gapVerticalMm: 0,
-  /** Margem interna de segurança dentro de cada etiqueta. */
-  safePaddingMm: 2,
+  /** Largura útil para título, nome, empresa e QR. */
+  contentWidthMm: 80,
 } as const;
 
 export function pimaco6182LabelOrigin(col: number, row: number): { x: number; y: number } {
@@ -27,17 +28,18 @@ export function pimaco6182LabelOrigin(col: number, row: number): { x: number; y:
   };
 }
 
-export function pimaco6182SafeArea(labelX: number, labelY: number): {
+/** Área de 80 mm centralizada na célula da etiqueta. */
+export function pimaco6182ContentArea(labelX: number, labelY: number): {
   x: number;
   y: number;
   widthMm: number;
   heightMm: number;
 } {
-  const pad = PIMACO_6182.safePaddingMm;
+  const offsetX = (PIMACO_6182.labelWidthMm - PIMACO_6182.contentWidthMm) / 2;
   return {
-    x: labelX + pad,
-    y: labelY + pad,
-    widthMm: PIMACO_6182.labelWidthMm - pad * 2,
-    heightMm: PIMACO_6182.labelHeightMm - pad * 2,
+    x: labelX + offsetX,
+    y: labelY,
+    widthMm: PIMACO_6182.contentWidthMm,
+    heightMm: PIMACO_6182.labelHeightMm,
   };
 }

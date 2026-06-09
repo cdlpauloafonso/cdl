@@ -37,19 +37,64 @@ function measureWithTracking(
   return w;
 }
 
-function truncateWithTracking(
+function wrapWordWithTracking(
+  ctx: CanvasRenderingContext2D,
+  word: string,
+  maxWidthPx: number,
+  trackingPx: number,
+): string[] {
+  if (measureWithTracking(ctx, word, trackingPx) <= maxWidthPx) return [word];
+
+  const chunks: string[] = [];
+  let chunk = '';
+  for (const ch of word) {
+    const candidate = `${chunk}${ch}`;
+    if (measureWithTracking(ctx, candidate, trackingPx) <= maxWidthPx) {
+      chunk = candidate;
+    } else {
+      if (chunk) chunks.push(chunk);
+      chunk = ch;
+    }
+  }
+  if (chunk) chunks.push(chunk);
+  return chunks.length > 0 ? chunks : [word];
+}
+
+/** Quebra o título em linhas dentro da largura útil, sem truncar. */
+function wrapTextWithTracking(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidthPx: number,
   trackingPx: number,
-): string {
-  if (measureWithTracking(ctx, text, trackingPx) <= maxWidthPx) return text;
-  const ellipsis = '\u2026';
-  for (let len = text.length - 1; len > 0; len--) {
-    const candidate = `${text.slice(0, len)}${ellipsis}`;
-    if (measureWithTracking(ctx, candidate, trackingPx) <= maxWidthPx) return candidate;
+): string[] {
+  const words = text.split(' ').filter(Boolean);
+  if (words.length === 0) return [];
+
+  const lines: string[] = [];
+  let current = '';
+
+  const pushLine = (line: string) => {
+    if (line) lines.push(line);
+  };
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (measureWithTracking(ctx, candidate, trackingPx) <= maxWidthPx) {
+      current = candidate;
+      continue;
+    }
+
+    pushLine(current);
+
+    const wordLines = wrapWordWithTracking(ctx, word, maxWidthPx, trackingPx);
+    for (let i = 0; i < wordLines.length - 1; i++) {
+      pushLine(wordLines[i]!);
+    }
+    current = wordLines[wordLines.length - 1] ?? '';
   }
-  return ellipsis;
+
+  pushLine(current);
+  return lines;
 }
 
 function drawWithTracking(
@@ -97,12 +142,15 @@ export function createEtiquetaEventTitleImage(
   if (!measureCtx) return null;
 
   measureCtx.font = canvasFont(scale);
-  const displayText = truncateWithTracking(measureCtx, formatted, maxWidthPx, trackingPx);
-  const textWidthPx = Math.ceil(measureWithTracking(measureCtx, displayText, trackingPx));
+  const lines = wrapTextWithTracking(measureCtx, formatted, maxWidthPx, trackingPx);
+  if (lines.length === 0) return null;
+
+  const textWidthPx = Math.ceil(maxWidthPx);
+  const textHeightPx = lines.length * lineHeightPx;
 
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, textWidthPx);
-  canvas.height = Math.max(1, lineHeightPx);
+  canvas.height = Math.max(1, textHeightPx);
 
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -110,14 +158,16 @@ export function createEtiquetaEventTitleImage(
   ctx.font = canvasFont(scale);
   ctx.fillStyle = TITLE_COLOR;
   ctx.textBaseline = 'top';
-  drawWithTracking(ctx, displayText, 0, 0, trackingPx);
+  lines.forEach((line, index) => {
+    drawWithTracking(ctx, line, 0, index * lineHeightPx, trackingPx);
+  });
 
   const pxToMm = (px: number) => (px / RENDER_SCALE / 96) * 25.4;
 
   return {
     dataUrl: canvas.toDataURL('image/png'),
     textWidthMm: pxToMm(textWidthPx),
-    textHeightMm: pxToMm(lineHeightPx),
+    textHeightMm: pxToMm(textHeightPx),
     marginBottomMm: ((TITLE_MARGIN_BOTTOM_PX * scale) / 96) * 25.4,
   };
 }

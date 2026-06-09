@@ -4,15 +4,16 @@ import {
 } from '@/lib/event-registration-fields';
 import { buildCredentialingQrPayload } from '@/lib/event-credentialing-qr';
 import {
+  bulkEtiquetaQrSizeMm,
+  bulkEtiquetaTextAreaWidthMm,
   drawInscriptionEtiqueta,
-  etiquetaTextAreaWidthMm,
   fitEtiquetaInBox,
 } from '@/lib/inscription-etiqueta-layout';
 import { createEtiquetaEventTitleImage } from '@/lib/inscription-etiqueta-title-image';
 import {
   PIMACO_6182,
+  pimaco6182ContentArea,
   pimaco6182LabelOrigin,
-  pimaco6182SafeArea,
 } from '@/lib/pimaco-6182-sheet';
 
 export type InscriptionEtiquetaPdfItem = {
@@ -27,20 +28,20 @@ export type InscriptionEtiquetasBulkPdfOptions = {
   fileName?: string;
 };
 
-/** QR preto, igual ao `QRCodeSVG` da etiqueta individual (sem fgColor azul). */
-async function qrPngDataUrl(payload: string): Promise<string> {
-  const QRCode = (await import('qrcode')).default;
-  return QRCode.toDataURL(payload, {
-    width: 72,
-    margin: 0,
-    errorCorrectionLevel: 'M',
-    color: { dark: '#000000', light: '#FFFFFF' },
-  });
+function qrPngDataUrl(payload: string, qrSizeMm: number): Promise<string> {
+  const sizePx = Math.max(160, Math.round((qrSizeMm / 25.4) * 300));
+  return import('qrcode').then((mod) =>
+    mod.default.toDataURL(payload, {
+      width: sizePx,
+      margin: 0,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#FFFFFF' },
+    }),
+  );
 }
 
 /**
- * PDF Pimaco 6182 (Carta): 14 etiquetas/folha (2×7), 101,6×33,9 mm cada.
- * Visual idêntico à etiqueta do inscrito, com escala uniforme na célula.
+ * PDF A4: 14 etiquetas/folha (2×7), célula 99,1×38,1 mm, conteúdo em 80 mm sem bordas.
  */
 export async function downloadInscriptionEtiquetasBulkPdf(
   options: InscriptionEtiquetasBulkPdfOptions,
@@ -49,24 +50,30 @@ export async function downloadInscriptionEtiquetasBulkPdf(
   if (!eventId.trim() || items.length === 0) return false;
 
   try {
+    const qrSizeMm = bulkEtiquetaQrSizeMm(PIMACO_6182.labelHeightMm);
+    const textAreaWidthMm = bulkEtiquetaTextAreaWidthMm(
+      PIMACO_6182.contentWidthMm,
+      PIMACO_6182.labelHeightMm,
+    );
+
     const qrById = new Map<string, string>();
     await Promise.all(
       items.map(async (item) => {
         const payload = buildCredentialingQrPayload(eventId, item.inscriptionId);
-        qrById.set(item.inscriptionId, await qrPngDataUrl(payload));
+        qrById.set(item.inscriptionId, await qrPngDataUrl(payload, qrSizeMm));
       }),
     );
 
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({
       unit: 'mm',
-      format: 'letter',
+      format: 'a4',
       orientation: 'portrait',
       compress: true,
     });
 
     const getTitleImage = (drawWidthMm: number) =>
-      createEtiquetaEventTitleImage(eventTitle, drawWidthMm, etiquetaTextAreaWidthMm(drawWidthMm));
+      createEtiquetaEventTitleImage(eventTitle, drawWidthMm, textAreaWidthMm);
 
     let slot = 0;
 
@@ -75,37 +82,36 @@ export async function downloadInscriptionEtiquetasBulkPdf(
       if (!qrDataUrl) continue;
 
       if (slot > 0 && slot % PIMACO_6182.labelsPerSheet === 0) {
-        doc.addPage('letter', 'portrait');
+        doc.addPage('a4', 'portrait');
       }
 
       const indexOnSheet = slot % PIMACO_6182.labelsPerSheet;
       const col = indexOnSheet % PIMACO_6182.cols;
       const row = Math.floor(indexOnSheet / PIMACO_6182.cols);
       const { x: labelX, y: labelY } = pimaco6182LabelOrigin(col, row);
-      const safe = pimaco6182SafeArea(labelX, labelY);
+      const content = pimaco6182ContentArea(labelX, labelY);
 
-      const { drawWidthMm, drawHeightMm, drawOpts } = fitEtiquetaInBox(
+      const { drawWidthMm, drawOpts } = fitEtiquetaInBox(
         doc,
-        safe.widthMm,
-        safe.heightMm,
+        content.widthMm,
+        content.heightMm,
         getTitleImage,
         {
           participantName: inscriptionEtiquetaParticipantName(item.fields),
           companyName: inscriptionEtiquetaCompanyName(item.fields) ?? '',
           qrDataUrl,
         },
+        'bulkPdf',
       );
 
-      const drawX = safe.x + (safe.widthMm - drawWidthMm) / 2;
-      const drawY = safe.y + (safe.heightMm - drawHeightMm) / 2;
-      drawInscriptionEtiqueta(doc, drawX, drawY, drawWidthMm, drawOpts);
+      drawInscriptionEtiqueta(doc, content.x, content.y, drawWidthMm, drawOpts);
 
       slot += 1;
     }
 
     const safeTitle =
       (eventTitle ?? 'evento').replace(/[^\w\u00C0-\u024f\s-]+/gi, '').trim().slice(0, 36) || 'evento';
-    doc.save(fileName ?? `etiquetas-pimaco6182-${safeTitle.replace(/\s+/g, '-')}-${items.length}.pdf`);
+    doc.save(fileName ?? `etiquetas-${safeTitle.replace(/\s+/g, '-')}-${items.length}.pdf`);
     return true;
   } catch {
     return false;

@@ -3,6 +3,8 @@
 import type { Campaign, EventInscriptionRecord } from '@/lib/firestore';
 import {
   getEffectiveRegistration,
+  inscriptionCertificateCompanyName,
+  inscriptionCertificateRepresentativeName,
   inscriptionDisplayCpf,
   inscriptionDisplayLabel,
   inscriptionDisplaySubtitle,
@@ -33,6 +35,14 @@ const AUTOCOMPLETE_LIMIT = 8;
 
 function onlyDigits(value: string): string {
   return value.replace(/\D/g, '');
+}
+
+function credentialingRowLabel(fields: Record<string, string> | undefined): string {
+  return inscriptionCertificateRepresentativeName(fields);
+}
+
+function credentialingRowSubtitle(fields: Record<string, string> | undefined): string | null {
+  return inscriptionCertificateCompanyName(fields);
 }
 
 function inscriptionCnpjDigits(fields: Record<string, string> | undefined): string {
@@ -94,8 +104,8 @@ function searchMatchScore(row: EventInscriptionRecord, term: string): number {
   if (!trimmed) return 0;
 
   const fields = row.fields ?? {};
-  const label = inscriptionDisplayLabel(fields);
-  const subtitle = inscriptionDisplaySubtitle(fields);
+  const label = credentialingRowLabel(fields);
+  const subtitle = credentialingRowSubtitle(fields);
   const termDigits = onlyDigits(trimmed);
   const cpf = normalizeInscriptionCpfDigits(fields);
   const cnpj = inscriptionCnpjDigits(fields);
@@ -200,8 +210,8 @@ export function EventCredentialingPanel({
     if (trimmedSearch.length < 1) return [];
     const ranked = rows
       .map((row) => {
-        const label = inscriptionDisplayLabel(row.fields);
-        const subtitle = inscriptionDisplaySubtitle(row.fields);
+        const label = credentialingRowLabel(row.fields);
+        const subtitle = credentialingRowSubtitle(row.fields);
         const score = searchMatchScore(row, trimmedSearch);
         if (score < 0) return null;
         return { row, label, subtitle, score };
@@ -396,19 +406,53 @@ export function EventCredentialingPanel({
         onScan={(text) => void handleQrScan(text)}
       />
 
-      <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
-        <div className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-center">
-          <p className="text-lg font-bold leading-none tabular-nums text-gray-900">{stats.total}</p>
-          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">Inscritos</p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center">
-          <p className="text-lg font-bold leading-none tabular-nums text-emerald-900">{stats.credentialed}</p>
-          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800">Credenciados</p>
-        </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-center">
-          <p className="text-lg font-bold leading-none tabular-nums text-amber-900">{stats.pending}</p>
-          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800">Aguardando</p>
-        </div>
+      <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2" role="group" aria-label="Filtrar inscritos">
+        {(
+          [
+            {
+              id: 'all' as const,
+              count: stats.total,
+              label: 'Inscritos',
+              countClass: 'text-gray-900',
+              labelClass: 'text-gray-500',
+              baseClass: 'border-gray-200 bg-white',
+              activeClass: 'ring-2 ring-cdl-blue ring-offset-1',
+            },
+            {
+              id: 'credentialed' as const,
+              count: stats.credentialed,
+              label: 'Credenciados',
+              countClass: 'text-emerald-900',
+              labelClass: 'text-emerald-800',
+              baseClass: 'border-emerald-200 bg-emerald-50',
+              activeClass: 'ring-2 ring-emerald-600 ring-offset-1',
+            },
+            {
+              id: 'pending' as const,
+              count: stats.pending,
+              label: 'Aguardando',
+              countClass: 'text-amber-900',
+              labelClass: 'text-amber-800',
+              baseClass: 'border-amber-200 bg-amber-50',
+              activeClass: 'ring-2 ring-amber-600 ring-offset-1',
+            },
+          ] as const
+        ).map((card) => (
+          <button
+            key={card.id}
+            type="button"
+            aria-pressed={filter === card.id}
+            onClick={() => setFilter(card.id)}
+            className={`rounded-lg border px-2 py-2 text-center transition-shadow hover:shadow-sm ${card.baseClass} ${
+              filter === card.id ? card.activeClass : ''
+            }`}
+          >
+            <p className={`text-lg font-bold leading-none tabular-nums ${card.countClass}`}>{card.count}</p>
+            <p className={`mt-0.5 text-[10px] font-medium uppercase tracking-wide ${card.labelClass}`}>
+              {card.label}
+            </p>
+          </button>
+        ))}
       </div>
 
       <div className="mt-4 space-y-2">
@@ -541,29 +585,6 @@ export function EventCredentialingPanel({
             </ul>
           ) : null}
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { id: 'pending' as const, label: 'Aguardando' },
-              { id: 'credentialed' as const, label: 'Credenciados' },
-              { id: 'all' as const, label: 'Todos' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilter(tab.id)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${
-                filter === tab.id
-                  ? 'bg-cdl-blue text-white ring-cdl-blue'
-                  : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {filteredRows.length === 0 ? (
@@ -584,10 +605,10 @@ export function EventCredentialingPanel({
         >
           {filteredRows.map((row) => {
             const credentialed = isInscriptionCredentialed(row);
-            const label = inscriptionDisplayLabel(row.fields);
+            const label = credentialingRowLabel(row.fields);
             const cpf = inscriptionDisplayCpf(row.fields);
             const showCpf = shouldShowInscriptionCpfBesideLabel(row.fields, label);
-            const subtitle = inscriptionDisplaySubtitle(row.fields);
+            const subtitle = credentialingRowSubtitle(row.fields);
             const paymentPending = paymentConfigured && row.paymentStatus === 'pending';
             const busy = updatingId === row.id;
             const credAt = credentialed ? formatDateTimeCompact(row.credentialedAt) : '';

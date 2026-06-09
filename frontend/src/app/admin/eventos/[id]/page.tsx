@@ -591,6 +591,7 @@ export default function AdminEventoDetalhePage() {
                     }
                     payment={payment}
                     variant="credentialed"
+                    showRepresentativeName
                     showCredentialedBadge
                     credentialedBadgeMuted
                   />
