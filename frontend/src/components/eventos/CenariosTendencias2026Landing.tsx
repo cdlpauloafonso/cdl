@@ -11,7 +11,7 @@ import {
   resolveCdlWhatsAppNumber,
 } from '@/lib/cdl-whatsapp';
 
-const INSCRIPTION_HREF = '/institucional/campanhas/inscricao?slug=cenariosetendencias2026';
+const INSCRIPTION_HREF = '/institucional/campanhas/inscricao?slug=vwbSdJs8MEfoPXwcLtid';
 
 const WHATSAPP_EVENT_MESSAGE =
   'Olá! Gostaria de saber mais sobre o evento Cenários, Tendências e Mercado 2026.';
