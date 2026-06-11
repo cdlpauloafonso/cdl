@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { listCampaigns, countEventInscriptions, type Campaign } from '@/lib/firestore';
+import { listCampaigns, type Campaign } from '@/lib/firestore';
+import { parseInscriptionWebCountField } from '@/lib/inscription-limit';
 import { formatEventDateForDisplay } from '@/lib/event-datetime';
 import { campaignPublicPageUrl } from '@/lib/campaign-preview';
 import { hasEventFormRegistration, hasEventRegistrationConfigured } from '@/lib/event-registration-fields';
@@ -79,19 +80,11 @@ export default function AdminEventosPage() {
         const list = await listCampaigns();
         if (!mounted) return;
         setItems(sortCampaignsByEventDateDesc(list));
-        const countEntries = await Promise.all(
-          list
-            .filter((ev) => !!ev.id && hasEventFormRegistration(ev))
-            .map(async (ev) => {
-              try {
-                const total = await countEventInscriptions(ev.id as string);
-                return [ev.id as string, total] as const;
-              } catch {
-                return [ev.id as string, 0] as const;
-              }
-            })
-        );
-        if (!mounted) return;
+        // Usa o contador sincronizado no documento (campo inscriptionWebCount),
+        // evitando uma query de agregação por evento (economia de cota do Firestore).
+        const countEntries = list
+          .filter((ev) => !!ev.id && hasEventFormRegistration(ev))
+          .map((ev) => [ev.id as string, parseInscriptionWebCountField(ev.inscriptionWebCount)] as const);
         setInscritosPorEvento(Object.fromEntries(countEntries));
       } catch {
         if (mounted) setError('Erro ao carregar eventos');

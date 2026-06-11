@@ -1,6 +1,6 @@
 import { getApps } from 'firebase/app';
 import { onlyDigitsCnpj } from './brasil-api-cnpj';
-import { parsePositiveInscriptionLimit } from './inscription-limit';
+import { parseInscriptionWebCountField, parsePositiveInscriptionLimit } from './inscription-limit';
 import { normalizeVoucherCodeInput } from './event-vouchers-admin';
 import {
   eventRequiresUniqueCpfInscription,
@@ -641,18 +641,27 @@ export async function deleteEventInscription(campaignId: string, inscriptionId: 
   }
 }
 
-/** Limite esgotado: compara inscrições em `inscricoes` com `registrationConfig.inscriptionLimit`. */
+/**
+ * Limite esgotado.
+ *
+ * Usa o campo `inscriptionWebCount` (mantido sincronizado pela API a cada inscrição),
+ * que já vem no documento da campanha — custo zero de leitura. Evita a query de
+ * agregação (`getCountFromServer` → runAggregationQuery), que consome cota do Firestore
+ * em cada visualização pública e pode causar `resource-exhausted`/"Quota exceeded".
+ *
+ * A contagem real continua autoritativa no backend (Admin SDK) ao criar a inscrição.
+ */
 export async function isInscriptionSoldOutForCampaign(
-  campaignId: string,
-  camp: Pick<Campaign, 'registrationConfig'>,
+  _campaignId: string,
+  camp: Pick<Campaign, 'registrationConfig' | 'inscriptionWebCount'>,
 ): Promise<boolean> {
   const limit =
     camp.registrationConfig?.type === 'form'
       ? parsePositiveInscriptionLimit(camp.registrationConfig.inscriptionLimit)
       : null;
   if (limit == null) return false;
-  const actual = await countEventInscriptions(campaignId);
-  return actual >= limit;
+  const known = parseInscriptionWebCountField(camp.inscriptionWebCount);
+  return known >= limit;
 }
 
 export async function countEventInscriptions(campaignId: string): Promise<number> {
