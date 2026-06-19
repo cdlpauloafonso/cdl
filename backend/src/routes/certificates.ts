@@ -119,7 +119,8 @@ router.post('/:campaignId/certificates/:inscriptionId/send-email', requireAdminA
   }
 
   try {
-    const batch = await processCertificateEmailBatch(campaignId, [inscriptionId]);
+    const allowResend = req.body?.resend === true;
+    const batch = await processCertificateEmailBatch(campaignId, [inscriptionId], { allowResend });
     const item = batch.results[0];
     if (!item) {
       res.status(500).json({ error: 'Não foi possível processar o envio.' });
@@ -176,7 +177,8 @@ router.post('/:campaignId/certificates/send-email-batch', requireAdminAuth, asyn
   }
 
   try {
-    const batch = await processCertificateEmailBatch(campaignId, inscriptionIds);
+    const allowResend = req.body?.resend === true;
+    const batch = await processCertificateEmailBatch(campaignId, inscriptionIds, { allowResend });
     res.json(batch);
   } catch (err) {
     const message = err instanceof Error ? err.message : '';

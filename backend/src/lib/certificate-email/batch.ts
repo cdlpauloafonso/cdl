@@ -24,7 +24,8 @@ export type CertificateEmailBatchResult = {
 
 export async function processCertificateEmailBatch(
   campaignId: string,
-  inscriptionIds: string[]
+  inscriptionIds: string[],
+  options?: { allowResend?: boolean },
 ): Promise<CertificateEmailBatchResult> {
   const campaign = await getCampaignDoc(campaignId);
   if (!campaign) {
@@ -50,6 +51,7 @@ export async function processCertificateEmailBatch(
       eventTitle,
       eventDate,
       campaign.certificateEmailConfig,
+      options?.allowResend,
     );
     results.push(row);
   }
@@ -70,13 +72,14 @@ async function processOne(
   eventTitle: string,
   eventDate: string | undefined,
   emailTemplate: CampaignDoc['certificateEmailConfig'],
+  allowResend?: boolean,
 ): Promise<CertificateEmailItemResult> {
   const doc = await getInscriptionDoc(campaignId, inscriptionId);
   if (!doc) {
     return { inscriptionId, ok: false, error: 'Inscrição não encontrada.' };
   }
 
-  if (doc.certificateEmailSentAt) {
+  if (doc.certificateEmailSentAt && !allowResend) {
     return {
       inscriptionId,
       ok: false,

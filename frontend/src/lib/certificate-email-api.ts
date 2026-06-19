@@ -91,6 +91,7 @@ export async function saveCertificateEmailTemplate(
 export async function sendCertificateEmailOne(
   campaignId: string,
   inscriptionId: string,
+  options?: { resend?: boolean },
 ): Promise<{ ok: true; sentAt?: string } | { ok: false; error: string; skipped?: boolean }> {
   try {
     const data = await adminJson<{
@@ -101,7 +102,7 @@ export async function sendCertificateEmailOne(
       reason?: string;
     }>(
       `/api/events/${encodeURIComponent(campaignId)}/certificates/${encodeURIComponent(inscriptionId)}/send-email`,
-      { method: 'POST', body: JSON.stringify({}) },
+      { method: 'POST', body: JSON.stringify({ resend: options?.resend === true }) },
     );
     if (data.ok) return { ok: true, sentAt: data.sentAt };
     return { ok: false, error: data.error ?? 'Falha no envio.' };
@@ -117,10 +118,11 @@ export async function sendCertificateEmailOne(
 export async function sendCertificateEmailBatch(
   campaignId: string,
   inscriptionIds: string[],
+  options?: { resend?: boolean },
 ): Promise<CertificateEmailBatchResponse> {
   return adminJson<CertificateEmailBatchResponse>(
     `/api/events/${encodeURIComponent(campaignId)}/certificates/send-email-batch`,
-    { method: 'POST', body: JSON.stringify({ inscriptionIds }) },
+    { method: 'POST', body: JSON.stringify({ inscriptionIds, resend: options?.resend === true }) },
   );
 }
 

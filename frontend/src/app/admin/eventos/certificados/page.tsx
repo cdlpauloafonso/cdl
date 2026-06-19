@@ -107,6 +107,7 @@ export default function AdminEventoCertificadosPage() {
   const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
   const [emailTemplateInfo, setEmailTemplateInfo] = useState('');
   const [emailTemplateError, setEmailTemplateError] = useState('');
+  const [showEmailMessagePanel, setShowEmailMessagePanel] = useState(false);
 
   const load = useCallback(async () => {
     if (!eventId) {
@@ -323,22 +324,26 @@ export default function AdminEventoCertificadosPage() {
     }
   }
 
-  async function handleSendOne(row: Row) {
+  async function handleSendOne(row: Row, options?: { resend?: boolean }) {
     if (!eventId) return;
     const email = inscriptionParticipantEmail(row.fields);
     if (!email) {
       setError('Este participante não tem e-mail na inscrição.');
       return;
     }
-    if (row.certificateEmailSentAt) {
+    const isResend = options?.resend === true;
+    if (row.certificateEmailSentAt && !isResend) {
       setInfo('Certificado já consta como enviado por e-mail.');
+      return;
+    }
+    if (isResend && !confirm(`Reenviar certificado por e-mail para ${email}?`)) {
       return;
     }
 
     setSendingId(row.id);
     setError('');
     setInfo('');
-    const result = await sendCertificateEmailOne(eventId, row.id);
+    const result = await sendCertificateEmailOne(eventId, row.id, { resend: isResend });
     setSendingId(null);
 
     if (result.ok && result.sentAt) {
@@ -349,7 +354,7 @@ export default function AdminEventoCertificadosPage() {
             : r
         )
       );
-      setInfo('Certificado enviado por e-mail.');
+      setInfo(isResend ? 'Certificado reenviado por e-mail.' : 'Certificado enviado por e-mail.');
       setSelectedIds((prev) => {
         const next = new Set(prev);
         next.delete(row.id);
@@ -453,6 +458,18 @@ export default function AdminEventoCertificadosPage() {
       ) : null}
 
       {campanha && emailConfigLoaded ? (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowEmailMessagePanel((open) => !open)}
+            className="btn-secondary text-sm"
+          >
+            {showEmailMessagePanel ? 'Ocultar mensagem do e-mail' : 'Mensagem do e-mail'}
+          </button>
+        </div>
+      ) : null}
+
+      {showEmailMessagePanel && campanha && emailConfigLoaded ? (
         <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Mensagem do e-mail
@@ -726,15 +743,15 @@ export default function AdminEventoCertificadosPage() {
                         type="button"
                         disabled={
                           !email ||
-                          Boolean(row.certificateEmailSentAt) ||
                           busyEmail ||
                           busyPdf ||
                           sendingBulk ||
-                          !emailConfig
+                          !emailConfig ||
+                          Boolean(row.certificateEmailSentAt)
                         }
                         title={
                           row.certificateEmailSentAt
-                            ? 'Já enviado'
+                            ? 'Já enviado — use Reenviar'
                             : !email
                               ? 'Sem e-mail'
                               : emailPrepMessage ?? undefined
@@ -742,8 +759,19 @@ export default function AdminEventoCertificadosPage() {
                         onClick={() => void handleSendOne(row)}
                         className="btn-primary shrink-0 text-xs !px-2.5 !py-1 disabled:opacity-50"
                       >
-                        {busyEmail ? '…' : row.certificateEmailSentAt ? 'Enviado' : 'E-mail'}
+                        {busyEmail && !row.certificateEmailSentAt ? '…' : 'E-mail'}
                       </button>
+                      {row.certificateEmailSentAt && email ? (
+                        <button
+                          type="button"
+                          disabled={busyEmail || busyPdf || sendingBulk || !emailConfig}
+                          title={emailPrepMessage ?? 'Reenviar certificado por e-mail'}
+                          onClick={() => void handleSendOne(row, { resend: true })}
+                          className="btn-secondary shrink-0 text-xs !px-2.5 !py-1 disabled:opacity-50"
+                        >
+                          {busyEmail ? '…' : 'Reenviar'}
+                        </button>
+                      ) : null}
                     </div>
                   </li>
                 );
