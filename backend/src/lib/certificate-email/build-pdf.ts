@@ -1,33 +1,17 @@
-import { registerCertificatePdfFonts, setCertificateFont } from '@/lib/certificate-pdf-fonts';
-import { formatCertificateEventSchedule } from '@/lib/event-datetime';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+import { formatCertificateEventSchedule } from './event-schedule.js';
 import {
   inscriptionCertificateCompanyName,
   inscriptionCertificateRepresentativeName,
-} from '@/lib/event-registration-fields';
+} from './participant.js';
 
-export type CertificateParticipantDisplay = {
-  representativeName: string;
-  companyName: string | null;
-};
-
-export function certificateParticipantFromFields(
-  fields: Record<string, string>,
-): CertificateParticipantDisplay {
-  return {
-    representativeName: inscriptionCertificateRepresentativeName(fields),
-    companyName: inscriptionCertificateCompanyName(fields),
-  };
-}
-
-export type EventCertificateParticipant = {
-  inscriptionId: string;
-  fields: Record<string, string>;
-};
-
-export type EventCertificateEventInfo = {
-  title: string;
-  date?: string;
-};
+const CERTIFICATE_FONT = 'SourceSerif4';
+const FONT_REGULAR_FILE = 'SourceSerif4-Regular.ttf';
+const FONT_BOLD_FILE = 'SourceSerif4-Bold.ttf';
+const CERTIFICATE_LOGO_ASPECT = 420 / 1024;
 
 const COLORS = {
   navy: [30, 58, 95] as [number, number, number],
@@ -40,11 +24,51 @@ const COLORS = {
   gold: [166, 139, 68] as [number, number, number],
 };
 
+type CertificateParticipantDisplay = {
+  representativeName: string;
+  companyName: string | null;
+};
+
+type EventCertificateEventInfo = {
+  title: string;
+  date?: string;
+};
+
+function certificateAssetsDir(): string {
+  const fromCwd = path.join(process.cwd(), 'assets/certificate');
+  if (fs.existsSync(fromCwd)) return fromCwd;
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../assets/certificate');
+}
+
+let regularBase64: string | null = null;
+let boldBase64: string | null = null;
+
+function loadFontFiles(assetsDir: string): void {
+  if (regularBase64 && boldBase64) return;
+  regularBase64 = fs
+    .readFileSync(path.join(assetsDir, 'fonts', FONT_REGULAR_FILE))
+    .toString('base64');
+  boldBase64 = fs
+    .readFileSync(path.join(assetsDir, 'fonts', FONT_BOLD_FILE))
+    .toString('base64');
+}
+
+function registerCertificatePdfFonts(doc: import('jspdf').jsPDF, assetsDir: string): void {
+  loadFontFiles(assetsDir);
+  doc.addFileToVFS(FONT_REGULAR_FILE, regularBase64!);
+  doc.addFileToVFS(FONT_BOLD_FILE, boldBase64!);
+  doc.addFont(FONT_REGULAR_FILE, CERTIFICATE_FONT, 'normal');
+  doc.addFont(FONT_BOLD_FILE, CERTIFICATE_FONT, 'bold');
+}
+
+function setCertificateFont(doc: import('jspdf').jsPDF, style: 'normal' | 'bold'): void {
+  doc.setFont(CERTIFICATE_FONT, style);
+}
+
 function normalizeCertificateText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-/** Quebra por palavras — evita cortes no meio. */
 function wrapTextByWords(
   doc: import('jspdf').jsPDF,
   text: string,
@@ -67,55 +91,32 @@ function wrapTextByWords(
   return lines;
 }
 
-const CERTIFICATE_LOGO_PATH = '/logo-cdl-certificado-branco.png';
-const CERTIFICATE_LOGO_ASPECT = 420 / 1024;
-
-/**
- * Converte a logo para PNG com alpha real — remove fundo escuro (JPEG sem transparência).
- */
-async function loadCertificateLogoDataUrl(): Promise<string | null> {
-  if (typeof document === 'undefined') return null;
-
+async function loadCertificateLogoDataUrl(assetsDir: string): Promise<string | null> {
   try {
-    const logoResponse = await fetch(CERTIFICATE_LOGO_PATH);
-    if (!logoResponse.ok) return null;
+    const logoPath = path.join(assetsDir, 'logo.png');
+    const { data, info } = await sharp(logoPath)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
 
-    const blob = await logoResponse.blob();
-    const objectUrl = URL.createObjectURL(blob);
-
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = () => reject(new Error('logo load failed'));
-        el.src = objectUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return null;
-
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const { data } = imageData;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i]!;
-        const g = data[i + 1]!;
-        const b = data[i + 2]!;
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        const alpha =
-          lum <= 18 ? 0 : lum >= 235 ? 255 : Math.round(((lum - 18) / (235 - 18)) * 255);
-        data[i + 3] = alpha;
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      return canvas.toDataURL('image/png');
-    } finally {
-      URL.revokeObjectURL(objectUrl);
+    const channels = info.channels;
+    for (let i = 0; i < data.length; i += channels) {
+      const r = data[i]!;
+      const g = data[i + 1]!;
+      const b = data[i + 2]!;
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const alpha =
+        lum <= 18 ? 0 : lum >= 235 ? 255 : Math.round(((lum - 18) / (235 - 18)) * 255);
+      data[i + 3] = alpha;
     }
+
+    const pngBuffer = await sharp(data, {
+      raw: { width: info.width, height: info.height, channels: info.channels },
+    })
+      .png()
+      .toBuffer();
+
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch {
     return null;
   }
@@ -143,7 +144,6 @@ function drawCertificatePage(
   const panelX = innerX + (innerW - panelW) / 2;
   const panelPadX = 12;
 
-  // Moldura
   doc.setDrawColor(...COLORS.navy);
   doc.setLineWidth(0.9);
   doc.rect(margin, margin, pageW - margin * 2, pageH - margin * 2);
@@ -152,7 +152,6 @@ function drawCertificatePage(
   doc.setLineWidth(0.25);
   doc.rect(innerX, innerY, innerW, innerH);
 
-  // Cabeçalho
   const headerH = 42;
   doc.setFillColor(...COLORS.navy);
   doc.rect(innerX, innerY, innerW, headerH, 'F');
@@ -177,7 +176,6 @@ function drawCertificatePage(
   doc.setFontSize(9);
   doc.text('Paulo Afonso - Bahia', cx, hy, { align: 'center' });
 
-  // Título do certificado
   let y = innerY + headerH + 10;
   doc.setTextColor(...COLORS.navy);
   setCertificateFont(doc, 'bold');
@@ -233,7 +231,6 @@ function drawCertificatePage(
 
   const bodyEndY = y;
 
-  // Painel do evento + rodapé (tudo dentro da moldura)
   const schedule = formatCertificateEventSchedule(event.date);
   const eventTitle = normalizeCertificateText(event.title) || 'Evento CDL';
   const titleMaxW = panelW - panelPadX * 2;
@@ -328,7 +325,6 @@ function drawCertificatePage(
   });
   doc.text(`Documento emitido em ${issued}`, cx, panelFooterY + 3, { align: 'center' });
 
-  // Representante e empresa por cima do painel (evita ficar oculto pelo fundo cinza)
   doc.setTextColor(...COLORS.ink);
   setCertificateFont(doc, 'bold');
   doc.setFontSize(25);
@@ -350,56 +346,29 @@ function drawCertificatePage(
   }
 }
 
-export async function buildEventCertificatesPdf(
-  event: EventCertificateEventInfo,
-  participants: EventCertificateParticipant[],
-): Promise<import('jspdf').jsPDF | null> {
-  if (participants.length === 0) return null;
+export async function buildCertificatePdfBuffer(input: {
+  eventTitle: string;
+  eventDate?: string;
+  fields: Record<string, unknown>;
+}): Promise<Buffer> {
   const { jsPDF } = await import('jspdf');
-  const logoDataUrl = await loadCertificateLogoDataUrl();
+  const assetsDir = certificateAssetsDir();
+  const logoDataUrl = await loadCertificateLogoDataUrl(assetsDir);
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  await registerCertificatePdfFonts(doc);
+  registerCertificatePdfFonts(doc, assetsDir);
 
-  participants.forEach((p, index) => {
-    if (index > 0) doc.addPage();
-    drawCertificatePage(doc, logoDataUrl, event, certificateParticipantFromFields(p.fields));
-  });
+  const participant: CertificateParticipantDisplay = {
+    representativeName: inscriptionCertificateRepresentativeName(input.fields),
+    companyName: inscriptionCertificateCompanyName(input.fields),
+  };
 
-  return doc;
-}
+  drawCertificatePage(
+    doc,
+    logoDataUrl,
+    { title: input.eventTitle, date: input.eventDate },
+    participant,
+  );
 
-export async function downloadEventCertificatePdf(
-  event: EventCertificateEventInfo,
-  participant: EventCertificateParticipant,
-  fileName: string,
-): Promise<boolean> {
-  const doc = await buildEventCertificatesPdf(event, [participant]);
-  if (!doc) return false;
-  doc.save(fileName);
-  return true;
-}
-
-export async function downloadEventCertificatesBulkPdf(
-  event: EventCertificateEventInfo,
-  participants: EventCertificateParticipant[],
-  fileName: string,
-): Promise<boolean> {
-  const doc = await buildEventCertificatesPdf(event, participants);
-  if (!doc) return false;
-  doc.save(fileName);
-  return true;
-}
-
-export function safeCertificateFileName(eventTitle: string, suffix: string): string {
-  const safe = eventTitle.replace(/[^\w\d\-]+/g, '_').slice(0, 36);
-  return `certificados-${safe}-${suffix}.pdf`;
-}
-
-export function safeCertificateParticipantFileName(
-  eventTitle: string,
-  participantName: string,
-): string {
-  const safeEvent = eventTitle.replace(/[^\w\d\-]+/g, '_').slice(0, 24);
-  const safeName = participantName.replace(/[^\w\d\-]+/g, '_').slice(0, 32);
-  return `certificado-${safeEvent}-${safeName}.pdf`;
+  const arrayBuffer = doc.output('arraybuffer') as ArrayBuffer;
+  return Buffer.from(arrayBuffer);
 }

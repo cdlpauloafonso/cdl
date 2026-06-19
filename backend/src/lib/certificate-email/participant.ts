@@ -16,3 +16,29 @@ export function inscriptionParticipantDisplayName(fields: Record<string, unknown
   }
   return 'Participante';
 }
+
+function fieldString(fields: Record<string, unknown> | undefined, key: string): string {
+  return String(fields?.[key] ?? '').trim();
+}
+
+/** Representante no certificado (prioriza nome / nome_responsavel). */
+export function inscriptionCertificateRepresentativeName(
+  fields: Record<string, unknown> | undefined,
+): string {
+  const nome = fieldString(fields, 'nome') || fieldString(fields, 'nome_responsavel');
+  if (nome) return nome;
+  return inscriptionParticipantDisplayName(fields);
+}
+
+/** Empresa no certificado (fantasia ou razão social), se distinta do representante. */
+export function inscriptionCertificateCompanyName(
+  fields: Record<string, unknown> | undefined,
+): string | null {
+  const participant =
+    fieldString(fields, 'nome') || fieldString(fields, 'nome_responsavel');
+  const empresa = fieldString(fields, 'empresa');
+  const razao = fieldString(fields, 'razao_social');
+  if (empresa && empresa !== participant) return empresa;
+  if (razao && razao !== participant && razao !== empresa) return razao;
+  return null;
+}

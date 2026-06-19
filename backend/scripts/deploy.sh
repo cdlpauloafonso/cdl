@@ -81,6 +81,12 @@ npm run build
 
 [ -f "$BACKEND_DIR/dist/index.js" ] || fail "Build falhou: dist/index.js não foi gerado"
 
+CERT_ASSETS="$BACKEND_DIR/assets/certificate"
+if [ ! -d "$CERT_ASSETS/fonts" ] || [ ! -f "$CERT_ASSETS/logo.png" ]; then
+  fail "Assets de certificado ausentes em $CERT_ASSETS (fonts/ e logo.png são obrigatórios para envio por e-mail)."
+fi
+log "Assets de certificado OK ($CERT_ASSETS)"
+
 # 6) Garantir pasta de uploads (caso esteja configurada para diretório local)
 mkdir -p "$BACKEND_DIR/uploads"
 

@@ -23,6 +23,7 @@ export type CampaignRegistrationConfigDoc =
 
 export type CampaignDoc = {
   title?: string;
+  date?: string;
   paymentConfig?: CampaignPaymentConfigDoc;
   vouchers?: EventVoucherDoc[];
   registrationClosed?: boolean;

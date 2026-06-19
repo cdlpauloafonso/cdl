@@ -171,11 +171,11 @@ export default function AdminEventoCertificadosPage() {
 
   const emailPrepMessage = useMemo(() => {
     if (!emailConfig) return 'Carregando configuração de e-mail…';
-    if (!emailConfig.smtpConfigured) {
-      return 'SMTP ainda não configurado no servidor (Gmail: SMTP_USER, SMTP_PASS, smtp.gmail.com).';
+    if (!emailConfig.providerReady) {
+      return 'Resend ainda não configurado. Cadastre a API key em Admin → Configurações → APIs (Resend) ou defina RESEND_API_KEY no servidor.';
     }
     if (!emailConfig.enabled) {
-      return 'Envio preparado. Ative com CERTIFICATE_EMAIL_ENABLED=true no backend quando for liberar o disparo.';
+      return 'Envio preparado. Ative em Admin → Configurações → APIs (Resend) ou com CERTIFICATE_EMAIL_ENABLED=true no backend.';
     }
     return null;
   }, [emailConfig]);
@@ -313,7 +313,7 @@ export default function AdminEventoCertificadosPage() {
         );
       } else if (failed > 0) {
         setError(
-          `Nenhum e-mail enviado. ${failed} falha(s). Verifique SMTP e CERTIFICATE_EMAIL_ENABLED no servidor.`
+          `Nenhum e-mail enviado. ${failed} falha(s). Verifique RESEND_API_KEY e CERTIFICATE_EMAIL_ENABLED no servidor.`
         );
       } else if (skipped > 0) {
         setInfo('Todos os selecionados já estavam marcados como enviados.');

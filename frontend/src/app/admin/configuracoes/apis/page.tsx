@@ -10,6 +10,14 @@ import {
   type AsaasIntegrationPublic,
   type AsaasIntegrationStatus,
 } from '@/lib/asaas-api';
+import {
+  fetchResendIntegration,
+  fetchResendIntegrationStatus,
+  saveResendIntegration,
+  testResendIntegration,
+  type ResendIntegrationPublic,
+  type ResendIntegrationStatus,
+} from '@/lib/resend-api';
 import { API_NOT_CONFIGURED_MESSAGE, getApiBaseUrl, isApiConfiguredForClient } from '@/lib/api-base';
 
 const API_BASE = getApiBaseUrl();
@@ -175,14 +183,13 @@ export default function AdminConfiguracoesApisPage() {
           Configurações do site
         </Link>
         <span className="mx-2 text-gray-300">/</span>
-        <span className="text-gray-700">APIs (Asaas)</span>
+        <span className="text-gray-700">APIs</span>
       </p>
 
-      <h1 className="mt-2 text-2xl font-bold text-gray-900">APIs — Asaas</h1>
+      <h1 className="mt-2 text-2xl font-bold text-gray-900">APIs — integrações</h1>
       <p className="mt-1 text-cdl-gray-text">
-        Pagamentos de inscrição em eventos via Asaas. As credenciais são armazenadas
-        com acesso restrito (somente o servidor lê os valores completos) e exibidas
-        aqui apenas em forma mascarada.
+        Pagamentos (Asaas) e envio de certificados por e-mail (Resend). As credenciais são
+        armazenadas com acesso restrito e exibidas aqui apenas em forma mascarada.
       </p>
 
       {!apiConfigured && (
@@ -209,10 +216,10 @@ export default function AdminConfiguracoesApisPage() {
         </div>
       )}
 
-      {/* Status */}
+      {/* Status Asaas */}
       <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Status da integração
+          Asaas — status
         </h2>
         {loading ? (
           <p className="mt-3 text-sm text-cdl-gray-text">Verificando servidor...</p>
@@ -257,9 +264,11 @@ export default function AdminConfiguracoesApisPage() {
         )}
       </section>
 
-      {/* Webhook */}
+      {/* Webhook Asaas */}
       <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Webhook</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Asaas — webhook
+        </h2>
         <p className="mt-2 text-sm text-cdl-gray-text">
           Cadastre esta URL no painel Asaas (Integrações → Webhooks) para confirmar pagamentos automaticamente.
         </p>
@@ -277,10 +286,10 @@ export default function AdminConfiguracoesApisPage() {
         </p>
       </section>
 
-      {/* Credenciais */}
+      {/* Credenciais Asaas */}
       <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Credenciais (armazenadas com segurança)
+          Asaas — credenciais
         </h2>
         <p className="mt-2 text-xs text-gray-500">
           As chaves nunca trafegam para o navegador depois de salvas. Você só vê os
@@ -404,9 +413,9 @@ export default function AdminConfiguracoesApisPage() {
         )}
       </section>
 
-      {/* Links úteis */}
+      {/* Links úteis Asaas */}
       <section className="mt-6 rounded-xl border border-sky-100 bg-sky-50/80 p-5">
-        <h2 className="text-sm font-semibold text-sky-900">Links úteis</h2>
+        <h2 className="text-sm font-semibold text-sky-900">Asaas — links úteis</h2>
         <ul className="mt-2 space-y-1 text-sm">
           <li>
             <a
@@ -440,7 +449,397 @@ export default function AdminConfiguracoesApisPage() {
           </li>
         </ul>
       </section>
+
+      <ResendConfigSection apiConfigured={apiConfigured} formatDate={formatDate} />
     </div>
+  );
+}
+
+function ResendConfigSection({
+  apiConfigured,
+  formatDate,
+}: {
+  apiConfigured: boolean;
+  formatDate: (iso: string | null) => string;
+}) {
+  const [status, setStatus] = useState<ResendIntegrationStatus | null>(null);
+  const [integration, setIntegration] = useState<ResendIntegrationPublic | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback>(EMPTY_FEEDBACK);
+  const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox');
+  const [enabled, setEnabled] = useState(false);
+  const [sandboxKey, setSandboxKey] = useState('');
+  const [productionKey, setProductionKey] = useState('');
+  const [fromSandbox, setFromSandbox] = useState('onboarding@resend.dev');
+  const [fromProduction, setFromProduction] = useState(
+    'CDL Paulo Afonso <certificados@cdlpauloafonso.com>',
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const [st, integ] = await Promise.all([
+          fetchResendIntegrationStatus(),
+          fetchResendIntegration().catch((err) => {
+            if (!cancelled) {
+              setFeedback({
+                kind: 'err',
+                text:
+                  err instanceof Error
+                    ? err.message
+                    : 'Não foi possível carregar credenciais Resend.',
+              });
+            }
+            return null;
+          }),
+        ]);
+        if (cancelled) return;
+        setStatus(st);
+        if (integ) {
+          setIntegration(integ);
+          setEnvironment(integ.environment);
+          setEnabled(integ.enabled);
+          if (integ.fromAddressSandbox) setFromSandbox(integ.fromAddressSandbox);
+          if (integ.fromAddressProduction) setFromProduction(integ.fromAddressProduction);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setFeedback(EMPTY_FEEDBACK);
+    try {
+      const updated = await saveResendIntegration({
+        environment,
+        enabled,
+        apiKeySandbox: sandboxKey.trim() ? sandboxKey.trim() : undefined,
+        apiKeyProduction: productionKey.trim() ? productionKey.trim() : undefined,
+        fromAddressSandbox: fromSandbox.trim() ? fromSandbox.trim() : undefined,
+        fromAddressProduction: fromProduction.trim() ? fromProduction.trim() : undefined,
+      });
+      setIntegration(updated);
+      setSandboxKey('');
+      setProductionKey('');
+      const newStatus = await fetchResendIntegrationStatus();
+      setStatus(newStatus);
+      setFeedback({ kind: 'ok', text: 'Configurações Resend salvas.' });
+    } catch (err) {
+      setFeedback({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Não foi possível salvar.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClear(field: 'apiKeySandbox' | 'apiKeyProduction') {
+    const label = field === 'apiKeySandbox' ? 'a chave de sandbox' : 'a chave de produção';
+    if (!confirm(`Remover ${label}?`)) return;
+    setSaving(true);
+    setFeedback(EMPTY_FEEDBACK);
+    try {
+      const updated = await saveResendIntegration({
+        clearSandboxKey: field === 'apiKeySandbox' || undefined,
+        clearProductionKey: field === 'apiKeyProduction' || undefined,
+      });
+      setIntegration(updated);
+      const newStatus = await fetchResendIntegrationStatus();
+      setStatus(newStatus);
+      setFeedback({ kind: 'ok', text: 'Chave removida.' });
+    } catch (err) {
+      setFeedback({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Não foi possível remover.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTest() {
+    setTesting(true);
+    setFeedback(EMPTY_FEEDBACK);
+    const result = await testResendIntegration();
+    setTesting(false);
+    if (result.ok) {
+      setFeedback({
+        kind: 'ok',
+        text: `Conexão Resend OK (${result.environment === 'production' ? 'produção' : 'sandbox'})${
+          result.domainsCount != null ? ` · ${result.domainsCount} domínio(s) verificado(s)` : ''
+        }.`,
+      });
+    } else {
+      setFeedback({
+        kind: 'err',
+        text: result.error ?? 'Falha ao contactar Resend.',
+      });
+    }
+  }
+
+  const activeFrom =
+    environment === 'production'
+      ? integration?.fromAddressProduction || fromProduction
+      : integration?.fromAddressSandbox || fromSandbox;
+
+  return (
+    <>
+      <h2 className="mt-10 text-lg font-bold text-gray-900">Resend — certificados por e-mail</h2>
+      <p className="mt-1 text-sm text-cdl-gray-text">
+        Envio de certificados em PDF. Em <strong>sandbox</strong>, use{' '}
+        <code className="text-xs">onboarding@resend.dev</code> e envie só para e-mails verificados
+        no Resend. Em <strong>produção</strong>, verifique o domínio{' '}
+        <strong>cdlpauloafonso.com</strong> antes de enviar em massa.
+      </p>
+
+      {feedback.kind && (
+        <div
+          className={`mt-4 rounded-lg border px-4 py-2 text-sm ${
+            feedback.kind === 'ok'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {feedback.text}
+        </div>
+      )}
+
+      <section className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Status</h3>
+        {loading ? (
+          <p className="mt-3 text-sm text-cdl-gray-text">Verificando...</p>
+        ) : status ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                status.providerReady
+                  ? status.enabled
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-900'
+                  : 'bg-amber-100 text-amber-900'
+              }`}
+            >
+              {!status.providerReady
+                ? 'Sem API key'
+                : status.enabled
+                  ? 'Ativo'
+                  : 'Desativado'}
+            </span>
+            <span className="text-sm text-gray-600">
+              Ambiente:{' '}
+              <strong className="font-medium text-gray-900">
+                {status.environment === 'production' ? 'Produção' : 'Sandbox'}
+              </strong>
+            </span>
+            {status.fromAddress && (
+              <span className="text-sm text-gray-600">
+                Remetente:{' '}
+                <strong className="font-medium text-gray-900">{status.fromAddress}</strong>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+            >
+              {testing ? 'Testando...' : 'Testar conexão'}
+            </button>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-red-700">Não foi possível contactar o backend.</p>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Credenciais</h3>
+        <p className="mt-2 text-xs text-gray-500">
+          Cada ambiente usa sua própria API key. Campo em branco mantém a chave atual ao salvar.
+        </p>
+        {loading ? (
+          <p className="mt-4 text-sm text-cdl-gray-text">Carregando...</p>
+        ) : (
+          <div className="mt-4 space-y-5">
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-cdl-blue focus:ring-cdl-blue"
+              />
+              <span className="text-sm text-gray-800">Envio de certificados ativado</span>
+            </label>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="resend-env">
+                Ambiente ativo
+              </label>
+              <select
+                id="resend-env"
+                value={environment}
+                onChange={(e) =>
+                  setEnvironment(e.target.value === 'production' ? 'production' : 'sandbox')
+                }
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:outline-none focus:ring-2 focus:ring-cdl-blue/30"
+              >
+                <option value="sandbox">Sandbox (testes — onboarding@resend.dev)</option>
+                <option value="production">Produção (domínio verificado)</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Remetente em uso: <code className="rounded bg-gray-100 px-1">{activeFrom}</code>
+              </p>
+            </div>
+
+            <CredentialField
+              id="resend-sandbox-key"
+              label="API key — Sandbox"
+              masked={integration?.apiKeySandboxMasked ?? ''}
+              hasValue={Boolean(integration?.hasSandboxKey)}
+              value={sandboxKey}
+              onChange={setSandboxKey}
+              onClear={() => handleClear('apiKeySandbox')}
+              placeholder="re_..."
+              disabled={saving}
+            />
+
+            <CredentialField
+              id="resend-prod-key"
+              label="API key — Produção"
+              masked={integration?.apiKeyProductionMasked ?? ''}
+              hasValue={Boolean(integration?.hasProductionKey)}
+              value={productionKey}
+              onChange={setProductionKey}
+              onClear={() => handleClear('apiKeyProduction')}
+              placeholder="re_..."
+              disabled={saving}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="resend-from-sandbox">
+                Remetente — Sandbox
+              </label>
+              <input
+                id="resend-from-sandbox"
+                type="text"
+                value={fromSandbox}
+                onChange={(e) => setFromSandbox(e.target.value)}
+                placeholder="onboarding@resend.dev"
+                disabled={saving}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:outline-none focus:ring-2 focus:ring-cdl-blue/30"
+              />
+            </div>
+
+            <div>
+              <label
+                className="block text-sm font-medium text-gray-700"
+                htmlFor="resend-from-production"
+              >
+                Remetente — Produção
+              </label>
+              <input
+                id="resend-from-production"
+                type="text"
+                value={fromProduction}
+                onChange={(e) => setFromProduction(e.target.value)}
+                placeholder="CDL Paulo Afonso <certificados@cdlpauloafonso.com>"
+                disabled={saving}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:outline-none focus:ring-2 focus:ring-cdl-blue/30"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Formato: <code>Nome &lt;email@dominio.com&gt;</code>
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              Origem:{' '}
+              <strong>
+                {integration?.source === 'firestore'
+                  ? 'Painel (Firestore protegido)'
+                  : integration?.source === 'env'
+                    ? '.env do backend'
+                    : 'Sem credenciais'}
+              </strong>
+              {integration?.updatedAt && (
+                <>
+                  {' '}· Atualizado em <strong>{formatDate(integration.updatedAt)}</strong>
+                  {integration.updatedBy ? (
+                    <>
+                      {' '}
+                      por <strong>{integration.updatedBy}</strong>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || !apiConfigured}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testing || !apiConfigured}
+                className="btn-secondary text-sm disabled:opacity-50"
+              >
+                {testing ? 'Testando...' : 'Testar conexão'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-xl border border-violet-100 bg-violet-50/80 p-5">
+        <h3 className="text-sm font-semibold text-violet-900">Resend — links úteis</h3>
+        <ul className="mt-2 space-y-1 text-sm">
+          <li>
+            <a
+              href="https://resend.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cdl-blue hover:underline"
+            >
+              Criar API key
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://resend.com/domains"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cdl-blue hover:underline"
+            >
+              Verificar domínio
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://resend.com/docs/send-with-nodejs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cdl-blue hover:underline"
+            >
+              Documentação Node.js
+            </a>
+          </li>
+        </ul>
+      </section>
+    </>
   );
 }
 

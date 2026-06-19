@@ -3,18 +3,22 @@ import { authMiddleware } from '../middleware/auth.js';
 import {
   certificateEmailClientChunkSize,
   certificateEmailMaxPerRequest,
-  isCertificateEmailEnabled,
-  isCertificateSmtpConfigured,
 } from '../lib/certificate-email/config.js';
+import { getCertificateEmailEffectiveConfig } from '../lib/certificate-email/effective-config.js';
 import { processCertificateEmailBatch } from '../lib/certificate-email/batch.js';
 
 const router = Router();
 
 /** Status da configuração de envio (admin). */
-router.get('/:campaignId/certificates/email-config', authMiddleware, (_req, res) => {
+router.get('/:campaignId/certificates/email-config', authMiddleware, async (_req, res) => {
+  const cfg = await getCertificateEmailEffectiveConfig();
   res.json({
-    enabled: isCertificateEmailEnabled(),
-    smtpConfigured: isCertificateSmtpConfigured(),
+    enabled: cfg.enabled,
+    resendConfigured: cfg.providerReady,
+    providerReady: cfg.providerReady,
+    environment: cfg.environment,
+    fromAddress: cfg.fromAddress,
+    source: cfg.source,
     maxPerRequest: certificateEmailMaxPerRequest(),
     clientChunkSize: certificateEmailClientChunkSize(),
   });

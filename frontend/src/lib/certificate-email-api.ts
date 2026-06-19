@@ -2,7 +2,11 @@ import { apiGet, apiPost } from '@/lib/api';
 
 export type CertificateEmailConfig = {
   enabled: boolean;
-  smtpConfigured: boolean;
+  resendConfigured: boolean;
+  providerReady: boolean;
+  environment?: 'sandbox' | 'production';
+  fromAddress?: string;
+  source?: 'firestore' | 'env' | 'none';
   maxPerRequest: number;
   clientChunkSize: number;
 };

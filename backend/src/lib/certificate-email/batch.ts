@@ -31,6 +31,7 @@ export async function processCertificateEmailBatch(
   }
 
   const eventTitle = String(campaign.title ?? 'Evento').trim() || 'Evento';
+  const eventDate = String(campaign.date ?? '').trim() || undefined;
   const delayMs = certificateEmailDelayMs();
   const results: CertificateEmailItemResult[] = [];
 
@@ -42,7 +43,7 @@ export async function processCertificateEmailBatch(
       await sleep(delayMs);
     }
 
-    const row = await processOne(campaignId, inscriptionId, eventTitle);
+    const row = await processOne(campaignId, inscriptionId, eventTitle, eventDate);
     results.push(row);
   }
 
@@ -59,7 +60,8 @@ export async function processCertificateEmailBatch(
 async function processOne(
   campaignId: string,
   inscriptionId: string,
-  eventTitle: string
+  eventTitle: string,
+  eventDate?: string,
 ): Promise<CertificateEmailItemResult> {
   const doc = await getInscriptionDoc(campaignId, inscriptionId);
   if (!doc) {
@@ -87,6 +89,8 @@ async function processOne(
     to,
     participantName,
     eventTitle,
+    eventDate,
+    fields,
   });
 
   if (!sendResult.ok) {

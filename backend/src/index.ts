@@ -17,7 +17,9 @@ import asaas from './routes/asaas.js';
 import publicInscriptions from './routes/public-inscriptions.js';
 import credentialing from './routes/credentialing.js';
 import certificates from './routes/certificates.js';
+import resendIntegration from './routes/resend-integration.js';
 import adminCampaigns from './routes/admin-campaigns.js';
+import { getCertificateEmailEffectiveConfig } from './lib/certificate-email/effective-config.js';
 
 
 const app = express();
@@ -44,6 +46,7 @@ app.use('/api/settings', settings);
 app.use('/api/upload', upload);
 app.use('/api/about', about);
 app.use('/api/asaas', asaas);
+app.use('/api/resend', resendIntegration);
 app.use('/api/public', publicInscriptions);
 app.use('/api', credentialing);
 app.use('/api/admin/campaigns', adminCampaigns);
@@ -55,6 +58,19 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: err.message || 'Erro interno do servidor' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`API CDL Paulo Afonso rodando em http://localhost:${PORT}`);
+  try {
+    const certEmail = await getCertificateEmailEffectiveConfig();
+    const status = certEmail.providerReady
+      ? certEmail.enabled
+        ? 'ativo'
+        : 'desativado (CERTIFICATE_EMAIL_ENABLED=false)'
+      : 'sem API key';
+    console.log(
+      `[certificate-email] Resend: ${status} · ambiente=${certEmail.environment} · origem=${certEmail.source} · from=${certEmail.fromAddress}`,
+    );
+  } catch {
+    console.warn('[certificate-email] Não foi possível verificar configuração Resend.');
+  }
 });

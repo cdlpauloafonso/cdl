@@ -1,12 +1,4 @@
-/** Envio de certificados por e-mail (Gmail SMTP via Nodemailer). */
-
-export function isCertificateEmailEnabled(): boolean {
-  return process.env.CERTIFICATE_EMAIL_ENABLED === 'true';
-}
-
-export function isCertificateSmtpConfigured(): boolean {
-  return Boolean(process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.trim());
-}
+/** Envio de certificados por e-mail (Resend). Preferir getCertificateEmailEffectiveConfig() para checagens async. */
 
 /** Máximo de inscrições processadas por requisição HTTP (evita timeout). */
 export function certificateEmailMaxPerRequest(): number {
@@ -26,11 +18,3 @@ export function certificateEmailClientChunkSize(): number {
   return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 50) : 15;
 }
 
-export function certificateEmailFromAddress(): string {
-  return (
-    process.env.CERTIFICATE_EMAIL_FROM?.trim() ||
-    process.env.SMTP_FROM?.trim() ||
-    process.env.SMTP_USER?.trim() ||
-    'noreply@cdlpauloafonso.com.br'
-  );
-}
