@@ -69,7 +69,8 @@ async function adminFetch(path: string, init: RequestInit = {}): Promise<Respons
 export async function fetchResendIntegrationStatus(): Promise<ResendIntegrationStatus | null> {
   if (!isApiConfiguredForClient()) return null;
   try {
-    const res = await fetch(`${API_BASE}/api/resend/integration/status`, { cache: 'no-store' });
+    const res = await fetch(`${API_BASE}/api/resend/status`, { cache: 'no-store' });
+    if (res.status === 404) return null;
     if (!res.ok) return null;
     return (await res.json()) as ResendIntegrationStatus;
   } catch {
@@ -77,12 +78,20 @@ export async function fetchResendIntegrationStatus(): Promise<ResendIntegrationS
   }
 }
 
+function resendApiErrorMessage(status: number, serverError?: string): string {
+  if (serverError) return serverError;
+  if (status === 404) {
+    return 'Rotas Resend não encontradas no servidor. Atualize o backend (deploy) e reinicie o PM2.';
+  }
+  return `Erro ${status}`;
+}
+
 export async function fetchResendIntegration(): Promise<ResendIntegrationPublic> {
   const res = await adminFetch('/api/resend/integration');
   const data = (await res.json().catch(() => ({}))) as Partial<ResendIntegrationPublic> & {
     error?: string;
   };
-  if (!res.ok) throw new Error(data.error ?? `Erro ${res.status}`);
+  if (!res.ok) throw new Error(resendApiErrorMessage(res.status, data.error));
   return data as ResendIntegrationPublic;
 }
 
@@ -96,7 +105,7 @@ export async function saveResendIntegration(
   const data = (await res.json().catch(() => ({}))) as Partial<ResendIntegrationPublic> & {
     error?: string;
   };
-  if (!res.ok) throw new Error(data.error ?? `Erro ${res.status}`);
+  if (!res.ok) throw new Error(resendApiErrorMessage(res.status, data.error));
   return data as ResendIntegrationPublic;
 }
 

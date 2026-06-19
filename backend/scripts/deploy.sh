@@ -116,4 +116,11 @@ if [ "$METHOD_CODE" = "401" ]; then
   fail "Rota /api/asaas/inscription-payment/method retornou 401 — reinicie o PM2 ou atualize o código."
 fi
 
+RESEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+  "http://127.0.0.1:${PORT:-4000}/api/resend/status" 2>/dev/null || echo "000")
+if [ "$RESEND_CODE" = "404" ]; then
+  fail "Rota /api/resend/status retornou 404 — código desatualizado; confira git pull e npm run build."
+fi
+log "Rotas Resend OK (HTTP $RESEND_CODE)"
+
 log "Deploy concluído ($(git_safe rev-parse --short HEAD 2>/dev/null || echo '?')). Logs: pm2 logs $PM2_NAME"

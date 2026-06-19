@@ -657,7 +657,10 @@ function ResendConfigSection({
             </button>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-red-700">Não foi possível contactar o backend.</p>
+          <p className="mt-3 text-sm text-red-700">
+            Não foi possível contactar o backend. Se o Asaas responde mas o Resend não, faça deploy
+            do backend no servidor (git pull + build + PM2 restart).
+          </p>
         )}
       </section>
 

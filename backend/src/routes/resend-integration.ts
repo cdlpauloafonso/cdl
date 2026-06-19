@@ -36,6 +36,18 @@ function envFallbackForPublic() {
   };
 }
 
+/** Status da integração (público). Sem segredos — espelha /api/asaas/status. */
+router.get('/status', async (_req, res) => {
+  const cfg = await getCertificateEmailEffectiveConfig();
+  res.json({
+    enabled: cfg.enabled,
+    providerReady: cfg.providerReady,
+    environment: cfg.environment,
+    fromAddress: cfg.fromAddress,
+    source: cfg.source,
+  });
+});
+
 router.get('/integration/status', requireAdminAuth, async (_req, res) => {
   const cfg = await getCertificateEmailEffectiveConfig();
   res.json({
