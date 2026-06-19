@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 import { buildCertificatePdfBuffer } from './build-pdf.js';
 import {
+  buildCertificateEmailHtml,
+  type CampaignCertificateEmailConfig,
+} from './email-template.js';
+import {
   certificateEmailDelayMs,
   certificateEmailMaxPerRequest,
 } from './config.js';
@@ -13,6 +17,7 @@ export type SendCertificateEmailInput = {
   eventTitle: string;
   eventDate?: string;
   fields: Record<string, unknown>;
+  emailTemplate?: CampaignCertificateEmailConfig | null;
 };
 
 export type SendCertificateEmailResult =
@@ -36,29 +41,6 @@ function getResendClient(apiKey: string): Resend {
 
 function safeFileNamePart(value: string): string {
   return value.replace(/[^\w\u00C0-\u024f\s-]+/gi, '').trim().replace(/\s+/g, '-').slice(0, 40);
-}
-
-function buildCertificateEmailHtml(participantName: string, eventTitle: string): string {
-  const name = participantName.trim() || 'Participante';
-  const event = eventTitle.trim() || 'Evento CDL';
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="utf-8"></head>
-<body style="font-family: Georgia, 'Times New Roman', serif; color: #1e293b; line-height: 1.6; margin: 0; padding: 24px;">
-  <p>Olá, <strong>${escapeHtml(name)}</strong>,</p>
-  <p>Segue em anexo o seu <strong>certificado de participação</strong> no evento:</p>
-  <p style="font-size: 18px; color: #1e3a5f;"><strong>${escapeHtml(event)}</strong></p>
-  <p>Atenciosamente,<br><strong>CDL Paulo Afonso</strong><br>Câmara de Dirigentes Lojistas — Paulo Afonso/BA</p>
-</body>
-</html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 export async function sendEventCertificateEmail(
@@ -115,7 +97,10 @@ export async function sendEventCertificateEmail(
     from,
     to,
     subject,
-    html: buildCertificateEmailHtml(representativeName, input.eventTitle),
+    html: buildCertificateEmailHtml(
+      { participantName: representativeName, eventTitle: input.eventTitle },
+      input.emailTemplate,
+    ),
     attachments: [
       {
         filename: fileName,

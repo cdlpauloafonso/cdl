@@ -1,17 +1,43 @@
 import { Router } from 'express';
+import { FieldValue } from 'firebase-admin/firestore';
 import { requireAdminAuth } from '../lib/admin-auth.js';
+import { getAdminFirestore } from '../lib/firebase-admin.js';
 import {
   certificateEmailClientChunkSize,
   certificateEmailMaxPerRequest,
 } from '../lib/certificate-email/config.js';
 import { getCertificateEmailEffectiveConfig } from '../lib/certificate-email/effective-config.js';
+import {
+  DEFAULT_CERTIFICATE_EMAIL_MESSAGE,
+  effectiveCertificateEmailMessage,
+  normalizeCertificateEmailConfigPatch,
+  type CampaignCertificateEmailConfig,
+} from '../lib/certificate-email/email-template.js';
 import { processCertificateEmailBatch } from '../lib/certificate-email/batch.js';
+import { getCampaignDoc } from '../lib/inscription-firestore.js';
 
 const router = Router();
 
+function buildEmailTemplateResponse(
+  stored: CampaignCertificateEmailConfig | null | undefined,
+) {
+  const message = effectiveCertificateEmailMessage(stored);
+  return {
+    message,
+    messageStored: stored?.message?.trim() || null,
+    linkUrl: stored?.linkUrl?.trim() || '',
+    linkLabel: stored?.linkLabel?.trim() || '',
+    defaultMessage: DEFAULT_CERTIFICATE_EMAIL_MESSAGE,
+    isCustomMessage: Boolean(stored?.message?.trim()),
+  };
+}
+
 /** Status da configuração de envio (admin). */
-router.get('/:campaignId/certificates/email-config', requireAdminAuth, async (_req, res) => {
+router.get('/:campaignId/certificates/email-config', requireAdminAuth, async (req, res) => {
+  const campaignId = String(req.params.campaignId ?? '').trim();
   const cfg = await getCertificateEmailEffectiveConfig();
+  const campaign = campaignId ? await getCampaignDoc(campaignId).catch(() => null) : null;
+
   res.json({
     enabled: cfg.enabled,
     resendConfigured: cfg.providerReady,
@@ -21,7 +47,66 @@ router.get('/:campaignId/certificates/email-config', requireAdminAuth, async (_r
     source: cfg.source,
     maxPerRequest: certificateEmailMaxPerRequest(),
     clientChunkSize: certificateEmailClientChunkSize(),
+    emailTemplate: buildEmailTemplateResponse(campaign?.certificateEmailConfig),
   });
+});
+
+/** Salva mensagem e link opcional do e-mail de certificado (por evento). */
+router.put('/:campaignId/certificates/email-template', requireAdminAuth, async (req, res) => {
+  const campaignId = String(req.params.campaignId ?? '').trim();
+  if (!campaignId) {
+    res.status(400).json({ error: 'campaignId é obrigatório.' });
+    return;
+  }
+
+  const patch = normalizeCertificateEmailConfigPatch(req.body);
+  if (!patch) {
+    res.status(400).json({ error: 'Corpo da requisição inválido.' });
+    return;
+  }
+
+  const db = getAdminFirestore();
+  if (!db) {
+    res.status(503).json({ error: 'Firebase Admin não configurado no servidor.' });
+    return;
+  }
+
+  try {
+    const ref = db.collection('campaigns').doc(campaignId);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      res.status(404).json({ error: 'Evento não encontrado.' });
+      return;
+    }
+
+    const current = (snap.data()?.certificateEmailConfig ?? {}) as CampaignCertificateEmailConfig;
+    const next: CampaignCertificateEmailConfig = { ...current };
+
+    if (typeof patch.message === 'string') {
+      const trimmed = patch.message.trim();
+      next.message = trimmed || undefined;
+    }
+    if (patch.linkUrl !== undefined) {
+      next.linkUrl = patch.linkUrl.trim() || undefined;
+    }
+    if (patch.linkLabel !== undefined) {
+      next.linkLabel = patch.linkLabel.trim() || undefined;
+    }
+
+    const hasContent =
+      Boolean(next.message?.trim()) ||
+      Boolean(next.linkUrl?.trim()) ||
+      Boolean(next.linkLabel?.trim());
+
+    await ref.update({
+      certificateEmailConfig: hasContent ? next : FieldValue.delete(),
+    });
+
+    res.json({ ok: true, emailTemplate: buildEmailTemplateResponse(hasContent ? next : null) });
+  } catch (err) {
+    console.error('[certificates/email-template]', err);
+    res.status(500).json({ error: 'Erro ao salvar mensagem do e-mail.' });
+  }
 });
 
 /** Envia certificado por e-mail para uma inscrição. */

@@ -156,6 +156,12 @@ export type Campaign = {
   checkInOnApp?: boolean;
   /** @deprecated usar `checkInOnApp` */
   credentialingOnApp?: boolean;
+  /** Mensagem do e-mail de certificado (por evento). */
+  certificateEmailConfig?: {
+    message?: string;
+    linkUrl?: string;
+    linkLabel?: string;
+  };
 };
 
 /** Informativos: comunicados e avisos importantes */

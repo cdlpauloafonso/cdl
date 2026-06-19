@@ -32,6 +32,11 @@ export type CampaignDoc = {
   /** @deprecated usar checkInOnApp */
   credentialingOnApp?: boolean;
   registrationConfig?: CampaignRegistrationConfigDoc;
+  certificateEmailConfig?: {
+    message?: string;
+    linkUrl?: string;
+    linkLabel?: string;
+  };
 };
 
 function requireAdminFirestore() {

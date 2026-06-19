@@ -11,11 +11,16 @@ import {
 } from '@/lib/firestore';
 import {
   fetchCertificateEmailConfig,
+  saveCertificateEmailTemplate,
   sendCertificateEmailOne,
   sendCertificateEmailsManaged,
   type CertificateEmailConfig,
   type CertificateEmailItemResult,
 } from '@/lib/certificate-email-api';
+import {
+  DEFAULT_CERTIFICATE_EMAIL_MESSAGE,
+  previewCertificateEmailPlainText,
+} from '@/lib/certificate-email-template';
 import {
   hasEventFormRegistration,
   inscriptionCertificateCompanyName,
@@ -96,6 +101,12 @@ export default function AdminEventoCertificadosPage() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [emailMessageDraft, setEmailMessageDraft] = useState('');
+  const [emailLinkUrl, setEmailLinkUrl] = useState('');
+  const [emailLinkLabel, setEmailLinkLabel] = useState('');
+  const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
+  const [emailTemplateInfo, setEmailTemplateInfo] = useState('');
+  const [emailTemplateError, setEmailTemplateError] = useState('');
 
   const load = useCallback(async () => {
     if (!eventId) {
@@ -137,6 +148,32 @@ export default function AdminEventoCertificadosPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const tpl = emailConfig?.emailTemplate;
+    if (!tpl) return;
+    setEmailMessageDraft(tpl.messageStored ?? tpl.message);
+    setEmailLinkUrl(tpl.linkUrl ?? '');
+    setEmailLinkLabel(tpl.linkLabel ?? '');
+  }, [emailConfig?.emailTemplate]);
+
+  const emailPreviewText = useMemo(() => {
+    const message =
+      emailMessageDraft.trim() ||
+      emailConfig?.emailTemplate?.message ||
+      DEFAULT_CERTIFICATE_EMAIL_MESSAGE;
+    return previewCertificateEmailPlainText(
+      {
+        message,
+        linkUrl: emailLinkUrl,
+        linkLabel: emailLinkLabel,
+      },
+      {
+        participantName: 'Maria Silva',
+        eventTitle: campanha?.title ?? 'Nome do evento',
+      },
+    );
+  }, [emailMessageDraft, emailLinkUrl, emailLinkLabel, emailConfig?.emailTemplate, campanha?.title]);
 
   const eligibleRows = useMemo(() => {
     return rows.filter((r) => (filter === 'credentialed' ? isInscriptionCredentialed(r) : true));
@@ -185,6 +222,42 @@ export default function AdminEventoCertificadosPage() {
     }
     return null;
   }, [emailConfig, emailConfigLoaded]);
+
+  async function handleSaveEmailTemplate() {
+    if (!eventId) return;
+    setSavingEmailTemplate(true);
+    setEmailTemplateError('');
+    setEmailTemplateInfo('');
+    try {
+      const trimmed = emailMessageDraft.trim();
+      const messageToSave =
+        trimmed === DEFAULT_CERTIFICATE_EMAIL_MESSAGE.trim() ? '' : emailMessageDraft;
+      const saved = await saveCertificateEmailTemplate(eventId, {
+        message: messageToSave,
+        linkUrl: emailLinkUrl,
+        linkLabel: emailLinkLabel,
+      });
+      setEmailConfig((prev) =>
+        prev ? { ...prev, emailTemplate: saved } : prev,
+      );
+      setEmailMessageDraft(saved.messageStored ?? saved.message);
+      setEmailLinkUrl(saved.linkUrl);
+      setEmailLinkLabel(saved.linkLabel);
+      setEmailTemplateInfo('Mensagem do e-mail salva para este evento.');
+    } catch (err) {
+      setEmailTemplateError(
+        err instanceof Error ? err.message : 'Não foi possível salvar a mensagem.',
+      );
+    } finally {
+      setSavingEmailTemplate(false);
+    }
+  }
+
+  function handleRestoreDefaultEmailMessage() {
+    setEmailMessageDraft(DEFAULT_CERTIFICATE_EMAIL_MESSAGE);
+    setEmailTemplateInfo('');
+    setEmailTemplateError('');
+  }
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -377,6 +450,110 @@ export default function AdminEventoCertificadosPage() {
         <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           {emailPrepMessage}
         </div>
+      ) : null}
+
+      {campanha && emailConfigLoaded ? (
+        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Mensagem do e-mail
+          </h2>
+          <p className="mt-2 text-xs text-cdl-gray-text">
+            Personalize o texto enviado com o certificado em PDF. Use{' '}
+            <code className="rounded bg-gray-100 px-1">{'{{nome}}'}</code> e{' '}
+            <code className="rounded bg-gray-100 px-1">{'{{evento}}'}</code> para inserir dados do
+            participante e do evento. A saudação e a assinatura da CDL são fixas.
+          </p>
+
+          {emailTemplateError ? (
+            <p className="mt-3 text-sm text-red-700">{emailTemplateError}</p>
+          ) : null}
+          {emailTemplateInfo ? (
+            <p className="mt-3 text-sm text-emerald-700">{emailTemplateInfo}</p>
+          ) : null}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700" htmlFor="cert-email-msg">
+                  Corpo da mensagem
+                </label>
+                {emailConfig?.emailTemplate?.isCustomMessage ? (
+                  <p className="mt-1 text-xs text-gray-500">Mensagem personalizada deste evento.</p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">Usando mensagem padrão (pode editar abaixo).</p>
+                )}
+                <textarea
+                  id="cert-email-msg"
+                  rows={8}
+                  value={emailMessageDraft}
+                  onChange={(e) => setEmailMessageDraft(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue/30"
+                  placeholder={DEFAULT_CERTIFICATE_EMAIL_MESSAGE}
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="cert-email-link">
+                    Link opcional (URL)
+                  </label>
+                  <input
+                    id="cert-email-link"
+                    type="url"
+                    value={emailLinkUrl}
+                    onChange={(e) => setEmailLinkUrl(e.target.value)}
+                    placeholder="https://www.cdlpauloafonso.com/..."
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue/30"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="cert-email-link-label">
+                    Texto do link (opcional)
+                  </label>
+                  <input
+                    id="cert-email-link-label"
+                    type="text"
+                    value={emailLinkLabel}
+                    onChange={(e) => setEmailLinkLabel(e.target.value)}
+                    placeholder="Acesse o site da CDL"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-cdl-blue focus:ring-2 focus:ring-cdl-blue/30"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveEmailTemplate()}
+                  disabled={savingEmailTemplate}
+                  className="btn-primary text-sm disabled:opacity-50"
+                >
+                  {savingEmailTemplate ? 'Salvando…' : 'Salvar mensagem'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultEmailMessage}
+                  disabled={savingEmailTemplate}
+                  className="btn-secondary text-sm disabled:opacity-50"
+                >
+                  Restaurar padrão
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-700">Pré-visualização</p>
+              <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+                {emailPreviewText}
+              </pre>
+              {emailLinkUrl.trim() ? (
+                <p className="mt-2 text-xs text-gray-500">
+                  No e-mail HTML, o link aparece clicável abaixo do texto.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
       ) : null}
 
       {error ? (

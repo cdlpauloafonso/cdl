@@ -1,4 +1,5 @@
 import { getCampaignDoc, getInscriptionDoc, updateInscriptionCertificateEmail } from '../inscription-firestore.js';
+import type { CampaignDoc } from '../inscription-firestore.js';
 import { certificateEmailDelayMs } from './config.js';
 import { inscriptionParticipantDisplayName, inscriptionParticipantEmail } from './participant.js';
 import { sendEventCertificateEmail } from './send.js';
@@ -43,7 +44,13 @@ export async function processCertificateEmailBatch(
       await sleep(delayMs);
     }
 
-    const row = await processOne(campaignId, inscriptionId, eventTitle, eventDate);
+    const row = await processOne(
+      campaignId,
+      inscriptionId,
+      eventTitle,
+      eventDate,
+      campaign.certificateEmailConfig,
+    );
     results.push(row);
   }
 
@@ -61,7 +68,8 @@ async function processOne(
   campaignId: string,
   inscriptionId: string,
   eventTitle: string,
-  eventDate?: string,
+  eventDate: string | undefined,
+  emailTemplate: CampaignDoc['certificateEmailConfig'],
 ): Promise<CertificateEmailItemResult> {
   const doc = await getInscriptionDoc(campaignId, inscriptionId);
   if (!doc) {
@@ -91,6 +99,7 @@ async function processOne(
     eventTitle,
     eventDate,
     fields,
+    emailTemplate,
   });
 
   if (!sendResult.ok) {

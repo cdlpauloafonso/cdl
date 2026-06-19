@@ -4,6 +4,10 @@ import {
   getApiBaseUrl,
   isApiConfiguredForClient,
 } from '@/lib/api-base';
+import type {
+  CertificateEmailTemplate,
+  CertificateEmailTemplateUpdate,
+} from '@/lib/certificate-email-template';
 
 const API_BASE = getApiBaseUrl();
 
@@ -16,6 +20,7 @@ export type CertificateEmailConfig = {
   source?: 'firestore' | 'env' | 'none';
   maxPerRequest: number;
   clientChunkSize: number;
+  emailTemplate?: CertificateEmailTemplate;
 };
 
 export type CertificateEmailItemResult = {
@@ -70,6 +75,17 @@ export async function fetchCertificateEmailConfig(
   } catch {
     return null;
   }
+}
+
+export async function saveCertificateEmailTemplate(
+  campaignId: string,
+  patch: CertificateEmailTemplateUpdate,
+): Promise<CertificateEmailTemplate> {
+  const data = await adminJson<{ ok: boolean; emailTemplate: CertificateEmailTemplate }>(
+    `/api/events/${encodeURIComponent(campaignId)}/certificates/email-template`,
+    { method: 'PUT', body: JSON.stringify(patch) },
+  );
+  return data.emailTemplate;
 }
 
 export async function sendCertificateEmailOne(
