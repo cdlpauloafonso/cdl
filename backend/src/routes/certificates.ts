@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth.js';
+import { requireAdminAuth } from '../lib/admin-auth.js';
 import {
   certificateEmailClientChunkSize,
   certificateEmailMaxPerRequest,
@@ -10,7 +10,7 @@ import { processCertificateEmailBatch } from '../lib/certificate-email/batch.js'
 const router = Router();
 
 /** Status da configuração de envio (admin). */
-router.get('/:campaignId/certificates/email-config', authMiddleware, async (_req, res) => {
+router.get('/:campaignId/certificates/email-config', requireAdminAuth, async (_req, res) => {
   const cfg = await getCertificateEmailEffectiveConfig();
   res.json({
     enabled: cfg.enabled,
@@ -25,7 +25,7 @@ router.get('/:campaignId/certificates/email-config', authMiddleware, async (_req
 });
 
 /** Envia certificado por e-mail para uma inscrição. */
-router.post('/:campaignId/certificates/:inscriptionId/send-email', authMiddleware, async (req, res) => {
+router.post('/:campaignId/certificates/:inscriptionId/send-email', requireAdminAuth, async (req, res) => {
   const campaignId = String(req.params.campaignId ?? '').trim();
   const inscriptionId = String(req.params.inscriptionId ?? '').trim();
   if (!campaignId || !inscriptionId) {
@@ -67,7 +67,7 @@ router.post('/:campaignId/certificates/:inscriptionId/send-email', authMiddlewar
  * Lote controlado no servidor (pausa entre cada e-mail).
  * O frontend deve fatiar pedidos grandes em várias chamadas (clientChunkSize).
  */
-router.post('/:campaignId/certificates/send-email-batch', authMiddleware, async (req, res) => {
+router.post('/:campaignId/certificates/send-email-batch', requireAdminAuth, async (req, res) => {
   const campaignId = String(req.params.campaignId ?? '').trim();
   const rawIds = req.body?.inscriptionIds;
   if (!campaignId) {

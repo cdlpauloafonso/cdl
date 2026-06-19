@@ -1,4 +1,11 @@
-import { apiGet, apiPost } from '@/lib/api';
+import { waitForFirebaseAuthUser } from '@/lib/admin-auth';
+import {
+  API_NOT_CONFIGURED_MESSAGE,
+  getApiBaseUrl,
+  isApiConfiguredForClient,
+} from '@/lib/api-base';
+
+const API_BASE = getApiBaseUrl();
 
 export type CertificateEmailConfig = {
   enabled: boolean;
@@ -25,12 +32,40 @@ export type CertificateEmailBatchResponse = {
   summary: { total: number; sent: number; failed: number; skipped: number };
 };
 
+async function adminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  if (!isApiConfiguredForClient()) {
+    throw new Error(API_NOT_CONFIGURED_MESSAGE);
+  }
+  const user = await waitForFirebaseAuthUser();
+  if (!user) throw new Error('Sessão administrativa expirada. Faça login novamente.');
+  const idToken = await user.getIdToken();
+  const headers = new Headers(init.headers ?? {});
+  headers.set('Authorization', `Bearer ${idToken}`);
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  try {
+    return await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+  } catch {
+    throw new Error(
+      `Não foi possível contactar o servidor (${API_BASE}). Verifique se a API está no ar e se NEXT_PUBLIC_API_URL está correta.`,
+    );
+  }
+}
+
+async function adminJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await adminFetch(path, init);
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? `Erro ${res.status}`);
+  }
+  return data as T;
+}
+
 export async function fetchCertificateEmailConfig(
-  campaignId: string
+  campaignId: string,
 ): Promise<CertificateEmailConfig | null> {
   try {
-    return await apiGet<CertificateEmailConfig>(
-      `/events/${encodeURIComponent(campaignId)}/certificates/email-config`
+    return await adminJson<CertificateEmailConfig>(
+      `/api/events/${encodeURIComponent(campaignId)}/certificates/email-config`,
     );
   } catch {
     return null;
@@ -39,12 +74,18 @@ export async function fetchCertificateEmailConfig(
 
 export async function sendCertificateEmailOne(
   campaignId: string,
-  inscriptionId: string
+  inscriptionId: string,
 ): Promise<{ ok: true; sentAt?: string } | { ok: false; error: string; skipped?: boolean }> {
   try {
-    const data = await apiPost<{ ok: boolean; sentAt?: string; error?: string; skipped?: boolean; reason?: string }>(
-      `/events/${encodeURIComponent(campaignId)}/certificates/${encodeURIComponent(inscriptionId)}/send-email`,
-      {}
+    const data = await adminJson<{
+      ok: boolean;
+      sentAt?: string;
+      error?: string;
+      skipped?: boolean;
+      reason?: string;
+    }>(
+      `/api/events/${encodeURIComponent(campaignId)}/certificates/${encodeURIComponent(inscriptionId)}/send-email`,
+      { method: 'POST', body: JSON.stringify({}) },
     );
     if (data.ok) return { ok: true, sentAt: data.sentAt };
     return { ok: false, error: data.error ?? 'Falha no envio.' };
@@ -59,11 +100,11 @@ export async function sendCertificateEmailOne(
 
 export async function sendCertificateEmailBatch(
   campaignId: string,
-  inscriptionIds: string[]
+  inscriptionIds: string[],
 ): Promise<CertificateEmailBatchResponse> {
-  return apiPost<CertificateEmailBatchResponse>(
-    `/events/${encodeURIComponent(campaignId)}/certificates/send-email-batch`,
-    { inscriptionIds }
+  return adminJson<CertificateEmailBatchResponse>(
+    `/api/events/${encodeURIComponent(campaignId)}/certificates/send-email-batch`,
+    { method: 'POST', body: JSON.stringify({ inscriptionIds }) },
   );
 }
 
@@ -83,7 +124,7 @@ export async function sendCertificateEmailsManaged(
   campaignId: string,
   inscriptionIds: string[],
   chunkSize: number,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
 ): Promise<CertificateEmailBatchResponse> {
   const chunks = chunkInscriptionIds(inscriptionIds, chunkSize);
   const allResults: CertificateEmailItemResult[] = [];

@@ -91,6 +91,7 @@ export default function AdminEventoCertificadosPage() {
   const [exportingBulk, setExportingBulk] = useState(false);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [emailConfig, setEmailConfig] = useState<CertificateEmailConfig | null>(null);
+  const [emailConfigLoaded, setEmailConfigLoaded] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendingBulk, setSendingBulk] = useState(false);
@@ -104,6 +105,7 @@ export default function AdminEventoCertificadosPage() {
     }
     setLoading(true);
     setError('');
+    setEmailConfigLoaded(false);
     try {
       const [c, list, cfg] = await Promise.all([
         getCampaign(eventId),
@@ -112,6 +114,7 @@ export default function AdminEventoCertificadosPage() {
       ]);
       setCampanha(c);
       setEmailConfig(cfg);
+      setEmailConfigLoaded(true);
       if (!c) {
         setError('Evento não encontrado.');
         setRows([]);
@@ -170,7 +173,10 @@ export default function AdminEventoCertificadosPage() {
   );
 
   const emailPrepMessage = useMemo(() => {
-    if (!emailConfig) return 'Carregando configuração de e-mail…';
+    if (!emailConfigLoaded) return 'Carregando configuração de e-mail…';
+    if (!emailConfig) {
+      return 'Não foi possível carregar a configuração de e-mail. Verifique login admin, Firebase Admin no servidor e deploy do backend.';
+    }
     if (!emailConfig.providerReady) {
       return 'Resend ainda não configurado. Cadastre a API key em Admin → Configurações → APIs (Resend) ou defina RESEND_API_KEY no servidor.';
     }
@@ -178,7 +184,7 @@ export default function AdminEventoCertificadosPage() {
       return 'Envio preparado. Ative em Admin → Configurações → APIs (Resend) ou com CERTIFICATE_EMAIL_ENABLED=true no backend.';
     }
     return null;
-  }, [emailConfig]);
+  }, [emailConfig, emailConfigLoaded]);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
